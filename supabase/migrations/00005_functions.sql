@@ -1,0 +1,6 @@
+-- =====================================================
+-- Migration 00005: Additional Database Functions
+-- =====================================================
+-- All core functions (update_updated_at, handle_new_user, get_user_role, has_scope)
+-- are defined in previous migrations.
+-- This file is reserved for future database functions.
