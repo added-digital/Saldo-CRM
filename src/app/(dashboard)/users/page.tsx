@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
   Shield,
-  ArrowUpDown,
   Plus,
   MoreHorizontal,
   UserCheck,
@@ -234,15 +233,7 @@ export default function UsersPage() {
   const columns: ColumnDef<Profile, unknown>[] = [
     {
       accessorKey: "full_name",
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Name
-          <ArrowUpDown className="ml-2 size-4" />
-        </Button>
-      ),
+      header: "Name",
       cell: ({ row }) => {
         const profile = row.original;
         return (

@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 const sizeMap = {
   sm: "size-4",
-  md: "size-5",
+  md: "size-4",
   lg: "size-6",
 } as const
 

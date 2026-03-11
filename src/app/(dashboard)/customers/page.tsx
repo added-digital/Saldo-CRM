@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
-import { Users, ArrowUpDown, Tags } from "lucide-react"
+import { Users, Tags } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import type { CustomerWithRelations, Segment } from "@/types/database"
@@ -27,15 +27,7 @@ const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
     accessorKey: "name",
     size: 250,
     minSize: 120,
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        Name
-        <ArrowUpDown className="ml-2 size-4" />
-      </Button>
-    ),
+    header: "Name",
   },
   {
     accessorKey: "fortnox_customer_number",

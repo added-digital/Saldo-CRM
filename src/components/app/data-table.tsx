@@ -12,11 +12,10 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { type LucideIcon, ChevronRight } from "lucide-react"
+import { type LucideIcon, ChevronRight, ChevronUp, ChevronDown } from "lucide-react"
 
 import {
   Table,
@@ -26,7 +25,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DataTableToolbar } from "@/components/app/data-table-toolbar"
 import { EmptyState } from "@/components/app/empty-state"
@@ -118,7 +116,7 @@ function DataTable<TData, TValue>({
   searchPlaceholder,
   emptyState,
   loading = false,
-  pageSize = 10,
+  pageSize = 30,
   onRowNavigate,
   selectable = false,
   onSelectionChange,
@@ -128,7 +126,9 @@ function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({})
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
+  const [visibleCount, setVisibleCount] = React.useState(pageSize)
   const lastSelectedIndex = React.useRef<number | null>(null)
+  const sentinelRef = React.useRef<HTMLDivElement | null>(null)
 
   const allColumns = React.useMemo(() => {
     const cols: ColumnDef<TData, TValue>[] = selectable
@@ -146,6 +146,23 @@ function DataTable<TData, TValue>({
     defaultColumn: {
       size: DEFAULT_COL_SIZE,
       minSize: DEFAULT_MIN_COL_WIDTH,
+      sortUndefined: "last",
+      sortingFn: "alphanumeric",
+    },
+    sortingFns: {
+      alphanumeric: (rowA, rowB, columnId) => {
+        const a = rowA.getValue(columnId)
+        const b = rowB.getValue(columnId)
+        const aStr = a == null ? "" : String(a).trim()
+        const bStr = b == null ? "" : String(b).trim()
+        const aEmpty = aStr === "" || aStr === "—"
+        const bEmpty = bStr === "" || bStr === "—"
+        if (aEmpty && bEmpty) return 0
+        const desc = sorting.find((s) => s.id === columnId)?.desc ?? false
+        if (aEmpty) return desc ? -1 : 1
+        if (bEmpty) return desc ? 1 : -1
+        return aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: "base" })
+      },
     },
     state: { sorting, columnFilters, columnSizing, rowSelection },
     onSortingChange: setSorting,
@@ -157,11 +174,32 @@ function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: {
-      pagination: { pageSize },
-    },
   })
+
+  const allRows = table.getRowModel().rows
+  const visibleRows = allRows.slice(0, visibleCount)
+  const hasMore = visibleCount < allRows.length
+
+  React.useEffect(() => {
+    setVisibleCount(pageSize)
+  }, [sorting, columnFilters, pageSize])
+
+  React.useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel || !hasMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + pageSize, allRows.length))
+        }
+      },
+      { rootMargin: "200px" }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMore, allRows.length, pageSize])
 
   React.useEffect(() => {
     if (!selectable || !onSelectionChange) return
@@ -202,21 +240,39 @@ function DataTable<TData, TValue>({
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    style={{ width: getColumnWidthPercent(header, totalSize) }}
-                    className="relative"
-                  >
-                    <div className="overflow-hidden text-ellipsis">
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
+                {headerGroup.headers.map((header) => {
+                  const isControlHeader =
+                    header.column.id === "_select" || header.column.id === "_navigate"
+                  const sortDir = header.column.getIsSorted()
+                  return (
+                    <TableHead
+                      key={header.id}
+                      style={{ width: getColumnWidthPercent(header, totalSize) }}
+                      className={isControlHeader ? "relative p-0" : "relative"}
+                    >
+                      {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                        <div
+                          className="flex cursor-pointer select-none items-center gap-1 overflow-hidden text-ellipsis text-sm text-muted-foreground"
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          <div className="flex shrink-0 flex-col">
+                            <ChevronUp className={`size-3 -mb-0.5 ${sortDir === "asc" ? "text-foreground" : "opacity-30"}`} />
+                            <ChevronDown className={`size-3 -mt-0.5 ${sortDir === "desc" ? "text-foreground" : "opacity-30"}`} />
+                          </div>
+                          {flexRender(
                             header.column.columnDef.header,
                             header.getContext()
                           )}
-                    </div>
-                    {header.column.getCanResize() && (
+                        </div>
+                      ) : (
+                        <div className="overflow-hidden text-ellipsis text-sm text-muted-foreground">
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                        </div>
+                      )}
+                      {header.column.getCanResize() && (
                       <div
                         onMouseDown={header.getResizeHandler()}
                         onTouchStart={header.getResizeHandler()}
@@ -230,13 +286,14 @@ function DataTable<TData, TValue>({
                       />
                     )}
                   </TableHead>
-                ))}
+                  )
+                })}
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+            {visibleRows.length ? (
+              visibleRows.map((row) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
@@ -255,7 +312,7 @@ function DataTable<TData, TValue>({
                           isSelectCell
                             ? (e) => {
                                 e.stopPropagation()
-                                const rows = table.getRowModel().rows
+                                const rows = allRows
                                 const currentIndex = rows.indexOf(row)
 
                                 if (
@@ -313,31 +370,15 @@ function DataTable<TData, TValue>({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between px-2">
+      <div className="flex items-center px-2">
         <p className="text-sm text-muted-foreground">
           {selectable && Object.keys(rowSelection).length > 0
             ? `${Object.keys(rowSelection).length} of ${table.getFilteredRowModel().rows.length} row(s) selected`
             : `${table.getFilteredRowModel().rows.length} row(s)`}
         </p>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
-        </div>
       </div>
+
+      {hasMore && <div ref={sentinelRef} className="h-1" />}
     </div>
   )
 }
