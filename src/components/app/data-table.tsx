@@ -12,10 +12,11 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { type LucideIcon, ChevronRight, ChevronUp, ChevronDown } from "lucide-react"
+import { type LucideIcon, ChevronRight, ChevronUp, ChevronDown, ChevronLeft } from "lucide-react"
 
 import {
   Table,
@@ -26,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button"
 import { DataTableToolbar } from "@/components/app/data-table-toolbar"
 import { EmptyState } from "@/components/app/empty-state"
 import { LoadingState } from "@/components/app/loading-state"
@@ -116,7 +118,7 @@ function DataTable<TData, TValue>({
   searchPlaceholder,
   emptyState,
   loading = false,
-  pageSize = 30,
+  pageSize = 20,
   onRowNavigate,
   selectable = false,
   onSelectionChange,
@@ -126,9 +128,7 @@ function DataTable<TData, TValue>({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({})
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
-  const [visibleCount, setVisibleCount] = React.useState(pageSize)
   const lastSelectedIndex = React.useRef<number | null>(null)
-  const sentinelRef = React.useRef<HTMLDivElement | null>(null)
 
   const allColumns = React.useMemo(() => {
     const cols: ColumnDef<TData, TValue>[] = selectable
@@ -174,32 +174,11 @@ function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+      pagination: { pageSize },
+    },
   })
-
-  const allRows = table.getRowModel().rows
-  const visibleRows = allRows.slice(0, visibleCount)
-  const hasMore = visibleCount < allRows.length
-
-  React.useEffect(() => {
-    setVisibleCount(pageSize)
-  }, [sorting, columnFilters, pageSize])
-
-  React.useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel || !hasMore) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + pageSize, allRows.length))
-        }
-      },
-      { rootMargin: "200px" }
-    )
-
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [hasMore, allRows.length, pageSize])
 
   React.useEffect(() => {
     if (!selectable || !onSelectionChange) return
@@ -227,13 +206,42 @@ function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      {searchKey && (
-        <DataTableToolbar
-          table={table}
-          searchKey={searchKey}
-          searchPlaceholder={searchPlaceholder}
-        />
-      )}
+      <div className="flex items-center justify-between">
+        {searchKey ? (
+          <DataTableToolbar
+            table={table}
+            searchKey={searchKey}
+            searchPlaceholder={searchPlaceholder}
+          />
+        ) : (
+          <div />
+        )}
+        {table.getPageCount() > 1 && (
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-8"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        )}
+      </div>
 
       <div className="rounded-md border">
         <Table style={{ width: "100%", tableLayout: "fixed" }}>
@@ -292,8 +300,8 @@ function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {visibleRows.length ? (
-              visibleRows.map((row) => (
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
@@ -312,7 +320,7 @@ function DataTable<TData, TValue>({
                           isSelectCell
                             ? (e) => {
                                 e.stopPropagation()
-                                const rows = allRows
+                                const rows = table.getRowModel().rows
                                 const currentIndex = rows.indexOf(row)
 
                                 if (
@@ -370,15 +378,13 @@ function DataTable<TData, TValue>({
         </Table>
       </div>
 
-      <div className="flex items-center px-2">
+      <div className="flex items-center justify-between px-2">
         <p className="text-sm text-muted-foreground">
           {selectable && Object.keys(rowSelection).length > 0
             ? `${Object.keys(rowSelection).length} of ${table.getFilteredRowModel().rows.length} row(s) selected`
             : `${table.getFilteredRowModel().rows.length} row(s)`}
         </p>
       </div>
-
-      {hasMore && <div ref={sentinelRef} className="h-1" />}
     </div>
   )
 }
