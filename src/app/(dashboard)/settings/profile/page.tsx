@@ -9,7 +9,6 @@ import {
   updateProfileSchema,
   type UpdateProfileInput,
 } from "@/lib/validations/user";
-import { PageHeader } from "@/components/app/page-header";
 import { FormActions } from "@/components/app/form-actions";
 import { UserAvatar } from "@/components/app/user-avatar";
 import {
@@ -83,11 +82,6 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Profile"
-        description="Manage your personal information"
-      />
-
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2">
           <Card>

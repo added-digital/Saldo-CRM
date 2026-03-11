@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   Users,
-  UserCog,
   Shield,
   Settings,
   type LucideIcon,
@@ -32,7 +31,6 @@ export const navigation: NavSection[] = [
     title: "Management",
     items: [
       { label: "Customers", href: "/customers", icon: Users, scope: "customers" },
-      { label: "Teams", href: "/teams", icon: UserCog, scope: "teams" },
     ],
   },
   {

@@ -3,17 +3,26 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
-import { Users, ArrowUpDown } from "lucide-react"
+import { Users, ArrowUpDown, Tags } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
-import type { Customer } from "@/types/database"
+import type { CustomerWithRelations, Segment } from "@/types/database"
 import { PageHeader } from "@/components/app/page-header"
 import { DataTable } from "@/components/app/data-table"
-import { StatusBadge } from "@/components/app/status-badge"
+import { ActionBar } from "@/components/app/action-bar"
 import { Button } from "@/components/ui/button"
-import { formatDate } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { toast } from "sonner"
 
-const columns: ColumnDef<Customer, unknown>[] = [
+const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
   {
     accessorKey: "name",
     size: 250,
@@ -27,6 +36,13 @@ const columns: ColumnDef<Customer, unknown>[] = [
         <ArrowUpDown className="ml-2 size-4" />
       </Button>
     ),
+  },
+  {
+    accessorKey: "fortnox_customer_number",
+    size: 150,
+    minSize: 100,
+    header: "Customer No.",
+    cell: ({ row }) => row.getValue("fortnox_customer_number") || "—",
   },
   {
     accessorKey: "org_number",
@@ -43,51 +59,167 @@ const columns: ColumnDef<Customer, unknown>[] = [
     cell: ({ row }) => row.getValue("email") || "—",
   },
   {
-    accessorKey: "city",
-    size: 140,
-    minSize: 80,
-    header: "City",
-    cell: ({ row }) => row.getValue("city") || "—",
+    id: "account_manager",
+    size: 180,
+    minSize: 100,
+    header: "Customer Manager",
+    cell: ({ row }) => {
+      const manager = row.original.account_manager
+      if (!manager) return <span className="text-muted-foreground">—</span>
+      return manager.full_name ?? manager.email
+    },
   },
   {
-    accessorKey: "status",
-    size: 110,
-    minSize: 80,
-    header: "Status",
-    cell: ({ row }) => <StatusBadge status={row.getValue("status")} />,
-  },
-  {
-    accessorKey: "created_at",
-    size: 130,
-    minSize: 90,
-    header: "Created",
-    cell: ({ row }) => formatDate(row.getValue("created_at")),
+    id: "segments",
+    size: 200,
+    minSize: 100,
+    header: "Segments",
+    cell: ({ row }) => {
+      const segments = row.original.segments
+      if (!segments || segments.length === 0) {
+        return <span className="text-muted-foreground">—</span>
+      }
+      return (
+        <div className="flex flex-wrap gap-1">
+          {segments.map((segment: Segment) => (
+            <Badge
+              key={segment.id}
+              variant="outline"
+              className="text-xs font-normal"
+              style={{
+                borderColor: segment.color,
+                color: segment.color,
+              }}
+            >
+              {segment.name}
+            </Badge>
+          ))}
+        </div>
+      )
+    },
   },
 ]
 
 export default function CustomersPage() {
   const router = useRouter()
-  const [customers, setCustomers] = React.useState<Customer[]>([])
+  const [customers, setCustomers] = React.useState<CustomerWithRelations[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [selectedCustomers, setSelectedCustomers] = React.useState<CustomerWithRelations[]>([])
+  const [segmentsDialogOpen, setSegmentsDialogOpen] = React.useState(false)
+  const [allSegments, setAllSegments] = React.useState<Segment[]>([])
+  const [checkedSegmentIds, setCheckedSegmentIds] = React.useState<Set<string>>(new Set())
+  const [assigning, setAssigning] = React.useState(false)
+  const clearSelectionRef = React.useRef<(() => void) | null>(null)
 
-  React.useEffect(() => {
-    async function fetchCustomers() {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from("customers")
-        .select("*")
-        .neq("status", "removed")
-        .order("name")
+  async function fetchCustomers() {
+    const supabase = createClient()
 
-      setCustomers((data ?? []) as unknown as Customer[])
-      setLoading(false)
+    const { data: customerRows } = await supabase
+      .from("customers")
+      .select("*, account_manager:profiles!account_manager_id(id, full_name, email)")
+      .neq("status", "removed")
+      .order("name")
+
+    const rawCustomers = (customerRows ?? []) as unknown as (CustomerWithRelations & {
+      account_manager: CustomerWithRelations["account_manager"]
+    })[]
+
+    const customerIds = rawCustomers.map((c) => c.id)
+
+    let segmentMap: Record<string, Segment[]> = {}
+
+    if (customerIds.length > 0) {
+      const { data: csRows } = await supabase
+        .from("customer_segments")
+        .select("customer_id, segment:segments(*)")
+        .in("customer_id", customerIds)
+
+      const rawCs = (csRows ?? []) as unknown as {
+        customer_id: string
+        segment: Segment
+      }[]
+
+      segmentMap = rawCs.reduce<Record<string, Segment[]>>((acc, row) => {
+        if (!acc[row.customer_id]) acc[row.customer_id] = []
+        acc[row.customer_id].push(row.segment)
+        return acc
+      }, {})
     }
 
+    const enriched: CustomerWithRelations[] = rawCustomers.map((c) => ({
+      ...c,
+      segments: segmentMap[c.id] ?? [],
+    }))
+
+    setCustomers(enriched)
+    setLoading(false)
+  }
+
+  React.useEffect(() => {
     fetchCustomers()
   }, [])
 
+  function handleOpenSegmentsDialog() {
+    const supabase = createClient()
+    supabase
+      .from("segments")
+      .select("*")
+      .order("name")
+      .then(({ data }) => {
+        setAllSegments((data ?? []) as unknown as Segment[])
+        setCheckedSegmentIds(new Set())
+        setSegmentsDialogOpen(true)
+      })
+  }
+
+  function toggleSegment(segmentId: string) {
+    setCheckedSegmentIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(segmentId)) {
+        next.delete(segmentId)
+      } else {
+        next.add(segmentId)
+      }
+      return next
+    })
+  }
+
+  async function handleAssignSegments() {
+    if (checkedSegmentIds.size === 0) return
+    setAssigning(true)
+
+    const supabase = createClient()
+    const rows = selectedCustomers.flatMap((customer) =>
+      Array.from(checkedSegmentIds).map((segmentId) => ({
+        customer_id: customer.id,
+        segment_id: segmentId,
+      }))
+    )
+
+    const { error } = await supabase
+      .from("customer_segments")
+      .upsert(rows as never[], { onConflict: "customer_id,segment_id" })
+
+    if (error) {
+      toast.error("Failed to assign segments")
+    } else {
+      toast.success(
+        `Segments assigned to ${selectedCustomers.length} customer${selectedCustomers.length !== 1 ? "s" : ""}`
+      )
+      setSegmentsDialogOpen(false)
+      clearSelectionRef.current?.()
+      fetchCustomers()
+    }
+
+    setAssigning(false)
+  }
+
+  function handleClearSelection() {
+    clearSelectionRef.current?.()
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-16">
       <PageHeader
         title="Customers"
         description="Manage customer records synced from Fortnox"
@@ -99,7 +231,10 @@ export default function CustomersPage() {
         searchKey="name"
         searchPlaceholder="Search customers..."
         loading={loading}
-        onRowClick={(customer) => router.push(`/customers/${customer.id}`)}
+        selectable
+        onSelectionChange={setSelectedCustomers}
+        clearSelectionRef={clearSelectionRef}
+        onRowNavigate={(customer) => router.push(`/customers/${customer.id}`)}
         emptyState={{
           icon: Users,
           title: "No customers",
@@ -111,6 +246,80 @@ export default function CustomersPage() {
           },
         }}
       />
+
+      <ActionBar
+        selectedCount={selectedCustomers.length}
+        onClear={handleClearSelection}
+        actions={[
+          {
+            label: "Add Segments",
+            icon: Tags,
+            onClick: handleOpenSegmentsDialog,
+          },
+        ]}
+      />
+
+      <Dialog open={segmentsDialogOpen} onOpenChange={setSegmentsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Segments</DialogTitle>
+            <DialogDescription>
+              Select segments to assign to {selectedCustomers.length} customer
+              {selectedCustomers.length !== 1 ? "s" : ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {allSegments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No segments available. Create segments in Settings → Segments.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {allSegments.map((segment) => (
+                  <label
+                    key={segment.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-md border p-3 transition-colors hover:bg-muted/50"
+                  >
+                    <Checkbox
+                      checked={checkedSegmentIds.has(segment.id)}
+                      onCheckedChange={() => toggleSegment(segment.id)}
+                    />
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-normal"
+                      style={{
+                        borderColor: segment.color,
+                        color: segment.color,
+                      }}
+                    >
+                      {segment.name}
+                    </Badge>
+                    {segment.description && (
+                      <span className="text-sm text-muted-foreground">
+                        {segment.description}
+                      </span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setSegmentsDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAssignSegments}
+                disabled={checkedSegmentIds.size === 0 || assigning}
+              >
+                {assigning ? "Assigning..." : "Assign Segments"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -9,7 +9,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { createClient } from "@/lib/supabase/client"
 import type { Team, Profile } from "@/types/database"
 import { createTeamSchema, type CreateTeamInput } from "@/lib/validations/team"
-import { PageHeader } from "@/components/app/page-header"
 import { EmptyState } from "@/components/app/empty-state"
 import { UserAvatar } from "@/components/app/user-avatar"
 import { Button } from "@/components/ui/button"
@@ -47,7 +46,7 @@ interface TeamWithLead extends Team {
   memberCount: number
 }
 
-export default function TeamsPage() {
+export default function SettingsTeamsPage() {
   const router = useRouter()
   const { isAdmin } = useUser()
   const [teams, setTeams] = React.useState<TeamWithLead[]>([])
@@ -118,7 +117,6 @@ export default function TeamsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="h-8 w-32 animate-pulse rounded bg-muted" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-40 animate-pulse rounded-lg border bg-muted" />
@@ -130,11 +128,8 @@ export default function TeamsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Teams"
-        description="Manage your organization's teams"
-      >
-        {isAdmin && (
+      {isAdmin && (
+        <div className="flex justify-end">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -189,8 +184,8 @@ export default function TeamsPage() {
               </Form>
             </DialogContent>
           </Dialog>
-        )}
-      </PageHeader>
+        </div>
+      )}
 
       {teams.length === 0 ? (
         <EmptyState
@@ -204,7 +199,7 @@ export default function TeamsPage() {
             <Card
               key={team.id}
               className="cursor-pointer transition-shadow hover:shadow-md"
-              onClick={() => router.push(`/teams/${team.id}`)}
+              onClick={() => router.push(`/settings/teams/${team.id}`)}
             >
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">{team.name}</CardTitle>

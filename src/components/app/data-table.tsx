@@ -6,7 +6,9 @@ import {
   type SortingState,
   type ColumnFiltersState,
   type ColumnSizingState,
+  type RowSelectionState,
   type Header,
+  type Row,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -14,7 +16,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { type LucideIcon } from "lucide-react"
+import { type LucideIcon, ChevronRight } from "lucide-react"
 
 import {
   Table,
@@ -25,12 +27,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { DataTableToolbar } from "@/components/app/data-table-toolbar"
 import { EmptyState } from "@/components/app/empty-state"
 import { LoadingState } from "@/components/app/loading-state"
 
 const DEFAULT_MIN_COL_WIDTH = 80
 const DEFAULT_COL_SIZE = 150
+const SELECT_COL_SIZE = 40
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -45,7 +49,10 @@ interface DataTableProps<TData, TValue> {
   }
   loading?: boolean
   pageSize?: number
-  onRowClick?: (row: TData) => void
+  onRowNavigate?: (row: TData) => void
+  selectable?: boolean
+  onSelectionChange?: (rows: TData[]) => void
+  clearSelectionRef?: React.RefObject<(() => void) | null>
 }
 
 function getColumnWidthPercent<TData, TValue>(
@@ -53,6 +60,55 @@ function getColumnWidthPercent<TData, TValue>(
   totalSize: number
 ) {
   return `${(header.getSize() / totalSize) * 100}%`
+}
+
+function makeSelectColumn<TData>(): ColumnDef<TData, unknown> {
+  return {
+    id: "_select",
+    size: SELECT_COL_SIZE,
+    minSize: SELECT_COL_SIZE,
+    maxSize: SELECT_COL_SIZE,
+    enableResizing: false,
+    enableSorting: false,
+    header: ({ table }) => (
+      <div className="flex items-center justify-center">
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      </div>
+    ),
+    cell: ({ row }) => (
+      <div className="flex items-center justify-center">
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      </div>
+    ),
+  }
+}
+
+function makeNavigateColumn<TData>(): ColumnDef<TData, unknown> {
+  return {
+    id: "_navigate",
+    size: SELECT_COL_SIZE,
+    minSize: SELECT_COL_SIZE,
+    maxSize: SELECT_COL_SIZE,
+    enableResizing: false,
+    enableSorting: false,
+    header: () => null,
+    cell: () => (
+      <div className="flex items-center justify-center">
+        <ChevronRight className="size-4 text-muted-foreground" />
+      </div>
+    ),
+  }
 }
 
 function DataTable<TData, TValue>({
@@ -63,24 +119,41 @@ function DataTable<TData, TValue>({
   emptyState,
   loading = false,
   pageSize = 10,
-  onRowClick,
+  onRowNavigate,
+  selectable = false,
+  onSelectionChange,
+  clearSelectionRef,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({})
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
+  const lastSelectedIndex = React.useRef<number | null>(null)
+
+  const allColumns = React.useMemo(() => {
+    const cols: ColumnDef<TData, TValue>[] = selectable
+      ? [makeSelectColumn<TData>() as ColumnDef<TData, TValue>, ...columns]
+      : [...columns]
+    if (onRowNavigate) {
+      cols.push(makeNavigateColumn<TData>() as ColumnDef<TData, TValue>)
+    }
+    return cols
+  }, [columns, selectable, onRowNavigate])
 
   const table = useReactTable({
     data,
-    columns,
+    columns: allColumns,
     defaultColumn: {
       size: DEFAULT_COL_SIZE,
       minSize: DEFAULT_MIN_COL_WIDTH,
     },
-    state: { sorting, columnFilters, columnSizing },
+    state: { sorting, columnFilters, columnSizing, rowSelection },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnSizingChange: setColumnSizing,
+    onRowSelectionChange: setRowSelection,
     columnResizeMode: "onChange",
+    enableRowSelection: selectable,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -90,8 +163,26 @@ function DataTable<TData, TValue>({
     },
   })
 
+  React.useEffect(() => {
+    if (!selectable || !onSelectionChange) return
+    const selectedRows = table
+      .getFilteredSelectedRowModel()
+      .rows.map((row: Row<TData>) => row.original)
+    onSelectionChange(selectedRows)
+  }, [rowSelection, selectable, onSelectionChange, table])
+
+  const clearSelection = React.useCallback(() => {
+    setRowSelection({})
+  }, [])
+
+  React.useEffect(() => {
+    if (clearSelectionRef) {
+      clearSelectionRef.current = clearSelection
+    }
+  }, [clearSelectionRef, clearSelection])
+
   if (loading) {
-    return <LoadingState rows={pageSize} columns={columns.length} />
+    return <LoadingState rows={pageSize} columns={allColumns.length} />
   }
 
   const totalSize = table.getCenterTotalSize()
@@ -148,25 +239,66 @@ function DataTable<TData, TValue>({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className={onRowClick ? "cursor-pointer" : undefined}
-                  onClick={() => onRowClick?.(row.original)}
+                  data-state={row.getIsSelected() && "selected"}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      <div className="overflow-hidden text-ellipsis">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </div>
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const isSelectCell = cell.column.id === "_select"
+                    const isNavigateCell = cell.column.id === "_navigate"
+                    const isControlCell = isSelectCell || isNavigateCell
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={
+                          isControlCell ? "p-0 cursor-pointer" : undefined
+                        }
+                        onClick={
+                          isSelectCell
+                            ? (e) => {
+                                e.stopPropagation()
+                                const rows = table.getRowModel().rows
+                                const currentIndex = rows.indexOf(row)
+
+                                if (
+                                  e.shiftKey &&
+                                  lastSelectedIndex.current !== null &&
+                                  lastSelectedIndex.current !== currentIndex
+                                ) {
+                                  const start = Math.min(lastSelectedIndex.current, currentIndex)
+                                  const end = Math.max(lastSelectedIndex.current, currentIndex)
+                                  const next: RowSelectionState = { ...rowSelection }
+                                  for (let i = start; i <= end; i++) {
+                                    next[rows[i].id] = true
+                                  }
+                                  setRowSelection(next)
+                                } else {
+                                  row.toggleSelected(!row.getIsSelected())
+                                }
+
+                                lastSelectedIndex.current = currentIndex
+                              }
+                            : isNavigateCell
+                              ? (e) => {
+                                  e.stopPropagation()
+                                  onRowNavigate?.(row.original)
+                                }
+                              : undefined
+                        }
+                      >
+                        <div className="overflow-hidden text-ellipsis">
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </div>
+                      </TableCell>
+                    )
+                  })}
                 </TableRow>
               ))
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={allColumns.length}
                   className="h-24 text-center"
                 >
                   {emptyState ? (
@@ -183,7 +315,9 @@ function DataTable<TData, TValue>({
 
       <div className="flex items-center justify-between px-2">
         <p className="text-sm text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} row(s)
+          {selectable && Object.keys(rowSelection).length > 0
+            ? `${Object.keys(rowSelection).length} of ${table.getFilteredRowModel().rows.length} row(s) selected`
+            : `${table.getFilteredRowModel().rows.length} row(s)`}
         </p>
         <div className="flex items-center gap-2">
           <Button

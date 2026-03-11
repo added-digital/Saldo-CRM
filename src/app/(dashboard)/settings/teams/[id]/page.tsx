@@ -7,7 +7,6 @@ import { ArrowLeft, UserPlus, X } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import type { Team, Profile } from "@/types/database"
-import { PageHeader } from "@/components/app/page-header"
 import { UserAvatar } from "@/components/app/user-avatar"
 import { ConfirmDialog } from "@/components/app/confirm-dialog"
 import { EmptyState } from "@/components/app/empty-state"
@@ -39,7 +38,7 @@ import { useUser } from "@/hooks/use-user"
 import { getRoleLabel, formatDate } from "@/lib/utils"
 import { toast } from "sonner"
 
-export default function TeamDetailPage({
+export default function SettingsTeamDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
@@ -182,7 +181,7 @@ export default function TeamDetailPage({
       toast.error("Failed to delete team. Ensure all members are removed first.")
     } else {
       toast.success("Team deleted")
-      router.push("/teams")
+      router.push("/settings/teams")
     }
     setActionLoading(false)
   }
@@ -199,8 +198,8 @@ export default function TeamDetailPage({
   if (!team) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Team not found" />
-        <Button variant="outline" onClick={() => router.push("/teams")}>
+        <p className="text-lg font-semibold">Team not found</p>
+        <Button variant="outline" onClick={() => router.push("/settings/teams")}>
           <ArrowLeft className="size-4" />
           Back to teams
         </Button>
@@ -218,15 +217,18 @@ export default function TeamDetailPage({
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.push("/teams")}
+          onClick={() => router.push("/settings/teams")}
         >
           <ArrowLeft className="size-4" />
           <span className="sr-only">Back</span>
         </Button>
-        <PageHeader
-          title={team.name}
-          description={team.description ?? undefined}
-        >
+        <div className="flex flex-1 items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">{team.name}</h2>
+            {team.description && (
+              <p className="text-sm text-muted-foreground">{team.description}</p>
+            )}
+          </div>
           {isAdmin && (
             <Button
               variant="destructive"
@@ -237,7 +239,7 @@ export default function TeamDetailPage({
               Delete Team
             </Button>
           )}
-        </PageHeader>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">

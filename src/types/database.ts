@@ -60,6 +60,26 @@ export interface Customer {
   updated_at: string
 }
 
+export interface Segment {
+  id: string
+  name: string
+  description: string | null
+  color: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerSegment {
+  customer_id: string
+  segment_id: string
+  assigned_at: string
+}
+
+export interface CustomerWithRelations extends Customer {
+  account_manager?: Pick<Profile, "id" | "full_name" | "email"> | null
+  segments?: Segment[]
+}
+
 export interface FortnoxConnection {
   id: string
   access_token: string
@@ -113,6 +133,16 @@ export interface Database {
         Row: Customer
         Insert: Omit<Customer, "id" | "created_at" | "updated_at">
         Update: Partial<Omit<Customer, "id" | "created_at" | "updated_at">>
+      }
+      segments: {
+        Row: Segment
+        Insert: Omit<Segment, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<Segment, "id" | "created_at" | "updated_at">>
+      }
+      customer_segments: {
+        Row: CustomerSegment
+        Insert: Omit<CustomerSegment, "assigned_at">
+        Update: never
       }
       fortnox_connection: {
         Row: FortnoxConnection

@@ -13,7 +13,6 @@ import {
 
 import { createClient } from "@/lib/supabase/client"
 import type { FortnoxConnection } from "@/types/database"
-import { PageHeader } from "@/components/app/page-header"
 import { ConfirmDialog } from "@/components/app/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import {
@@ -134,11 +133,6 @@ export default function IntegrationsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Integrations"
-        description="Connect external services to sync data"
-      />
-
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
