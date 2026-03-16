@@ -62,7 +62,7 @@ export default function IntegrationsPage() {
     sessionStorage.setItem("fortnox_oauth_state", state)
 
     const scope = encodeURIComponent(
-      "companyinformation customer invoice article costcenter bookkeeping settings"
+      "companyinformation customer invoice article costcenter bookkeeping settings salary"
     )
 
     window.location.href = `https://apps.fortnox.se/oauth-v1/auth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}&response_type=code`
