@@ -3,11 +3,21 @@ import type { FortnoxTokenResponse, FortnoxApiError } from "@/types/fortnox"
 const FORTNOX_API_BASE = "https://api.fortnox.se"
 const FORTNOX_AUTH_BASE = "https://apps.fortnox.se/oauth-v1"
 
+const FORTNOX_SCOPES = [
+  "companyinformation",
+  "customer",
+  "invoice",
+  "article",
+  "costcenter",
+  "bookkeeping",
+  "settings",
+].join(" ")
+
 export function getAuthorizationUrl(state: string): string {
   const params = new URLSearchParams({
     client_id: process.env.FORTNOX_CLIENT_ID!,
     redirect_uri: process.env.FORTNOX_REDIRECT_URI!,
-    scope: "customer",
+    scope: FORTNOX_SCOPES,
     state,
     response_type: "code",
   })
