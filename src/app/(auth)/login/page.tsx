@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, Mail } from "lucide-react"
+import { Loader2 } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -11,110 +12,100 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
 import { system } from "@/config/system"
 
-export default function LoginPage() {
-  const [email, setEmail] = React.useState("")
+function MicrosoftIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+      <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+      <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+      <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
+    </svg>
+  )
+}
+
+function LoginHandler() {
+  const searchParams = useSearchParams()
   const [loading, setLoading] = React.useState(false)
-  const [sent, setSent] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  React.useEffect(() => {
+    const urlError = searchParams.get("error")
+    if (urlError === "auth_failed" || urlError === "confirmation_failed") {
+      setError("Authentication failed. Please try again.")
+    }
+  }, [searchParams])
+
+  async function handleMicrosoftLogin() {
     setLoading(true)
     setError(null)
 
     const supabase = createClient()
 
-    const { error: signInError } = await supabase.auth.signInWithOtp({
-      email,
+    const { error: signInError } = await supabase.auth.signInWithOAuth({
+      provider: "azure",
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: "openid profile email",
       },
     })
 
-    setLoading(false)
-
     if (signInError) {
       setError(signInError.message)
-      return
+      setLoading(false)
     }
-
-    setSent(true)
-  }
-
-  if (sent) {
-    return (
-      <Card>
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex size-12 items-center justify-center rounded-full bg-primary/10">
-            <Mail className="size-6 text-primary" />
-          </div>
-          <CardTitle>Check your email</CardTitle>
-          <CardDescription>
-            We sent a sign-in link to{" "}
-            <span className="font-medium text-foreground">{email}</span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-center text-sm text-muted-foreground">
-            Click the link in the email to sign in. If you don&apos;t see it,
-            check your spam folder.
-          </p>
-          <Button
-            variant="ghost"
-            className="mt-4 w-full"
-            onClick={() => {
-              setSent(false)
-              setEmail("")
-            }}
-          >
-            Use a different email
-          </Button>
-        </CardContent>
-      </Card>
-    )
   }
 
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle>Sign in</CardTitle>
+        <CardTitle>Sign in to {system.shortName}</CardTitle>
         <CardDescription>
-          Enter your email to receive a magic link
+          Use your Microsoft account to continue
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder={`you@${system.companyName.toLowerCase().replace(/\s+/g, "")}.com`}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              autoFocus
-            />
-          </div>
+      <CardContent className="space-y-4">
+        {error && (
+          <p className="text-center text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
 
-          {error && (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
+        <Button
+          className="w-full"
+          variant="outline"
+          onClick={handleMicrosoftLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <MicrosoftIcon className="size-4" />
           )}
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Loader2 className="size-4 animate-spin" />}
-            {loading ? "Sending link..." : "Continue with email"}
-          </Button>
-        </form>
+          {loading ? "Redirecting..." : "Continue with Microsoft"}
+        </Button>
       </CardContent>
     </Card>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle>Sign in to {system.shortName}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Loader2 className="mx-auto size-6 animate-spin text-muted-foreground" />
+          </CardContent>
+        </Card>
+      }
+    >
+      <LoginHandler />
+    </React.Suspense>
   )
 }

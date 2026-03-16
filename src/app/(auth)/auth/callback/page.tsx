@@ -6,16 +6,6 @@ import { Loader2 } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 
-/**
- * Auth callback — client-side page required because Supabase invite links deliver
- * tokens via URL hash fragments (#access_token=...), which are invisible to server
- * route handlers.
- *
- * - Hash fragment (invites): handled here client-side via setSession()
- * - PKCE code / token_hash (magic links, confirms): forwarded to /auth/confirm
- *   server route, which has cookie access for the PKCE code_verifier
- */
-
 function LoadingSpinner() {
   return (
     <div className="flex flex-col items-center justify-center gap-3">
@@ -32,9 +22,6 @@ function AuthCallbackHandler() {
 
   React.useEffect(() => {
     async function handleCallback() {
-      // --- Hash fragment (invite links) ---
-      // Supabase inviteUserByEmail() redirects with tokens in the URL hash.
-      // Only this flow is handled client-side; all others need server cookie access.
       const hash = window.location.hash
       if (hash) {
         const hashParams = new URLSearchParams(hash.substring(1))
@@ -59,13 +46,9 @@ function AuthCallbackHandler() {
         }
       }
 
-      // --- PKCE code or token_hash flows ---
-      // Forward to /auth/confirm server route which has cookie access
-      // for the PKCE code_verifier stored during signInWithOtp().
       const code = searchParams.get("code")
-      const tokenHash = searchParams.get("token_hash")
 
-      if (code || tokenHash) {
+      if (code) {
         const params = new URLSearchParams()
         searchParams.forEach((value, key) => params.set(key, value))
         window.location.href = `/auth/confirm?${params.toString()}`
