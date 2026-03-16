@@ -1,27 +1,37 @@
-"use client"
+import { redirect } from "next/navigation"
 
-import { SidebarProvider, Sidebar } from "@/components/layout/sidebar"
-import { SidebarNav } from "@/components/layout/sidebar-nav"
-import { Topbar } from "@/components/layout/topbar"
+import { createClient } from "@/lib/supabase/server"
+import type { Profile } from "@/types/database"
+import { DashboardShell } from "@/components/layout/dashboard-shell"
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single<Profile>()
+
+  if (!profile) {
+    redirect("/login")
+  }
+
   return (
-    <SidebarProvider>
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar>
-          <SidebarNav />
-        </Sidebar>
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <Topbar />
-          <main className="flex-1 overflow-y-auto p-6">
-            {children}
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
+    <DashboardShell profile={profile}>
+      {children}
+    </DashboardShell>
   )
 }
