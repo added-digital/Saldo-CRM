@@ -14,6 +14,7 @@ const FORTNOX_SCOPES = [
   "salary",
 ].join(" ")
 
+
 export function getAuthorizationUrl(state: string): string {
   const params = new URLSearchParams({
     client_id: process.env.FORTNOX_CLIENT_ID!,
