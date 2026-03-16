@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS customers (
   notes TEXT,
   start_date DATE,
   fortnox_active BOOLEAN,
+  fortnox_cost_center TEXT,
   bolagsverket_status TEXT,
   bolagsverket_registered_office TEXT,
   bolagsverket_board_count INTEGER,

@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   UserCheck,
   UserX,
+  RefreshCw,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -81,6 +82,7 @@ export default function UsersPage() {
   const [deactivateTarget, setDeactivateTarget] =
     React.useState<Profile | null>(null);
   const [actionLoading, setActionLoading] = React.useState(false);
+  const [syncing, setSyncing] = React.useState(false);
 
   const inviteForm = useForm<InviteUserInput>({
     resolver: zodResolver(inviteUserSchema),
@@ -227,6 +229,36 @@ export default function UsersPage() {
     setActionLoading(false);
   }
 
+  async function handleSyncEmployees() {
+    setSyncing(true)
+
+    try {
+      const response = await fetch("/api/fortnox/sync-employees", {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.message ?? "Sync failed")
+      }
+
+      const result = await response.json()
+      const { employees, customerLinks } = result
+
+      toast.success(
+        `Synced: ${employees.created} created, ${employees.updated} updated, ${employees.skipped} skipped. ${customerLinks.linked} customers linked.`,
+      )
+
+      fetchData()
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to sync employees",
+      )
+    }
+
+    setSyncing(false)
+  }
+
   const columns: ColumnDef<Profile, unknown>[] = [
     {
       accessorKey: "full_name",
@@ -315,6 +347,10 @@ export default function UsersPage() {
         title="Users"
         description="Manage user accounts, roles, and permissions"
       >
+        <Button variant="outline" onClick={handleSyncEmployees} disabled={syncing}>
+          <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} />
+          {syncing ? "Syncing..." : "Sync from Fortnox"}
+        </Button>
         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
           <DialogTrigger asChild>
             <Button>

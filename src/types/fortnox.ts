@@ -10,7 +10,18 @@ export interface FortnoxCustomer {
   City: string | null
   Country: string | null
   Active: boolean
-  CustomerResponsible: string | null
+  CostCenter: string | null
+}
+
+export interface FortnoxCostCenter {
+  Code: string
+  Description: string
+  Note: string
+  Active: boolean
+}
+
+export interface FortnoxCostCenterListResponse {
+  CostCenters: FortnoxCostCenter[]
 }
 
 export interface FortnoxEmployee {

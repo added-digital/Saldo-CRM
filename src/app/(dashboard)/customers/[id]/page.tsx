@@ -18,21 +18,12 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { formatDate } from "@/lib/utils"
-import { toast } from "sonner"
 
 export default function CustomerDetailPage({
   params,
@@ -42,47 +33,37 @@ export default function CustomerDetailPage({
   const { id } = use(params)
   const router = useRouter()
   const [customer, setCustomer] = React.useState<Customer | null>(null)
-  const [users, setUsers] = React.useState<Profile[]>([])
+  const [accountManager, setAccountManager] = React.useState<Profile | null>(null)
   const [loading, setLoading] = React.useState(true)
-  const [saving, setSaving] = React.useState(false)
 
   React.useEffect(() => {
     async function fetchData() {
       const supabase = createClient()
 
-      const [{ data: customerData }, { data: usersData }] = await Promise.all([
-        supabase.from("customers").select("*").eq("id", id).single(),
-        supabase.from("profiles").select("*").eq("is_active", true).order("full_name"),
-      ])
+      const { data: customerData } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("id", id)
+        .single()
 
-      setCustomer(customerData as unknown as Customer | null)
-      setUsers((usersData ?? []) as unknown as Profile[])
+      const c = customerData as unknown as Customer | null
+      setCustomer(c)
+
+      if (c?.account_manager_id) {
+        const { data: managerData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", c.account_manager_id)
+          .single()
+
+        setAccountManager(managerData as unknown as Profile | null)
+      }
+
       setLoading(false)
     }
 
     fetchData()
   }, [id])
-
-  async function handleAccountManagerChange(userId: string) {
-    setSaving(true)
-    const supabase = createClient()
-    const value = userId === "unassigned" ? null : userId
-
-    const { error } = await supabase
-      .from("customers")
-      .update({ account_manager_id: value } as never)
-      .eq("id", id)
-
-    if (error) {
-      toast.error("Failed to update account manager")
-    } else {
-      setCustomer((prev) =>
-        prev ? { ...prev, account_manager_id: value } : prev
-      )
-      toast.success("Account manager updated")
-    }
-    setSaving(false)
-  }
 
   if (loading) {
     return (
@@ -104,10 +85,6 @@ export default function CustomerDetailPage({
       </div>
     )
   }
-
-  const accountManager = users.find(
-    (u) => u.id === customer.account_manager_id
-  )
 
   return (
     <div className="space-y-6">
@@ -183,45 +160,32 @@ export default function CustomerDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Assignment</CardTitle>
+            <CardTitle className="text-base">Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Account Manager</Label>
-              <Select
-                value={customer.account_manager_id ?? "unassigned"}
-                onValueChange={handleAccountManagerChange}
-                disabled={saving}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select account manager" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.full_name ?? u.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {accountManager && (
-              <div className="flex items-center gap-3 rounded-md border p-3">
-                <UserAvatar
-                  name={accountManager.full_name}
-                  avatarUrl={accountManager.avatar_url}
-                  size="sm"
-                />
-                <div>
-                  <p className="text-sm font-medium">
-                    {accountManager.full_name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {accountManager.email}
-                  </p>
+            {accountManager ? (
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Account Manager</p>
+                <div className="flex items-center gap-3 rounded-md border p-3">
+                  <UserAvatar
+                    name={accountManager.full_name}
+                    avatarUrl={accountManager.avatar_url}
+                    size="sm"
+                  />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {accountManager.full_name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {accountManager.email}
+                    </p>
+                  </div>
                 </div>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Account Manager</p>
+                <p className="text-sm text-muted-foreground">Unassigned</p>
               </div>
             )}
 

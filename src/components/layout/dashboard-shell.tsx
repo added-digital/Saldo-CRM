@@ -2,9 +2,11 @@
 
 import type { Profile } from "@/types/database"
 import { UserProvider } from "@/hooks/use-user"
+import { SyncProvider } from "@/hooks/use-sync"
 import { SidebarProvider, Sidebar } from "@/components/layout/sidebar"
 import { SidebarNav } from "@/components/layout/sidebar-nav"
 import { Topbar } from "@/components/layout/topbar"
+import { SyncProgressBar } from "@/components/app/sync-progress-bar"
 
 function DashboardShell({
   profile,
@@ -15,19 +17,22 @@ function DashboardShell({
 }) {
   return (
     <UserProvider profile={profile}>
-      <SidebarProvider>
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar>
-            <SidebarNav />
-          </Sidebar>
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <Topbar />
-            <main className="flex-1 overflow-y-auto p-6">
-              {children}
-            </main>
+      <SyncProvider>
+        <SidebarProvider>
+          <div className="flex h-screen overflow-hidden">
+            <Sidebar>
+              <SidebarNav />
+            </Sidebar>
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <Topbar />
+              <SyncProgressBar />
+              <main className="flex-1 overflow-y-auto p-6">
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
-      </SidebarProvider>
+        </SidebarProvider>
+      </SyncProvider>
     </UserProvider>
   )
 }

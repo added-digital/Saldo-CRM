@@ -66,6 +66,7 @@ export interface Customer {
   notes: string | null
   start_date: string | null
   fortnox_active: boolean | null
+  fortnox_cost_center: string | null
   bolagsverket_status: string | null
   bolagsverket_registered_office: string | null
   bolagsverket_board_count: number | null

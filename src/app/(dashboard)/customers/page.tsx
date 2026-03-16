@@ -106,17 +106,28 @@ export default function CustomersPage() {
   async function fetchCustomers() {
     const supabase = createClient()
 
-    const { data: customerRows } = await supabase
-      .from("customers")
-      .select("*, account_manager:profiles!account_manager_id(id, full_name, email)")
-      .neq("status", "removed")
-      .order("name")
-
-    const rawCustomers = (customerRows ?? []) as unknown as (CustomerWithRelations & {
+    const PAGE_SIZE = 1000
+    let allRows: (CustomerWithRelations & {
       account_manager: CustomerWithRelations["account_manager"]
-    })[]
+    })[] = []
+    let from = 0
+    let hasMore = true
 
-    const customerIds = rawCustomers.map((c) => c.id)
+    while (hasMore) {
+      const { data } = await supabase
+        .from("customers")
+        .select("*, account_manager:profiles!account_manager_id(id, full_name, email)")
+        .eq("status", "active")
+        .order("name")
+        .range(from, from + PAGE_SIZE - 1)
+
+      const rows = (data ?? []) as unknown as typeof allRows
+      allRows = allRows.concat(rows)
+      hasMore = rows.length === PAGE_SIZE
+      from += PAGE_SIZE
+    }
+
+    const customerIds = allRows.map((c) => c.id)
 
     let segmentMap: Record<string, Segment[]> = {}
 
@@ -125,6 +136,7 @@ export default function CustomersPage() {
         .from("customer_segments")
         .select("customer_id, segment:segments(*)")
         .in("customer_id", customerIds)
+        .range(0, 9999)
 
       const rawCs = (csRows ?? []) as unknown as {
         customer_id: string
@@ -138,7 +150,7 @@ export default function CustomersPage() {
       }, {})
     }
 
-    const enriched: CustomerWithRelations[] = rawCustomers.map((c) => ({
+    const enriched: CustomerWithRelations[] = allRows.map((c) => ({
       ...c,
       segments: segmentMap[c.id] ?? [],
     }))

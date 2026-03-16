@@ -24,33 +24,34 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useUser } from "@/hooks/use-user"
+import { useSync } from "@/hooks/use-sync"
 import { formatDateTime } from "@/lib/utils"
 import { toast } from "sonner"
 
 export default function IntegrationsPage() {
   const { isAdmin } = useUser()
+  const { syncing, startSync, resetSyncStatus } = useSync()
   const [connection, setConnection] =
     React.useState<FortnoxConnection | null>(null)
   const [loading, setLoading] = React.useState(true)
-  const [syncing, setSyncing] = React.useState(false)
   const [disconnectOpen, setDisconnectOpen] = React.useState(false)
   const [disconnecting, setDisconnecting] = React.useState(false)
 
-  React.useEffect(() => {
-    async function fetchConnection() {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from("fortnox_connection")
-        .select("*")
-        .limit(1)
-        .single()
+  const fetchConnection = React.useCallback(async () => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from("fortnox_connection")
+      .select("*")
+      .limit(1)
+      .single()
 
-      setConnection(data as unknown as FortnoxConnection | null)
-      setLoading(false)
-    }
-
-    fetchConnection()
+    setConnection(data as unknown as FortnoxConnection | null)
+    setLoading(false)
   }, [])
+
+  React.useEffect(() => {
+    fetchConnection()
+  }, [fetchConnection])
 
   function handleConnect() {
     const clientId = process.env.NEXT_PUBLIC_FORTNOX_CLIENT_ID
@@ -69,29 +70,13 @@ export default function IntegrationsPage() {
   }
 
   async function handleSync() {
-    setSyncing(true)
+    await startSync()
+    await fetchConnection()
+  }
 
-    try {
-      const response = await fetch("/api/fortnox/sync", { method: "POST" })
-
-      if (!response.ok) {
-        throw new Error("Sync failed")
-      }
-
-      toast.success("Customer sync started")
-
-      const supabase = createClient()
-      const { data } = await supabase
-        .from("fortnox_connection")
-        .select("*")
-        .limit(1)
-        .single()
-      setConnection(data as unknown as FortnoxConnection | null)
-    } catch {
-      toast.error("Failed to start sync")
-    }
-
-    setSyncing(false)
+  async function handleResetSyncStatus() {
+    await resetSyncStatus()
+    await fetchConnection()
   }
 
   async function handleDisconnect() {
@@ -207,7 +192,7 @@ export default function IntegrationsPage() {
                 <Button
                   variant="outline"
                   onClick={handleSync}
-                  disabled={syncing || connection.sync_status === "syncing"}
+                  disabled={syncing || (!syncing && connection.sync_status === "syncing")}
                 >
                   {syncing ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -216,9 +201,15 @@ export default function IntegrationsPage() {
                   )}
                   {syncing ? "Syncing..." : "Sync Now"}
                 </Button>
+                {!syncing && connection.sync_status === "syncing" && (
+                  <Button variant="outline" onClick={handleResetSyncStatus}>
+                    Reset Stuck Sync
+                  </Button>
+                )}
                 <Button
                   variant="destructive"
                   onClick={() => setDisconnectOpen(true)}
+                  disabled={syncing}
                 >
                   <Link2Off className="size-4" />
                   Disconnect
