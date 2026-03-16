@@ -5,19 +5,11 @@ import { createClient } from "@/lib/supabase/client"
 import { useUser } from "./use-user"
 
 export function useScope(scopeKey: string): boolean {
-  const { user, loading: userLoading } = useUser()
+  const { user } = useUser()
   const [hasScope, setHasScope] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (userLoading) return
-
-    if (!user) {
-      setHasScope(false)
-      setLoading(false)
-      return
-    }
-
     if (user.role === "admin") {
       setHasScope(true)
       setLoading(false)
@@ -30,33 +22,25 @@ export function useScope(scopeKey: string): boolean {
       const { count } = await supabase
         .from("user_scopes")
         .select("*", { count: "exact", head: true })
-        .eq("user_id", user!.id)
+        .eq("user_id", user.id)
 
       setHasScope((count ?? 0) > 0)
       setLoading(false)
     }
 
     checkScope()
-  }, [user, userLoading, scopeKey])
+  }, [user, scopeKey])
 
-  if (loading || userLoading) return false
+  if (loading) return false
   return hasScope
 }
 
 export function useUserScopes(): { scopes: string[]; loading: boolean } {
-  const { user, loading: userLoading } = useUser()
+  const { user } = useUser()
   const [scopes, setScopes] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (userLoading) return
-
-    if (!user) {
-      setScopes([])
-      setLoading(false)
-      return
-    }
-
     if (user.role === "admin") {
       setScopes(["customers", "teams", "reports", "integrations"])
       setLoading(false)
@@ -69,7 +53,7 @@ export function useUserScopes(): { scopes: string[]; loading: boolean } {
       const { data: userScopeRows } = await supabase
         .from("user_scopes")
         .select("scope_id")
-        .eq("user_id", user!.id)
+        .eq("user_id", user.id)
 
       if (!userScopeRows?.length) {
         setScopes([])
@@ -88,7 +72,7 @@ export function useUserScopes(): { scopes: string[]; loading: boolean } {
     }
 
     fetchScopes()
-  }, [user, userLoading])
+  }, [user])
 
   return { scopes, loading }
 }
