@@ -29,16 +29,7 @@ export default function SettingsLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const { isAdmin, loading } = useUser()
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-32 animate-pulse rounded bg-muted" />
-        <div className="h-10 w-96 animate-pulse rounded bg-muted" />
-      </div>
-    )
-  }
+  const { isAdmin } = useUser()
 
   const visibleTabs = isAdmin
     ? settingsTabs

@@ -33,7 +33,7 @@ import { getRoleLabel, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function ProfilePage() {
-  const { user, loading: userLoading } = useUser();
+  const { user } = useUser();
 
   const form = useForm<UpdateProfileInput>({
     resolver: zodResolver(updateProfileSchema),
@@ -69,15 +69,6 @@ export default function ProfilePage() {
     } else {
       toast.success("Profile updated");
     }
-  }
-
-  if (userLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-32 animate-pulse rounded bg-muted" />
-        <div className="h-64 animate-pulse rounded-lg border bg-muted" />
-      </div>
-    );
   }
 
   return (

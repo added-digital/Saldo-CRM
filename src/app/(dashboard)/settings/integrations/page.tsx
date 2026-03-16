@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import {
   Link2,
   Link2Off,
@@ -29,7 +28,6 @@ import { formatDateTime } from "@/lib/utils"
 import { toast } from "sonner"
 
 export default function IntegrationsPage() {
-  const router = useRouter()
   const { isAdmin } = useUser()
   const [connection, setConnection] =
     React.useState<FortnoxConnection | null>(null)
@@ -110,12 +108,6 @@ export default function IntegrationsPage() {
     }
     setDisconnecting(false)
   }
-
-  React.useEffect(() => {
-    if (!loading && !isAdmin) {
-      router.replace("/")
-    }
-  }, [loading, isAdmin, router])
 
   if (loading || !isAdmin) {
     return (

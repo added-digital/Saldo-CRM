@@ -59,7 +59,7 @@ type SegmentInput = z.infer<typeof segmentSchema>;
 
 export default function SegmentsPage() {
   const router = useRouter();
-  const { isAdmin, loading: userLoading } = useUser();
+  const { isAdmin } = useUser();
   const [segments, setSegments] = React.useState<Segment[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -88,12 +88,6 @@ export default function SegmentsPage() {
   React.useEffect(() => {
     fetchSegments();
   }, []);
-
-  React.useEffect(() => {
-    if (!userLoading && !isAdmin) {
-      router.replace("/");
-    }
-  }, [userLoading, isAdmin, router]);
 
   React.useEffect(() => {
     if (editTarget) {
@@ -175,7 +169,7 @@ export default function SegmentsPage() {
     setDeleteLoading(false);
   }
 
-  if (loading || userLoading || !isAdmin) {
+  if (loading || !isAdmin) {
     return (
       <div className="space-y-6">
         <div className="h-48 animate-pulse rounded-lg border bg-muted" />

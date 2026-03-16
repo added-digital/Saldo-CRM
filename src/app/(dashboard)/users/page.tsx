@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
 import {
   Shield,
@@ -9,7 +8,6 @@ import {
   MoreHorizontal,
   UserCheck,
   UserX,
-  Loader2,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -71,7 +69,6 @@ import { getRoleLabel, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function UsersPage() {
-  const router = useRouter();
   const { isAdmin } = useUser();
   const [users, setUsers] = React.useState<Profile[]>([]);
   const [teams, setTeams] = React.useState<Team[]>([]);
@@ -308,13 +305,7 @@ export default function UsersPage() {
     },
   ];
 
-  React.useEffect(() => {
-    if (!loading && !isAdmin) {
-      router.replace("/");
-    }
-  }, [loading, isAdmin, router]);
-
-  if (loading || !isAdmin) {
+  if (!isAdmin) {
     return null;
   }
 
@@ -335,7 +326,7 @@ export default function UsersPage() {
             <DialogHeader>
               <DialogTitle>Invite User</DialogTitle>
               <DialogDescription>
-                Send a magic link invitation to a new user.
+                Send an invitation to a new user.
               </DialogDescription>
             </DialogHeader>
             <Form {...inviteForm}>
