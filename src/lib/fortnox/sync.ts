@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database, FortnoxConnection } from "@/types/database"
-import type { FortnoxCustomer } from "@/types/fortnox"
+import type { FortnoxCustomer, FortnoxEmployee } from "@/types/fortnox"
 import { FortnoxClient } from "./client"
 import { refreshAccessToken } from "./auth"
 
@@ -75,6 +75,19 @@ export function mapFortnoxCustomerToDb(
     city: fortnoxCustomer.City,
     country: fortnoxCustomer.Country ?? "SE",
     status: fortnoxCustomer.Active ? "active" : "archived",
+    industry: null,
+    revenue: null,
+    employees: null,
+    office: null,
+    notes: null,
+    start_date: null,
+    fortnox_active: fortnoxCustomer.Active ?? null,
+    bolagsverket_status: null,
+    bolagsverket_registered_office: null,
+    bolagsverket_board_count: null,
+    bolagsverket_company_data: null,
+    bolagsverket_board_data: null,
+    bolagsverket_updated_at: null,
     fortnox_raw: fortnoxCustomer as unknown as Record<string, unknown>,
     last_synced_at: new Date().toISOString(),
   }
@@ -180,4 +193,161 @@ export async function syncSingleCustomer(
   if (error) {
     throw new Error(`Failed to upsert customer ${customerNumber}: ${error.message}`)
   }
+}
+
+export async function syncEmployees(
+  supabase: AdminClient
+): Promise<{ created: number; updated: number; skipped: number; errors: string[] }> {
+  const { client } = await getConnectionWithValidToken(supabase)
+  const response = await client.getEmployees()
+  const employees = response.Employees ?? []
+
+  const { data: existingUsers } = await supabase.auth.admin.listUsers()
+  const usersByEmail = new Map(
+    (existingUsers?.users ?? [])
+      .filter((u) => u.email)
+      .map((u) => [u.email!.toLowerCase(), u])
+  )
+
+  let created = 0
+  let updated = 0
+  let skipped = 0
+  const errors: string[] = []
+
+  for (const emp of employees) {
+    try {
+      if (emp.Inactive) {
+        skipped++
+        continue
+      }
+
+      if (!emp.Email) {
+        skipped++
+        continue
+      }
+
+      const fullName = emp.FullName ?? `${emp.FirstName ?? ""} ${emp.LastName ?? ""}`.trim()
+
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id, fortnox_employee_id")
+        .eq("fortnox_employee_id", emp.EmployeeId)
+        .single<{ id: string; fortnox_employee_id: string | null }>()
+
+      if (existingProfile) {
+        await supabase
+          .from("profiles")
+          .update({
+            full_name: fullName,
+            fortnox_employee_id: emp.EmployeeId,
+          } as never)
+          .eq("id", existingProfile.id as never)
+
+        updated++
+        continue
+      }
+
+      const existingUser = usersByEmail.get(emp.Email.toLowerCase())
+
+      if (existingUser) {
+        await supabase
+          .from("profiles")
+          .update({
+            full_name: fullName,
+            fortnox_employee_id: emp.EmployeeId,
+          } as never)
+          .eq("id", existingUser.id as never)
+
+        updated++
+        continue
+      }
+
+      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+        email: emp.Email,
+        email_confirm: true,
+        user_metadata: { full_name: fullName },
+      })
+
+      if (createError || !newUser?.user) {
+        errors.push(`Failed to create user for ${emp.Email}: ${createError?.message ?? "Unknown"}`)
+        continue
+      }
+
+      await supabase
+        .from("profiles")
+        .update({
+          fortnox_employee_id: emp.EmployeeId,
+          full_name: fullName,
+        } as never)
+        .eq("id", newUser.user.id as never)
+
+      created++
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error"
+      errors.push(`Error processing employee ${emp.EmployeeId}: ${message}`)
+    }
+  }
+
+  return { created, updated, skipped, errors }
+}
+
+export async function linkCustomerAccountManagers(
+  supabase: AdminClient
+): Promise<{ linked: number; unmatched: number }> {
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, fortnox_employee_id")
+    .not("fortnox_employee_id", "is", null)
+
+  if (!profiles || profiles.length === 0) {
+    return { linked: 0, unmatched: 0 }
+  }
+
+  const employeeMap = new Map<string, string>()
+  for (const p of profiles) {
+    const profile = p as unknown as { id: string; fortnox_employee_id: string }
+    if (profile.fortnox_employee_id) {
+      employeeMap.set(profile.fortnox_employee_id, profile.id)
+    }
+  }
+
+  const { data: customers } = await supabase
+    .from("customers")
+    .select("id, fortnox_raw")
+    .not("fortnox_raw", "is", null)
+
+  if (!customers || customers.length === 0) {
+    return { linked: 0, unmatched: 0 }
+  }
+
+  const typedCustomers = customers as unknown as {
+    id: string
+    fortnox_raw: Record<string, unknown> | null
+  }[]
+
+  let linked = 0
+  let unmatched = 0
+
+  for (const customer of typedCustomers) {
+    const responsible = customer.fortnox_raw?.CustomerResponsible as string | undefined
+
+    if (!responsible) {
+      continue
+    }
+
+    const profileId = employeeMap.get(responsible)
+
+    if (profileId) {
+      await supabase
+        .from("customers")
+        .update({ account_manager_id: profileId } as never)
+        .eq("id", customer.id as never)
+
+      linked++
+    } else {
+      unmatched++
+    }
+  }
+
+  return { linked, unmatched }
 }

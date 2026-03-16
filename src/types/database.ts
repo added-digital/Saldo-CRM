@@ -1,8 +1,10 @@
 export type Role = "admin" | "team_lead" | "user"
 
-export type CustomerStatus = "active" | "archived" | "removed"
+export type CustomerStatus = "active" | "paused" | "former" | "archived" | "removed"
 
 export type SyncStatus = "idle" | "syncing" | "error"
+
+export type ActivityType = "meeting" | "call" | "email" | "note"
 
 export interface Profile {
   id: string
@@ -12,6 +14,9 @@ export interface Profile {
   role: Role
   is_active: boolean
   team_id: string | null
+  fortnox_employee_id: string | null
+  fortnox_group_name: string | null
+  fortnox_cost_center: string | null
   created_at: string
   updated_at: string
 }
@@ -54,6 +59,19 @@ export interface Customer {
   country: string | null
   status: CustomerStatus
   account_manager_id: string | null
+  industry: string | null
+  revenue: number | null
+  employees: number | null
+  office: string | null
+  notes: string | null
+  start_date: string | null
+  fortnox_active: boolean | null
+  bolagsverket_status: string | null
+  bolagsverket_registered_office: string | null
+  bolagsverket_board_count: number | null
+  bolagsverket_company_data: Record<string, unknown> | null
+  bolagsverket_board_data: Record<string, unknown> | null
+  bolagsverket_updated_at: string | null
   fortnox_raw: Record<string, unknown> | null
   last_synced_at: string | null
   created_at: string
@@ -106,6 +124,181 @@ export interface AuditLogEntry {
   created_at: string
 }
 
+export interface Invoice {
+  id: string
+  document_number: string
+  customer_id: string | null
+  fortnox_customer_number: string | null
+  customer_name: string | null
+  invoice_date: string | null
+  total: number | null
+  balance: number | null
+  currency_code: string
+  created_at: string
+  updated_at: string
+}
+
+export interface InvoiceRow {
+  id: string
+  invoice_number: string
+  article_number: string | null
+  article_name: string | null
+  description: string | null
+  quantity: number | null
+  unit_price: number | null
+  total: number | null
+  created_at: string
+}
+
+export interface ArticleRegistry {
+  id: string
+  article_number: string
+  article_name: string | null
+  description: string | null
+  unit: string | null
+  active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface ArticleGroupMapping {
+  id: string
+  article_number: string
+  article_name: string | null
+  group_name: string
+  active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CostCenter {
+  id: string
+  code: string
+  name: string | null
+  active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface TimeReport {
+  id: string
+  unique_key: string
+  report_id: string | null
+  report_date: string | null
+  employee_id: string | null
+  employee_name: string | null
+  fortnox_customer_number: string | null
+  customer_name: string | null
+  project_number: string | null
+  project_name: string | null
+  activity: string | null
+  article_number: string | null
+  hours: number | null
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ContractAccrual {
+  id: string
+  fortnox_customer_number: string
+  contract_number: string
+  customer_name: string | null
+  description: string | null
+  start_date: string | null
+  end_date: string | null
+  status: string | null
+  accrual_type: string | null
+  period: string | null
+  total: number | null
+  currency_code: string
+  raw_data: Record<string, unknown> | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerContact {
+  id: string
+  name: string
+  role: string | null
+  email: string | null
+  phone: string | null
+  linkedin: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerContactLink {
+  id: string
+  customer_id: string
+  contact_id: string
+  relationship_label: string | null
+  created_at: string
+}
+
+export interface CustomerActivity {
+  id: string
+  customer_id: string
+  date: string
+  activity_type: ActivityType
+  description: string
+  created_by: string | null
+  created_at: string
+}
+
+export interface CustomerService {
+  id: string
+  customer_id: string
+  service_type: string
+  price: number | null
+  billing_model: string | null
+  start_date: string | null
+  responsible_consultant: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerDocumentLink {
+  id: string
+  customer_id: string
+  document_type: string | null
+  title: string
+  url: string
+  created_at: string
+}
+
+export interface AppSetting {
+  key: string
+  value: string | null
+  updated_at: string
+}
+
+export interface LicensePriceListItem {
+  id: string
+  article_number: string
+  product_name: string | null
+  monthly_price: number
+  comment: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface LicenseCustomerConfig {
+  id: string
+  org_number: string
+  name: string | null
+  fortnox_customer_number: string | null
+  discount_percent: number
+  fixed_price_fortnox: number | null
+  fixed_price_reda: number | null
+  comment: string | null
+  status: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -153,6 +346,81 @@ export interface Database {
         Row: AuditLogEntry
         Insert: Omit<AuditLogEntry, "id" | "created_at">
         Update: never
+      }
+      invoices: {
+        Row: Invoice
+        Insert: Omit<Invoice, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<Invoice, "id" | "created_at" | "updated_at">>
+      }
+      invoice_rows: {
+        Row: InvoiceRow
+        Insert: Omit<InvoiceRow, "id" | "created_at">
+        Update: Partial<Omit<InvoiceRow, "id" | "created_at">>
+      }
+      article_registry: {
+        Row: ArticleRegistry
+        Insert: Omit<ArticleRegistry, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<ArticleRegistry, "id" | "created_at" | "updated_at">>
+      }
+      article_group_mappings: {
+        Row: ArticleGroupMapping
+        Insert: Omit<ArticleGroupMapping, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<ArticleGroupMapping, "id" | "created_at" | "updated_at">>
+      }
+      cost_centers: {
+        Row: CostCenter
+        Insert: Omit<CostCenter, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<CostCenter, "id" | "created_at" | "updated_at">>
+      }
+      time_reports: {
+        Row: TimeReport
+        Insert: Omit<TimeReport, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<TimeReport, "id" | "created_at" | "updated_at">>
+      }
+      contract_accruals: {
+        Row: ContractAccrual
+        Insert: Omit<ContractAccrual, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<ContractAccrual, "id" | "created_at" | "updated_at">>
+      }
+      customer_contacts: {
+        Row: CustomerContact
+        Insert: Omit<CustomerContact, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<CustomerContact, "id" | "created_at" | "updated_at">>
+      }
+      customer_contact_links: {
+        Row: CustomerContactLink
+        Insert: Omit<CustomerContactLink, "id" | "created_at">
+        Update: Partial<Omit<CustomerContactLink, "id" | "created_at">>
+      }
+      customer_activities: {
+        Row: CustomerActivity
+        Insert: Omit<CustomerActivity, "id" | "created_at">
+        Update: Partial<Omit<CustomerActivity, "id" | "created_at">>
+      }
+      customer_services: {
+        Row: CustomerService
+        Insert: Omit<CustomerService, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<CustomerService, "id" | "created_at" | "updated_at">>
+      }
+      customer_document_links: {
+        Row: CustomerDocumentLink
+        Insert: Omit<CustomerDocumentLink, "id" | "created_at">
+        Update: never
+      }
+      app_settings: {
+        Row: AppSetting
+        Insert: AppSetting
+        Update: Partial<Omit<AppSetting, "key">>
+      }
+      license_price_list: {
+        Row: LicensePriceListItem
+        Insert: Omit<LicensePriceListItem, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<LicensePriceListItem, "id" | "created_at" | "updated_at">>
+      }
+      license_customer_config: {
+        Row: LicenseCustomerConfig
+        Insert: Omit<LicenseCustomerConfig, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<LicenseCustomerConfig, "id" | "created_at" | "updated_at">>
       }
     }
   }

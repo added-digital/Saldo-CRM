@@ -14,8 +14,21 @@ CREATE TABLE IF NOT EXISTS customers (
   zip_code TEXT,
   city TEXT,
   country TEXT DEFAULT 'SE',
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived', 'removed')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'former', 'archived', 'removed')),
   account_manager_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  industry TEXT,
+  revenue NUMERIC(14, 2),
+  employees INTEGER,
+  office TEXT,
+  notes TEXT,
+  start_date DATE,
+  fortnox_active BOOLEAN,
+  bolagsverket_status TEXT,
+  bolagsverket_registered_office TEXT,
+  bolagsverket_board_count INTEGER,
+  bolagsverket_company_data JSONB,
+  bolagsverket_board_data JSONB,
+  bolagsverket_updated_at TIMESTAMPTZ,
   fortnox_raw JSONB,
   last_synced_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -25,6 +38,8 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status);
 CREATE INDEX IF NOT EXISTS idx_customers_account_manager ON customers(account_manager_id);
 CREATE INDEX IF NOT EXISTS idx_customers_fortnox_number ON customers(fortnox_customer_number);
+CREATE INDEX IF NOT EXISTS idx_customers_org_number ON customers(org_number);
+CREATE INDEX IF NOT EXISTS idx_customers_industry ON customers(industry);
 
 DROP TRIGGER IF EXISTS set_updated_at ON customers;
 CREATE TRIGGER set_updated_at

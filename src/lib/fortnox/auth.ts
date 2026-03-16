@@ -11,6 +11,7 @@ const FORTNOX_SCOPES = [
   "costcenter",
   "bookkeeping",
   "settings",
+  "salary",
 ].join(" ")
 
 export function getAuthorizationUrl(state: string): string {

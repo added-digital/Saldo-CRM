@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS profiles (
   role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'team_lead', 'user')),
   is_active BOOLEAN NOT NULL DEFAULT true,
   team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
+  fortnox_employee_id TEXT UNIQUE,
+  fortnox_group_name TEXT,
+  fortnox_cost_center TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -74,3 +77,4 @@ CREATE TRIGGER on_auth_user_created
 CREATE INDEX IF NOT EXISTS idx_profiles_team_id ON profiles(team_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
+CREATE INDEX IF NOT EXISTS idx_profiles_fortnox_employee ON profiles(fortnox_employee_id);

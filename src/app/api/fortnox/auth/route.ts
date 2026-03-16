@@ -6,6 +6,16 @@ import type { FortnoxConnection } from "@/types/database"
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const code = searchParams.get("code")
+  const error = searchParams.get("error")
+  const errorDescription = searchParams.get("error_description")
+
+  if (error) {
+    const message = errorDescription ?? error
+    console.error("Fortnox OAuth denied:", message)
+    return NextResponse.redirect(
+      new URL(`/settings/integrations?error=${encodeURIComponent(message)}`, request.url)
+    )
+  }
 
   if (!code) {
     return NextResponse.redirect(

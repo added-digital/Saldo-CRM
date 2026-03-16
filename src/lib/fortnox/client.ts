@@ -1,4 +1,8 @@
-import type { FortnoxCustomerListResponse, FortnoxCustomerSingleResponse } from "@/types/fortnox"
+import type {
+  FortnoxCustomerListResponse,
+  FortnoxCustomerSingleResponse,
+  FortnoxEmployeeListResponse,
+} from "@/types/fortnox"
 import { FORTNOX_API_BASE } from "./auth"
 
 export class FortnoxClient {
@@ -40,5 +44,9 @@ export class FortnoxClient {
     return this.request<FortnoxCustomerSingleResponse>(
       `/3/customers/${customerNumber}`
     )
+  }
+
+  async getEmployees(): Promise<FortnoxEmployeeListResponse> {
+    return this.request<FortnoxEmployeeListResponse>(`/3/employees`)
   }
 }

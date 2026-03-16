@@ -10,6 +10,32 @@ export interface FortnoxCustomer {
   City: string | null
   Country: string | null
   Active: boolean
+  CustomerResponsible: string | null
+}
+
+export interface FortnoxEmployee {
+  EmployeeId: string
+  PersonalIdentityNumber: string | null
+  FirstName: string | null
+  LastName: string | null
+  FullName: string | null
+  Address1: string | null
+  Address2: string | null
+  PostCode: string | null
+  City: string | null
+  Country: string | null
+  Phone1: string | null
+  Phone2: string | null
+  Email: string | null
+  EmploymentDate: string | null
+  EmploymentForm: string | null
+  JobTitle: string | null
+  MonthlySalary: string | null
+  Inactive: boolean
+}
+
+export interface FortnoxEmployeeListResponse {
+  Employees: FortnoxEmployee[]
 }
 
 export interface FortnoxCustomerListResponse {
