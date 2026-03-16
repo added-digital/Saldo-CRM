@@ -12,6 +12,7 @@ const FORTNOX_SCOPES = [
   "bookkeeping",
   "settings",
   "salary",
+  "currency",
 ].join(" ");
 
 export function getAuthorizationUrl(state: string): string {
