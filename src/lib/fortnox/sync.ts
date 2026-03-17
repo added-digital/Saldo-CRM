@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database, FortnoxConnection } from "@/types/database"
 import type { FortnoxCustomer, FortnoxEmployee } from "@/types/fortnox"
 import { FortnoxClient } from "./client"
-import { refreshAccessToken } from "./auth"
+import { requestAccessToken } from "./auth"
 
 type AdminClient = SupabaseClient<Database>
 
@@ -21,12 +21,16 @@ async function getConnectionWithValidToken(
 
   const connection = data as unknown as FortnoxConnection
 
+  if (!connection.fortnox_tenant_id) {
+    throw new Error("No TenantId stored. Reconnect Fortnox via Settings → Integrations.")
+  }
+
   const tokenExpiry = new Date(connection.token_expires_at)
   const bufferMs = 5 * 60 * 1000
   const isExpired = tokenExpiry.getTime() - bufferMs < Date.now()
 
   if (isExpired) {
-    const tokens = await refreshAccessToken(connection.refresh_token)
+    const tokens = await requestAccessToken(connection.fortnox_tenant_id)
     const newExpiry = new Date(
       Date.now() + tokens.expires_in * 1000
     ).toISOString()
@@ -35,7 +39,6 @@ async function getConnectionWithValidToken(
       .from("fortnox_connection")
       .update({
         access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
         token_expires_at: newExpiry,
       } as never)
       .eq("id", connection.id as never)
@@ -44,7 +47,6 @@ async function getConnectionWithValidToken(
       connection: {
         ...connection,
         access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
         token_expires_at: newExpiry,
       },
       client: new FortnoxClient(tokens.access_token),

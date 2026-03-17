@@ -1,4 +1,8 @@
-import type { FortnoxTokenResponse, FortnoxApiError } from "@/types/fortnox";
+import type {
+  FortnoxTokenResponse,
+  FortnoxClientCredentialsResponse,
+  FortnoxApiError,
+} from "@/types/fortnox";
 
 const FORTNOX_API_BASE = "https://api.fortnox.se";
 const FORTNOX_AUTH_BASE = "https://apps.fortnox.se/oauth-v1";
@@ -14,6 +18,12 @@ const FORTNOX_SCOPES = [
   "salary",
 ].join(" ");
 
+function authHeader(): string {
+  return `Basic ${Buffer.from(
+    `${process.env.FORTNOX_CLIENT_ID}:${process.env.FORTNOX_CLIENT_SECRET}`,
+  ).toString("base64")}`;
+}
+
 export function getAuthorizationUrl(state: string): string {
   const params = new URLSearchParams({
     client_id: process.env.FORTNOX_CLIENT_ID!,
@@ -21,6 +31,7 @@ export function getAuthorizationUrl(state: string): string {
     scope: FORTNOX_SCOPES,
     state,
     response_type: "code",
+    account_type: "service",
   });
   return `${FORTNOX_AUTH_BASE}/auth?${params.toString()}`;
 }
@@ -32,9 +43,7 @@ export async function exchangeCodeForTokens(
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(
-        `${process.env.FORTNOX_CLIENT_ID}:${process.env.FORTNOX_CLIENT_SECRET}`,
-      ).toString("base64")}`,
+      Authorization: authHeader(),
     },
     body: new URLSearchParams({
       grant_type: "authorization_code",
@@ -53,31 +62,40 @@ export async function exchangeCodeForTokens(
   return response.json() as Promise<FortnoxTokenResponse>;
 }
 
-export async function refreshAccessToken(
-  refreshToken: string,
-): Promise<FortnoxTokenResponse> {
+export async function requestAccessToken(
+  tenantId: string,
+): Promise<FortnoxClientCredentialsResponse> {
   const response = await fetch(`${FORTNOX_AUTH_BASE}/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${Buffer.from(
-        `${process.env.FORTNOX_CLIENT_ID}:${process.env.FORTNOX_CLIENT_SECRET}`,
-      ).toString("base64")}`,
+      Authorization: authHeader(),
+      TenantId: tenantId,
     },
     body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
+      grant_type: "client_credentials",
     }),
   });
 
   if (!response.ok) {
     const error = (await response.json()) as FortnoxApiError;
     throw new Error(
-      `Token refresh error: ${error.ErrorInformation?.Message ?? response.statusText}`,
+      `Client credentials error: ${error.ErrorInformation?.Message ?? response.statusText}`,
     );
   }
 
-  return response.json() as Promise<FortnoxTokenResponse>;
+  return response.json() as Promise<FortnoxClientCredentialsResponse>;
+}
+
+export function extractTenantIdFromJwt(accessToken: string): string | null {
+  try {
+    const payload = JSON.parse(
+      Buffer.from(accessToken.split(".")[1], "base64").toString(),
+    );
+    return String(payload.tenantId ?? payload.tenant_id ?? "");
+  } catch {
+    return null;
+  }
 }
 
 export { FORTNOX_API_BASE };
