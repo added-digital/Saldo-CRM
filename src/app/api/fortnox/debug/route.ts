@@ -69,6 +69,40 @@ export async function GET(request: NextRequest) {
 
     const adminClient = createAdminClient()
 
+    const registrationsPreview = request.nextUrl.searchParams.get("registrations")
+    if (registrationsPreview === "v2") {
+      const fortnox = await getFortnoxClient(adminClient)
+      const fromDate = request.nextUrl.searchParams.get("fromDate") ?? "2025-01-01"
+      const params = new URLSearchParams({ fromDate })
+      const result = await fortnox.requestPath<Record<string, unknown> | Array<Record<string, unknown>>>(
+        `/api/time/registrations-v2?${params.toString()}`
+      )
+
+      const rows = Array.isArray(result)
+        ? result
+        : Array.isArray(result.rows)
+          ? (result.rows as Array<Record<string, unknown>>)
+          : []
+
+      const dates = rows
+        .map((row) => {
+          const rawDate = row.workedDate ?? row.Date ?? row.ReportDate ?? row.TimeReportDate ?? row.WorkDate ?? row.TransactionDate ?? row.EntryDate
+          return typeof rawDate === "string" ? rawDate.slice(0, 10) : null
+        })
+        .filter((date): date is string => Boolean(date))
+        .sort()
+
+      return NextResponse.json({
+        endpoint: "/api/time/registrations-v2",
+        fromDate,
+        total: rows.length,
+        returned_date_range: {
+          from: dates[0] ?? null,
+          to: dates[dates.length - 1] ?? null,
+        },
+      })
+    }
+
     const customerNumber = request.nextUrl.searchParams.get("customer")
     if (customerNumber) {
       const fortnox = await getFortnoxClient(adminClient)
