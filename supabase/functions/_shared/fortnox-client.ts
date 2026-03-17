@@ -64,6 +64,10 @@ export class FortnoxClient {
     return response.json() as Promise<T>
   }
 
+  async requestPath<T>(path: string): Promise<T> {
+    return this.request<T>(path)
+  }
+
   async getCustomers(page = 1, limit = 500) {
     return this.request<{
       Customers: Array<Record<string, unknown>>
@@ -105,6 +109,19 @@ export class FortnoxClient {
       AttendanceTransactions: Array<Record<string, unknown>>
       MetaInformation: { "@TotalResources": number; "@TotalPages": number; "@CurrentPage": number }
     }>(`/3/attendancetransactions?limit=${limit}&page=${page}`)
+  }
+
+  async getTimeReportRows(endpoint: string, page = 1, limit = 100, fromDate?: string) {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      page: String(page),
+    })
+
+    if (fromDate) {
+      params.set("fromdate", fromDate)
+    }
+
+    return this.request<Record<string, unknown>>(`${endpoint}?${params.toString()}`)
   }
 
   async getContracts(page = 1) {
