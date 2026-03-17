@@ -91,6 +91,10 @@ export function mapFortnoxCustomerToDb(
     bolagsverket_updated_at: null,
     fortnox_raw: fortnoxCustomer as unknown as Record<string, unknown>,
     last_synced_at: new Date().toISOString(),
+    total_turnover: null,
+    invoice_count: null,
+    total_hours: null,
+    contract_value: null,
   }
 }
 

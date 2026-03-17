@@ -45,6 +45,8 @@ export interface UserScope {
   granted_at: string
 }
 
+export type SyncJobStatus = "pending" | "processing" | "completed" | "failed"
+
 export interface Customer {
   id: string
   fortnox_customer_number: string | null
@@ -67,6 +69,10 @@ export interface Customer {
   start_date: string | null
   fortnox_active: boolean | null
   fortnox_cost_center: string | null
+  total_turnover: number | null
+  invoice_count: number | null
+  total_hours: number | null
+  contract_value: number | null
   bolagsverket_status: string | null
   bolagsverket_registered_office: string | null
   bolagsverket_board_count: number | null
@@ -75,6 +81,20 @@ export interface Customer {
   bolagsverket_updated_at: string | null
   fortnox_raw: Record<string, unknown> | null
   last_synced_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SyncJob {
+  id: string
+  status: SyncJobStatus
+  progress: number
+  current_step: string | null
+  total_items: number
+  processed_items: number
+  error_message: string | null
+  payload: Record<string, unknown> | null
+  started_by: string | null
   created_at: string
   updated_at: string
 }
@@ -422,6 +442,11 @@ export interface Database {
         Row: LicenseCustomerConfig
         Insert: Omit<LicenseCustomerConfig, "id" | "created_at" | "updated_at">
         Update: Partial<Omit<LicenseCustomerConfig, "id" | "created_at" | "updated_at">>
+      }
+      sync_jobs: {
+        Row: SyncJob
+        Insert: Omit<SyncJob, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<SyncJob, "id" | "created_at" | "updated_at">>
       }
     }
   }
