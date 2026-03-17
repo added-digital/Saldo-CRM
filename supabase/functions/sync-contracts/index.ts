@@ -2,7 +2,7 @@ import { createAdminClient } from "../_shared/supabase.ts"
 import { getFortnoxClient, updateSyncJob, delay, corsHeaders } from "../_shared/sync-helpers.ts"
 
 const RATE_LIMIT_DELAY_MS = 350
-const BATCH_SIZE = 15
+const BATCH_SIZE = 100
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -117,6 +117,7 @@ Deno.serve(async (req) => {
             })
 
           if (upsertError) {
+            console.error("Contract upsert error:", upsertError.message, upsertError.details)
             errors++
           } else {
             synced++
