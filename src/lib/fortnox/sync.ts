@@ -408,6 +408,11 @@ export async function linkCustomerAccountManagers(
       const profileId = nameToProfileId.get(normalizeName(cc.name).toLowerCase())
       if (profileId) {
         costCenterCodeToProfileId.set(cc.code, profileId)
+
+        await supabase
+          .from("profiles")
+          .update({ fortnox_cost_center: cc.code } as never)
+          .eq("id", profileId as never)
       }
     }
   }

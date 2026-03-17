@@ -295,6 +295,14 @@ export default function UsersPage() {
       ),
     },
     {
+      accessorKey: "fortnox_cost_center",
+      header: "Cost Center",
+      cell: ({ row }) => {
+        const cc = row.getValue("fortnox_cost_center") as string | null
+        return cc ?? "—"
+      },
+    },
+    {
       accessorKey: "created_at",
       header: "Joined",
       cell: ({ row }) => formatDate(row.getValue("created_at")),
