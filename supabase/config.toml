@@ -21,3 +21,18 @@ pop3_port = 54326
 enabled = true
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000"]
+
+[functions.sync-customers]
+verify_jwt = false
+
+[functions.sync-employees]
+verify_jwt = false
+
+[functions.sync-invoices]
+verify_jwt = false
+
+[functions.sync-time-reports]
+verify_jwt = false
+
+[functions.sync-contracts]
+verify_jwt = false

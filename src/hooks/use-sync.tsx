@@ -62,39 +62,33 @@ function SyncProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const invokeEdgeFunction = useCallback(
-    async (
-      supabase: ReturnType<typeof createClient>,
-      functionName: string,
-      jobId: string
-    ) => {
-      const { data: session } = await supabase.auth.getSession()
-      const token = session?.session?.access_token
-
-      if (!token) {
-        throw new Error("Not authenticated")
-      }
-
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/${functionName}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ job_id: jobId }),
-        }
-      )
+  const invokeSyncStep = useCallback(
+    async (step: SyncStep, jobId: string) => {
+      const response = await fetch(`/api/sync/${step}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: jobId }),
+      })
 
       if (!response.ok) {
-        const text = await response.text()
-        throw new Error(`Edge Function ${functionName} failed: ${text}`)
+        const errorBody = await response.json().catch(() => ({ error: response.statusText }))
+        throw new Error(errorBody.error ?? errorBody.detail ?? `Sync ${step} failed (${response.status})`)
       }
 
       return response.json()
+    },
+    []
+  )
+
+  const markJobFailed = useCallback(
+    async (supabase: ReturnType<typeof createClient>, jobId: string, message: string) => {
+      await supabase
+        .from("sync_jobs")
+        .update({
+          status: "failed",
+          error_message: message,
+        } as never)
+        .eq("id", jobId as never)
     },
     []
   )
@@ -168,11 +162,12 @@ function SyncProvider({ children }: { children: ReactNode }) {
           channelRef.current = channel
 
           try {
-            await invokeEdgeFunction(supabase, `sync-${step}`, jobId)
+            await invokeSyncStep(step, jobId)
           } catch (err) {
             const message = err instanceof Error ? err.message : "Unknown error"
             console.error(`Sync step ${step} failed:`, message)
             toast.error(`${label} sync failed: ${message}`)
+            await markJobFailed(supabase, jobId, message)
           }
 
           supabase.removeChannel(channel)
@@ -194,7 +189,7 @@ function SyncProvider({ children }: { children: ReactNode }) {
       setSyncing(false)
       setProgress(null)
     },
-    [syncing, invokeEdgeFunction]
+    [syncing, invokeSyncStep, markJobFailed]
   )
 
   const stopSync = useCallback(() => {
