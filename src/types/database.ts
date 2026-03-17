@@ -52,6 +52,7 @@ export interface Customer {
   org_number: string | null
   email: string | null
   phone: string | null
+  contact_name: string | null
   address_line1: string | null
   address_line2: string | null
   zip_code: string | null

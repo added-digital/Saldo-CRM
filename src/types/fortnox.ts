@@ -11,6 +11,7 @@ export interface FortnoxCustomer {
   Country: string | null
   Active: boolean
   CostCenter: string | null
+  YourReference: string | null
 }
 
 export interface FortnoxCostCenter {

@@ -68,6 +68,7 @@ export function mapFortnoxCustomerToDb(
     org_number: fortnoxCustomer.OrganisationNumber,
     email: fortnoxCustomer.Email,
     phone: fortnoxCustomer.Phone1,
+    contact_name: fortnoxCustomer.YourReference ?? null,
     address_line1: fortnoxCustomer.Address1,
     address_line2: fortnoxCustomer.Address2,
     zip_code: fortnoxCustomer.ZipCode,
