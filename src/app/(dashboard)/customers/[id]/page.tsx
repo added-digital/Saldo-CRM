@@ -15,6 +15,7 @@ import {
   Pencil,
   Trash2,
   Linkedin,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -24,11 +25,13 @@ import type {
   CustomerContact,
   CustomerContactLink,
   Profile,
+  Segment,
 } from "@/types/database"
 import { PageHeader } from "@/components/app/page-header"
 import { StatusBadge } from "@/components/app/status-badge"
 import { UserAvatar } from "@/components/app/user-avatar"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardContent,
@@ -79,6 +82,7 @@ export default function CustomerDetailPage({
     null,
   )
   const [contacts, setContacts] = React.useState<ContactWithLink[]>([])
+  const [segments, setSegments] = React.useState<Segment[]>([])
   const [loading, setLoading] = React.useState(true)
 
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -134,6 +138,14 @@ export default function CustomerDetailPage({
         link_id: link.id,
       })),
     )
+
+    const { data: csRows } = await supabase
+      .from("customer_segments")
+      .select("segment:segments(*)")
+      .eq("customer_id", id)
+
+    const rawSegments = (csRows ?? []) as unknown as { segment: Segment }[]
+    setSegments(rawSegments.map((r) => r.segment))
 
     setLoading(false)
   }
@@ -278,6 +290,24 @@ export default function CustomerDetailPage({
     fetchData()
   }
 
+  async function handleRemoveSegment(segmentId: string) {
+    const supabase = createClient()
+
+    const { error } = await supabase
+      .from("customer_segments")
+      .delete()
+      .eq("customer_id", id)
+      .eq("segment_id", segmentId)
+
+    if (error) {
+      toast.error("Failed to remove segment")
+      return
+    }
+
+    setSegments((prev) => prev.filter((s) => s.id !== segmentId))
+    toast.success("Segment removed")
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -412,6 +442,37 @@ export default function CustomerDetailPage({
                 <p className="text-sm text-muted-foreground">Unassigned</p>
               </div>
             )}
+
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">Segments</p>
+              {segments.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {segments.map((segment) => (
+                    <Badge
+                      key={segment.id}
+                      variant="outline"
+                      className="gap-1 pr-1 text-xs font-normal"
+                      style={{
+                        borderColor: segment.color,
+                        color: segment.color,
+                      }}
+                    >
+                      {segment.name}
+                      <button
+                        type="button"
+                        className="ml-0.5 rounded-sm p-0.5 opacity-60 transition-opacity hover:opacity-100"
+                        onClick={() => handleRemoveSegment(segment.id)}
+                      >
+                        <X className="size-3" />
+                        <span className="sr-only">Remove {segment.name}</span>
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No segments</p>
+              )}
+            </div>
 
             <Separator />
 

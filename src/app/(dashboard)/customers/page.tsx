@@ -145,25 +145,26 @@ export default function CustomersPage() {
 
     const customerIds = allRows.map((c) => c.id)
 
-    let segmentMap: Record<string, Segment[]> = {}
+    const segmentMap: Record<string, Segment[]> = {}
 
-    if (customerIds.length > 0) {
+    const BATCH = 200
+    for (let i = 0; i < customerIds.length; i += BATCH) {
+      const batch = customerIds.slice(i, i + BATCH)
+
       const { data: csRows } = await supabase
         .from("customer_segments")
         .select("customer_id, segment:segments(*)")
-        .in("customer_id", customerIds)
-        .range(0, 9999)
+        .in("customer_id", batch)
 
       const rawCs = (csRows ?? []) as unknown as {
         customer_id: string
         segment: Segment
       }[]
 
-      segmentMap = rawCs.reduce<Record<string, Segment[]>>((acc, row) => {
-        if (!acc[row.customer_id]) acc[row.customer_id] = []
-        acc[row.customer_id].push(row.segment)
-        return acc
-      }, {})
+      for (const row of rawCs) {
+        if (!segmentMap[row.customer_id]) segmentMap[row.customer_id] = []
+        segmentMap[row.customer_id].push(row.segment)
+      }
     }
 
     const enriched: CustomerWithRelations[] = allRows.map((c) => ({
