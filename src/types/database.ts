@@ -209,6 +209,7 @@ export interface CostCenter {
 export interface TimeReport {
   id: string
   unique_key: string
+  customer_id: string | null
   report_id: string | null
   report_date: string | null
   employee_id: string | null
