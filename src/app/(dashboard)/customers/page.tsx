@@ -9,7 +9,8 @@ import { createClient } from "@/lib/supabase/client"
 import type { CustomerWithRelations, Profile, Segment } from "@/types/database"
 import { PageHeader } from "@/components/app/page-header"
 import { DataTable } from "@/components/app/data-table"
-import { ActionBar } from "@/components/app/action-bar"
+import { CustomerToolbar } from "@/components/app/customer-toolbar"
+import { CustomerKpiView } from "@/components/app/customer-kpi-view"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -109,6 +110,7 @@ export default function CustomersPage() {
   const [checkedSegmentIds, setCheckedSegmentIds] = React.useState<Set<string>>(new Set())
   const [assigning, setAssigning] = React.useState(false)
   const clearSelectionRef = React.useRef<(() => void) | null>(null)
+  const [view, setView] = React.useState<"list" | "kpi">("list")
 
   async function fetchCustomers() {
     const supabase = createClient()
@@ -247,30 +249,36 @@ export default function CustomersPage() {
         description="Manage customer records synced from Fortnox"
       />
 
-      <DataTable
-        columns={columns}
-        data={customers}
-        searchKey="name"
-        searchPlaceholder="Search customers..."
-        loading={loading}
-        pageSize={15}
-        selectable
-        onSelectionChange={setSelectedCustomers}
-        clearSelectionRef={clearSelectionRef}
-        onRowNavigate={(customer) => router.push(`/customers/${customer.id}`)}
-        emptyState={{
-          icon: Users,
-          title: "No customers",
-          description:
-            "Connect Fortnox in Settings → Integrations to sync your customer database.",
-          action: {
-            label: "Go to Integrations",
-            onClick: () => router.push("/settings/integrations"),
-          },
-        }}
-      />
+      {view === "list" ? (
+        <DataTable
+          columns={columns}
+          data={customers}
+          searchKey="name"
+          searchPlaceholder="Search customers..."
+          loading={loading}
+          pageSize={15}
+          selectable
+          onSelectionChange={setSelectedCustomers}
+          clearSelectionRef={clearSelectionRef}
+          onRowNavigate={(customer) => router.push(`/customers/${customer.id}`)}
+          emptyState={{
+            icon: Users,
+            title: "No customers",
+            description:
+              "Connect Fortnox in Settings → Integrations to sync your customer database.",
+            action: {
+              label: "Go to Integrations",
+              onClick: () => router.push("/settings/integrations"),
+            },
+          }}
+        />
+      ) : (
+        <CustomerKpiView customers={customers} />
+      )}
 
-      <ActionBar
+      <CustomerToolbar
+        view={view}
+        onViewChange={setView}
         selectedCount={selectedCustomers.length}
         onClear={handleClearSelection}
         actions={[
