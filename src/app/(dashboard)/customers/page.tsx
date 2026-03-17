@@ -44,6 +44,13 @@ const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
     cell: ({ row }) => row.getValue("org_number") || "—",
   },
   {
+    accessorKey: "contact_name",
+    size: 180,
+    minSize: 100,
+    header: "Primary Contact",
+    cell: ({ row }) => row.getValue("contact_name") || "—",
+  },
+  {
     accessorKey: "email",
     size: 220,
     minSize: 100,
