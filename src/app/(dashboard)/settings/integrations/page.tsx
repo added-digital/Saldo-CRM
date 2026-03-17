@@ -4,7 +4,6 @@ import * as React from "react"
 import {
   Link2,
   Link2Off,
-  RefreshCw,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -24,13 +23,11 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { useUser } from "@/hooks/use-user"
-import { useSync } from "@/hooks/use-sync"
 import { formatDateTime } from "@/lib/utils"
 import { toast } from "sonner"
 
 export default function IntegrationsPage() {
   const { isAdmin } = useUser()
-  const { syncing, startSync, resetSyncStatus } = useSync()
   const [connection, setConnection] =
     React.useState<FortnoxConnection | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -67,16 +64,6 @@ export default function IntegrationsPage() {
     )
 
     window.location.href = `https://apps.fortnox.se/oauth-v1/auth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}&response_type=code&account_type=service`
-  }
-
-  async function handleSync() {
-    await startSync()
-    await fetchConnection()
-  }
-
-  async function handleResetSyncStatus() {
-    await resetSyncStatus()
-    await fetchConnection()
   }
 
   async function handleDisconnect() {
@@ -190,26 +177,8 @@ export default function IntegrationsPage() {
 
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
-                  onClick={handleSync}
-                  disabled={syncing || (!syncing && connection.sync_status === "syncing")}
-                >
-                  {syncing ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="size-4" />
-                  )}
-                  {syncing ? "Syncing..." : "Sync Now"}
-                </Button>
-                {!syncing && connection.sync_status === "syncing" && (
-                  <Button variant="outline" onClick={handleResetSyncStatus}>
-                    Reset Stuck Sync
-                  </Button>
-                )}
-                <Button
                   variant="destructive"
                   onClick={() => setDisconnectOpen(true)}
-                  disabled={syncing}
                 >
                   <Link2Off className="size-4" />
                   Disconnect
