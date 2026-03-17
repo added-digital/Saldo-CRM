@@ -6,6 +6,7 @@ import { use } from "react"
 import {
   ArrowLeft,
   Building2,
+  RefreshCw,
   Mail,
   Phone,
   MapPin,
@@ -20,6 +21,7 @@ import {
 import { toast } from "sonner"
 
 import { createClient } from "@/lib/supabase/client"
+import { CustomerMultiSelect } from "@/components/app/customer-multi-select"
 import type {
   Customer,
   CustomerContact,
@@ -58,6 +60,7 @@ import { formatDate } from "@/lib/utils"
 type ContactWithLink = CustomerContact & {
   relationship_label: string | null
   link_id: string
+  linked_customers: Pick<Customer, "id" | "name" | "fortnox_customer_number">[]
 }
 
 const EMPTY_FORM = {
@@ -82,12 +85,17 @@ export default function CustomerDetailPage({
     null,
   )
   const [contacts, setContacts] = React.useState<ContactWithLink[]>([])
+  const [allCustomers, setAllCustomers] = React.useState<
+    Pick<Customer, "id" | "name" | "fortnox_customer_number">[]
+  >([])
   const [segments, setSegments] = React.useState<Segment[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [syncingCustomer, setSyncingCustomer] = React.useState(false)
 
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editingContact, setEditingContact] =
     React.useState<ContactWithLink | null>(null)
+  const [relatedCustomerIds, setRelatedCustomerIds] = React.useState<string[]>([])
   const [form, setForm] = React.useState(EMPTY_FORM)
   const [saving, setSaving] = React.useState(false)
 
@@ -131,12 +139,49 @@ export default function CustomerDetailPage({
       contact: CustomerContact
     }[]
 
+    const contactIds = rawLinks.map((link) => link.contact_id)
+    const linkedCustomersByContactId = new Map<
+      string,
+      Pick<Customer, "id" | "name" | "fortnox_customer_number">[]
+    >()
+
+    if (contactIds.length > 0) {
+      const { data: allLinkRows } = await supabase
+        .from("customer_contact_links")
+        .select("contact_id, customer:customers(id, name, fortnox_customer_number)")
+        .in("contact_id", contactIds)
+
+      for (const row of (allLinkRows ?? []) as unknown as Array<{
+        contact_id: string
+        customer: Pick<Customer, "id" | "name" | "fortnox_customer_number"> | null
+      }>) {
+        if (!row.customer) continue
+        const existing = linkedCustomersByContactId.get(row.contact_id) ?? []
+        existing.push(row.customer)
+        linkedCustomersByContactId.set(row.contact_id, existing)
+      }
+    }
+
     setContacts(
       rawLinks.map((link) => ({
         ...link.contact,
         relationship_label: link.relationship_label,
         link_id: link.id,
+        linked_customers: linkedCustomersByContactId.get(link.contact_id) ?? [],
       })),
+    )
+
+    const { data: customerOptions } = await supabase
+      .from("customers")
+      .select("id, name, fortnox_customer_number")
+      .eq("status", "active")
+      .order("name")
+
+    setAllCustomers(
+      (customerOptions ?? []) as unknown as Pick<
+        Customer,
+        "id" | "name" | "fortnox_customer_number"
+      >[],
     )
 
     const { data: csRows } = await supabase
@@ -157,6 +202,7 @@ export default function CustomerDetailPage({
   function openAddDialog() {
     setEditingContact(null)
     setForm(EMPTY_FORM)
+    setRelatedCustomerIds([id])
     setDialogOpen(true)
   }
 
@@ -171,6 +217,7 @@ export default function CustomerDetailPage({
       notes: contact.notes ?? "",
       relationship_label: contact.relationship_label ?? "",
     })
+    setRelatedCustomerIds(contact.linked_customers.map((customer) => customer.id))
     setDialogOpen(true)
   }
 
@@ -218,6 +265,53 @@ export default function CustomerDetailPage({
         return
       }
 
+      const existingCustomerIds = new Set(
+        editingContact.linked_customers.map((customer) => customer.id),
+      )
+      const selectedCustomerIds = new Set(relatedCustomerIds)
+
+      const customerIdsToAdd = relatedCustomerIds.filter(
+        (customerId) => !existingCustomerIds.has(customerId),
+      )
+
+      if (customerIdsToAdd.length > 0) {
+        const { error: insertLinksError } = await supabase
+          .from("customer_contact_links")
+          .insert(
+            customerIdsToAdd.map((customerId) => ({
+              customer_id: customerId,
+              contact_id: editingContact.id,
+              relationship_label: customerId === id
+                ? form.relationship_label.trim() || null
+                : null,
+            })) as never,
+          )
+
+        if (insertLinksError) {
+          toast.error("Failed to add customer relations")
+          setSaving(false)
+          return
+        }
+      }
+
+      const customerIdsToRemove = editingContact.linked_customers
+        .map((customer) => customer.id)
+        .filter((customerId) => customerId !== id && !selectedCustomerIds.has(customerId))
+
+      if (customerIdsToRemove.length > 0) {
+        const { error: removeLinksError } = await supabase
+          .from("customer_contact_links")
+          .delete()
+          .eq("contact_id", editingContact.id)
+          .in("customer_id", customerIdsToRemove)
+
+        if (removeLinksError) {
+          toast.error("Failed to remove customer relations")
+          setSaving(false)
+          return
+        }
+      }
+
       toast.success("Contact updated")
     } else {
       const { data: newContact, error: insertError } = await supabase
@@ -234,13 +328,18 @@ export default function CustomerDetailPage({
 
       const inserted = newContact as unknown as { id: string }
 
+      const relationRows = Array.from(new Set(relatedCustomerIds)).map(
+        (customerId) => ({
+          customer_id: customerId,
+          contact_id: inserted.id,
+          relationship_label:
+            customerId === id ? form.relationship_label.trim() || null : null,
+        }),
+      )
+
       const { error: linkError } = await supabase
         .from("customer_contact_links")
-        .insert({
-          customer_id: id,
-          contact_id: inserted.id,
-          relationship_label: form.relationship_label.trim() || null,
-        } as never)
+        .insert(relationRows as never)
 
       if (linkError) {
         toast.error("Failed to link contact")
@@ -253,6 +352,7 @@ export default function CustomerDetailPage({
 
     setSaving(false)
     setDialogOpen(false)
+    setRelatedCustomerIds([])
     fetchData()
   }
 
@@ -308,6 +408,36 @@ export default function CustomerDetailPage({
     toast.success("Segment removed")
   }
 
+  async function handleSyncCustomer() {
+    setSyncingCustomer(true)
+
+    try {
+      const response = await fetch("/api/fortnox/sync-customer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ customerId: id }),
+      })
+
+      const result = (await response.json().catch(() => ({}))) as {
+        error?: string
+        message?: string
+      }
+
+      if (!response.ok) {
+        toast.error(result.message ?? result.error ?? "Failed to sync customer")
+        setSyncingCustomer(false)
+        return
+      }
+
+      toast.success(result.message ?? "Customer synced")
+      await fetchData()
+    } finally {
+      setSyncingCustomer(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -343,6 +473,12 @@ export default function CustomerDetailPage({
         <PageHeader title={customer.name}>
           <StatusBadge status={customer.status} />
         </PageHeader>
+        <div className="ml-auto">
+          <Button variant="outline" onClick={handleSyncCustomer} disabled={syncingCustomer}>
+            <RefreshCw className={syncingCustomer ? "size-4 animate-spin" : "size-4"} />
+            {syncingCustomer ? "Syncing..." : "Sync Customer"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -569,6 +705,15 @@ export default function CustomerDetailPage({
                           {contact.notes}
                         </p>
                       )}
+                      {contact.linked_customers.length > 1 && (
+                        <div className="flex flex-wrap gap-1.5 pt-2">
+                          {contact.linked_customers.map((linkedCustomer) => (
+                            <Badge key={linkedCustomer.id} variant="outline" className="font-normal">
+                              {linkedCustomer.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-1">
@@ -719,6 +864,15 @@ export default function CustomerDetailPage({
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, notes: e.target.value }))
                 }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Related Customers</Label>
+              <CustomerMultiSelect
+                customers={allCustomers}
+                selectedIds={relatedCustomerIds}
+                onChange={setRelatedCustomerIds}
+                lockedIds={[id]}
               />
             </div>
             <div className="flex justify-end gap-2">
