@@ -85,11 +85,13 @@ export class FortnoxClient {
     return this.request<{ CostCenters: Array<Record<string, unknown>> }>(`/3/costcenters`)
   }
 
-  async getInvoices(page = 1, limit = 100) {
+  async getInvoices(page = 1, limit = 100, fromDate?: string) {
+    let url = `/3/invoices?limit=${limit}&page=${page}`
+    if (fromDate) url += `&fromdate=${fromDate}`
     return this.request<{
       Invoices: Array<Record<string, unknown>>
       MetaInformation: { "@TotalResources": number; "@TotalPages": number; "@CurrentPage": number }
-    }>(`/3/invoices?limit=${limit}&page=${page}`)
+    }>(url)
   }
 
   async getInvoice(documentNumber: string) {

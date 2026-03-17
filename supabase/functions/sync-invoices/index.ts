@@ -3,7 +3,7 @@ import { getFortnoxClient, updateSyncJob, delay, corsHeaders } from "../_shared/
 
 const RATE_LIMIT_DELAY_MS = 350
 const PAGES_PER_BATCH = 10
-const UPSERT_CHUNK_SIZE = 100
+const INVOICE_FROM_DATE = "2025-01-01"
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -25,93 +25,9 @@ Deno.serve(async (req) => {
       if (jobId) {
         await updateSyncJob(supabase, jobId, {
           status: "processing",
-          current_step: "Fetching invoices from Fortnox...",
+          current_step: `Fetching invoices from ${INVOICE_FROM_DATE}...`,
         })
       }
-
-      const startPage = offset + 1
-      const allInvoices: Array<Record<string, unknown>> = []
-      let currentPage = startPage
-      let totalPages = 1
-      let pagesThisBatch = 0
-
-      do {
-        const response = await client.getInvoices(currentPage, 100)
-        totalPages = response.MetaInformation["@TotalPages"]
-        const invoices = response.Invoices ?? []
-        allInvoices.push(...invoices)
-
-        pagesThisBatch++
-        currentPage++
-
-        if (currentPage <= totalPages && pagesThisBatch < PAGES_PER_BATCH) {
-          await delay(RATE_LIMIT_DELAY_MS)
-        }
-      } while (currentPage <= totalPages && pagesThisBatch < PAGES_PER_BATCH)
-
-      let existingInvoices: Array<Record<string, unknown>> = []
-      if (jobId) {
-        const { data: jobRow } = await supabase
-          .from("sync_jobs")
-          .select("payload")
-          .eq("id", jobId)
-          .single()
-
-        const payload = (jobRow as unknown as { payload: Record<string, unknown> } | null)?.payload
-        existingInvoices = (payload?.invoices as Array<Record<string, unknown>>) ?? []
-      }
-
-      const accumulated = [...existingInvoices, ...allInvoices]
-      const morePages = currentPage <= totalPages
-
-      if (jobId) {
-        if (morePages) {
-          await updateSyncJob(supabase, jobId, {
-            current_step: `Fetching invoices (page ${currentPage - 1}/${totalPages})...`,
-            payload: { step_name: "invoices", step_label: "Invoices", invoices: accumulated },
-            batch_phase: "list",
-            batch_offset: currentPage - 1,
-            dispatch_lock: false,
-          })
-        } else {
-          const total = accumulated.length
-          await updateSyncJob(supabase, jobId, {
-            total_items: total,
-            processed_items: 0,
-            current_step: "Upserting invoices...",
-            payload: { step_name: "invoices", step_label: "Invoices", invoices: accumulated, synced: 0, errors: 0 },
-            batch_phase: "process",
-            batch_offset: 0,
-            dispatch_lock: false,
-          })
-        }
-      }
-
-      return new Response(
-        JSON.stringify({ ok: true, phase: "list", morePages }),
-        { headers: { ...corsHeaders(), "Content-Type": "application/json" } }
-      )
-    }
-
-    if (phase === "process") {
-      let invoices: Array<Record<string, unknown>> = []
-      let prevSynced = 0
-      let prevErrors = 0
-
-      if (jobId) {
-        const { data: jobRow } = await supabase
-          .from("sync_jobs")
-          .select("payload, total_items")
-          .eq("id", jobId)
-          .single()
-
-        const payload = (jobRow as unknown as { payload: Record<string, unknown> } | null)?.payload
-        invoices = (payload?.invoices as Array<Record<string, unknown>>) ?? []
-        prevSynced = (payload?.synced as number) ?? 0
-        prevErrors = (payload?.errors as number) ?? 0
-      }
-
-      const total = invoices.length
 
       const { data: customers } = await supabase
         .from("customers")
@@ -126,51 +42,127 @@ Deno.serve(async (req) => {
         }
       }
 
+      let prevSynced = 0
+      let prevErrors = 0
+      let prevTotal = 0
+
+      if (jobId && offset > 0) {
+        const { data: jobRow } = await supabase
+          .from("sync_jobs")
+          .select("payload")
+          .eq("id", jobId)
+          .single()
+
+        const payload = (jobRow as unknown as { payload: Record<string, unknown> } | null)?.payload
+        prevSynced = (payload?.synced as number) ?? 0
+        prevErrors = (payload?.errors as number) ?? 0
+        prevTotal = (payload?.total as number) ?? 0
+      }
+
       let synced = prevSynced
       let errors = prevErrors
+      let totalFetched = prevTotal
+      let skipped = 0
+      let firstError: string | null = null
 
-      for (let i = 0; i < invoices.length; i += UPSERT_CHUNK_SIZE) {
-        const chunk = invoices.slice(i, i + UPSERT_CHUNK_SIZE)
+      const startPage = offset + 1
+      let currentPage = startPage
+      let totalPages = 1
+      let pagesThisBatch = 0
 
-        const mapped = chunk.map((inv) => {
-          const customerNumber = (inv.CustomerNumber as string) ?? null
-          return {
-            document_number: inv.DocumentNumber as string,
-            customer_id: customerNumber ? (customerMap.get(customerNumber) ?? null) : null,
-            fortnox_customer_number: customerNumber,
-            customer_name: (inv.CustomerName as string) ?? null,
-            invoice_date: (inv.InvoiceDate as string) ?? null,
-            total: inv.Total != null ? Number(inv.Total) : null,
-            balance: inv.Balance != null ? Number(inv.Balance) : null,
-            currency_code: (inv.Currency as string) ?? "SEK",
+      do {
+        const response = await client.getInvoices(currentPage, 100, INVOICE_FROM_DATE)
+        totalPages = response.MetaInformation["@TotalPages"]
+        const invoices = response.Invoices ?? []
+
+        const mapped = invoices
+          .filter((inv: Record<string, unknown>) => {
+            if (inv.DocumentNumber == null) return false
+            const cn = inv.CustomerNumber != null ? String(inv.CustomerNumber) : null
+            if (!cn || !customerMap.has(cn)) {
+              skipped++
+              return false
+            }
+            return true
+          })
+          .map((inv: Record<string, unknown>) => {
+            const customerNumber = String(inv.CustomerNumber)
+            return {
+              document_number: String(inv.DocumentNumber),
+              customer_id: customerMap.get(customerNumber) ?? null,
+              fortnox_customer_number: customerNumber,
+              customer_name: inv.CustomerName != null ? String(inv.CustomerName) : null,
+              invoice_date: (inv.InvoiceDate as string) ?? null,
+              total: inv.Total != null ? Number(inv.Total) : null,
+              balance: inv.Balance != null ? Number(inv.Balance) : null,
+              currency_code: inv.Currency != null ? String(inv.Currency) : "SEK",
+            }
+          })
+
+        if (mapped.length > 0) {
+          const { error: upsertError } = await supabase
+            .from("invoices")
+            .upsert(mapped as never, { onConflict: "document_number" })
+
+          if (upsertError) {
+            console.error("Invoice upsert error:", upsertError.message, upsertError.details)
+            if (!firstError) firstError = upsertError.message
+            errors += invoices.length
+          } else {
+            synced += mapped.length
           }
-        })
+        }
 
-        const { error: upsertError } = await supabase
-          .from("invoices")
-          .upsert(mapped as never, { onConflict: "document_number" })
+        totalFetched += invoices.length
 
-        if (upsertError) {
-          errors += chunk.length
+        pagesThisBatch++
+        currentPage++
+
+        if (currentPage <= totalPages && pagesThisBatch < PAGES_PER_BATCH) {
+          await delay(RATE_LIMIT_DELAY_MS)
+        }
+      } while (currentPage <= totalPages && pagesThisBatch < PAGES_PER_BATCH)
+
+      const morePages = currentPage <= totalPages
+
+      if (jobId) {
+        const updatePayload: Record<string, unknown> = {
+          step_name: "invoices",
+          step_label: "Invoices",
+          synced,
+          errors,
+          skipped,
+          total: totalFetched,
+        }
+        if (firstError) updatePayload.upsert_error = firstError
+
+        if (morePages) {
+          await updateSyncJob(supabase, jobId, {
+            current_step: `Syncing invoices (page ${currentPage - 1}/${totalPages}, ${synced} saved, ${skipped} skipped)...`,
+            total_items: totalPages * 100,
+            processed_items: totalFetched,
+            progress: Math.round(((currentPage - 1) / totalPages) * 80),
+            payload: updatePayload,
+            batch_phase: "list",
+            batch_offset: currentPage - 1,
+            dispatch_lock: false,
+          })
         } else {
-          synced += chunk.length
+          await updateSyncJob(supabase, jobId, {
+            total_items: totalFetched,
+            processed_items: totalFetched,
+            progress: 90,
+            current_step: errors > 0 ? `Synced with ${errors} errors (${skipped} skipped), computing KPIs...` : `${synced} invoices saved (${skipped} skipped), computing KPIs...`,
+            payload: updatePayload,
+            batch_phase: "finalize",
+            batch_offset: 0,
+            dispatch_lock: false,
+          })
         }
       }
 
-      if (jobId) {
-        await updateSyncJob(supabase, jobId, {
-          progress: 90,
-          processed_items: total,
-          current_step: "Computing KPIs...",
-          payload: { step_name: "invoices", step_label: "Invoices", synced, errors },
-          batch_phase: "finalize",
-          batch_offset: 0,
-          dispatch_lock: false,
-        })
-      }
-
       return new Response(
-        JSON.stringify({ ok: true, phase: "process", total, synced, errors }),
+        JSON.stringify({ ok: true, phase: "list", morePages, synced, errors, skipped }),
         { headers: { ...corsHeaders(), "Content-Type": "application/json" } }
       )
     }
