@@ -95,6 +95,11 @@ export interface SyncJob {
   error_message: string | null
   payload: Record<string, unknown> | null
   started_by: string | null
+  step_name: string | null
+  batch_phase: string | null
+  batch_offset: number
+  dispatch_lock: boolean
+  last_dispatched_at: string | null
   created_at: string
   updated_at: string
 }

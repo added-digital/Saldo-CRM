@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "@/types/database"
 
-export const maxDuration = 300
-
 const VALID_STEPS = new Set([
   "customers",
   "employees",
@@ -11,6 +9,14 @@ const VALID_STEPS = new Set([
   "time-reports",
   "contracts",
 ])
+
+const STEP_LABELS: Record<string, string> = {
+  customers: "Customers",
+  employees: "Employees",
+  invoices: "Invoices",
+  "time-reports": "Time Reports",
+  contracts: "Contracts",
+}
 
 async function authorize() {
   const supabase = await createClient()
@@ -32,7 +38,7 @@ async function authorize() {
 }
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ step: string }> }
 ) {
   try {
@@ -53,37 +59,43 @@ export async function POST(
       )
     }
 
-    const body = await request.json().catch(() => ({}))
-    const jobId = (body.job_id as string) ?? null
+    const supabase = await createClient()
+    const label = STEP_LABELS[step] ?? step
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-    const functionName = `sync-${step}`
-    const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`
+    const { data: jobRow, error: insertError } = await supabase
+      .from("sync_jobs")
+      .insert({
+        status: "pending",
+        progress: 0,
+        current_step: `Waiting for ${label}...`,
+        total_items: 0,
+        processed_items: 0,
+        step_name: step,
+        batch_phase: "list",
+        batch_offset: 0,
+        dispatch_lock: false,
+        started_by: user.id,
+        payload: { step_name: step, step_label: label },
+      } as never)
+      .select("id")
+      .single()
 
-    const response = await fetch(functionUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${serviceRoleKey}`,
-      },
-      body: JSON.stringify({ job_id: jobId }),
-    })
-
-    if (!response.ok) {
-      const errorBody = await response.text()
+    if (insertError || !jobRow) {
       return NextResponse.json(
-        { error: `Edge Function ${functionName} failed`, detail: errorBody },
-        { status: response.status }
+        { error: "Failed to create sync job", detail: insertError?.message },
+        { status: 500 }
       )
     }
 
-    const data = await response.json()
-    return NextResponse.json(data)
+    return NextResponse.json({
+      job_id: (jobRow as unknown as { id: string }).id,
+      step,
+      message: `Sync job queued for ${label}. pg_cron will process it automatically.`,
+    })
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Sync proxy failed",
+        error: "Sync trigger failed",
         message: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }

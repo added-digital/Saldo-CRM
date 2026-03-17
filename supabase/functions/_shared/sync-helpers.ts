@@ -9,6 +9,9 @@ export interface SyncJobUpdate {
   processed_items?: number
   error_message?: string | null
   payload?: Record<string, unknown>
+  batch_phase?: string | null
+  batch_offset?: number
+  dispatch_lock?: boolean
 }
 
 export async function updateSyncJob(

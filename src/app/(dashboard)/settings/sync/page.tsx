@@ -13,6 +13,7 @@ import {
   Clock,
   FileSignature,
   Square,
+  Trash2,
 } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatDateTime } from "@/lib/utils"
+import { toast } from "sonner"
 
 const STEP_ICONS: Record<SyncStep, React.ElementType> = {
   customers: Building2,
@@ -51,6 +53,7 @@ export default function SyncPage() {
   const { syncing, progress, startSync, stopSync } = useSync()
   const [recentJobs, setRecentJobs] = React.useState<SyncJob[]>([])
   const [loadingJobs, setLoadingJobs] = React.useState(true)
+  const [clearing, setClearing] = React.useState(false)
 
   const fetchRecentJobs = React.useCallback(async () => {
     const supabase = createClient()
@@ -58,7 +61,7 @@ export default function SyncPage() {
       .from("sync_jobs")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(10)
+      .limit(20)
 
     setRecentJobs((data ?? []) as unknown as SyncJob[])
     setLoadingJobs(false)
@@ -69,10 +72,27 @@ export default function SyncPage() {
   }, [fetchRecentJobs])
 
   React.useEffect(() => {
-    if (!syncing && !loadingJobs) {
-      fetchRecentJobs()
+    const supabase = createClient()
+
+    const channel = supabase
+      .channel("sync-jobs-list")
+      .on(
+        "postgres_changes" as never,
+        {
+          event: "*",
+          schema: "public",
+          table: "sync_jobs",
+        } as never,
+        () => {
+          fetchRecentJobs()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
-  }, [syncing, loadingJobs, fetchRecentJobs])
+  }, [fetchRecentJobs])
 
   if (!isAdmin) {
     return (
@@ -178,10 +198,39 @@ export default function SyncPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Recent Sync Jobs</CardTitle>
-          <CardDescription>
-            History of the last 10 sync operations
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-base">Recent Sync Jobs</CardTitle>
+              <CardDescription>
+                History of the last 20 sync operations
+              </CardDescription>
+            </div>
+            {recentJobs.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={clearing || syncing}
+                onClick={async () => {
+                  setClearing(true)
+                  const supabase = createClient()
+                  const { error } = await supabase
+                    .from("sync_jobs")
+                    .delete()
+                    .not("status", "in", '("pending","processing")' as never)
+                  if (error) {
+                    toast.error("Failed to clear sync history")
+                  } else {
+                    toast.success("Sync history cleared")
+                    fetchRecentJobs()
+                  }
+                  setClearing(false)
+                }}
+              >
+                <Trash2 className="size-4" />
+                {clearing ? "Clearing..." : "Clear History"}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {loadingJobs ? (
@@ -194,32 +243,41 @@ export default function SyncPage() {
             </p>
           ) : (
             <div className="space-y-2">
-              {recentJobs.map((job) => (
-                <div
-                  key={job.id}
-                  className="flex items-center justify-between rounded-md border p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <SyncStatusIcon status={job.status} />
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium">
-                        {job.current_step ?? "Sync"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDateTime(job.created_at)}
-                      </p>
+              {recentJobs.map((job) => {
+                const stepLabel = (job.payload as Record<string, unknown> | null)?.step_label as string | undefined
+
+                return (
+                  <div
+                    key={job.id}
+                    className="flex items-center justify-between rounded-md border p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <SyncStatusIcon status={job.status} />
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium">
+                          {stepLabel ?? job.current_step ?? "Sync"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDateTime(job.created_at)}
+                        </p>
+                        {job.status === "failed" && job.error_message && (
+                          <p className="text-xs text-destructive">
+                            {job.error_message}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {job.total_items > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {job.processed_items}/{job.total_items} items
+                        </span>
+                      )}
+                      <SyncStatusBadge status={job.status} />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {job.total_items > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {job.processed_items}/{job.total_items} items
-                      </span>
-                    )}
-                    <SyncStatusBadge status={job.status} />
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>
