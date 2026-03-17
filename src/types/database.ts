@@ -210,6 +210,10 @@ export interface TimeReport {
   id: string
   unique_key: string
   customer_id: string | null
+  entry_type: string
+  registration_code: string | null
+  registration_type: string | null
+  source_endpoint: string | null
   report_id: string | null
   report_date: string | null
   employee_id: string | null

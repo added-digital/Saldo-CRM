@@ -35,6 +35,10 @@ export class FortnoxClient {
     return response.json() as Promise<T>
   }
 
+  async requestPath<T>(path: string, options?: RequestInit): Promise<T> {
+    return this.request<T>(path, options)
+  }
+
   async getCustomers(page: number = 1, limit: number = 500): Promise<FortnoxCustomerListResponse> {
     return this.request<FortnoxCustomerListResponse>(
       `/3/customers?limit=${limit}&page=${page}`
