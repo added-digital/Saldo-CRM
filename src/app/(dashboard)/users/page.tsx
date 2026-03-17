@@ -412,6 +412,7 @@ export default function UsersPage() {
         searchKey="full_name"
         searchPlaceholder="Search users..."
         loading={loading}
+        pageSize={10}
         emptyState={{
           icon: Shield,
           title: "No users",

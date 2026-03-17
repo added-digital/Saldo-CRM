@@ -245,6 +245,7 @@ export default function CustomersPage() {
         searchKey="name"
         searchPlaceholder="Search customers..."
         loading={loading}
+        pageSize={15}
         selectable
         onSelectionChange={setSelectedCustomers}
         clearSelectionRef={clearSelectionRef}
