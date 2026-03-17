@@ -81,7 +81,7 @@ $$;
 
 SELECT cron.schedule(
   'process-sync-queue',
-  '10 seconds',
+  '* * * * *',
   $$SELECT process_sync_queue()$$
 );
 

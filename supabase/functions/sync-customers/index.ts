@@ -148,6 +148,7 @@ Deno.serve(async (req) => {
             })
 
           if (upsertError) {
+            console.error("Customer upsert error:", upsertError.message, upsertError.details)
             errors++
           } else {
             synced++
