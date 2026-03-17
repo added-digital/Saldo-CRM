@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { exchangeCodeForTokens } from "@/lib/fortnox/auth"
+import { exchangeCodeForTokens, extractTenantIdFromJwt } from "@/lib/fortnox/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { FortnoxConnection } from "@/types/database"
 
@@ -32,11 +32,13 @@ export async function GET(request: NextRequest) {
       Date.now() + tokens.expires_in * 1000
     ).toISOString()
 
+    const tenantId = extractTenantIdFromJwt(tokens.access_token)
+
     const connectionData: Omit<FortnoxConnection, "id" | "connected_at" | "updated_at"> = {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       token_expires_at: tokenExpiresAt,
-      fortnox_tenant_id: null,
+      fortnox_tenant_id: tenantId,
       connected_by: null,
       last_sync_at: null,
       sync_status: "idle",

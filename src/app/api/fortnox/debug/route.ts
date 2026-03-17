@@ -2,8 +2,44 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { FortnoxClient } from "@/lib/fortnox/client"
-import { refreshAccessToken } from "@/lib/fortnox/auth"
+import { requestAccessToken } from "@/lib/fortnox/auth"
 import type { Profile, FortnoxConnection } from "@/types/database"
+
+async function getFortnoxClient(adminClient: ReturnType<typeof createAdminClient>): Promise<FortnoxClient> {
+  const { data: connData } = await adminClient
+    .from("fortnox_connection")
+    .select("*")
+    .limit(1)
+    .single()
+
+  if (!connData) {
+    throw new Error("No Fortnox connection")
+  }
+
+  const conn = connData as unknown as FortnoxConnection
+
+  if (!conn.fortnox_tenant_id) {
+    throw new Error("No TenantId stored. Reconnect Fortnox via Settings → Integrations.")
+  }
+
+  const tokenExpiry = new Date(conn.token_expires_at)
+  if (tokenExpiry.getTime() - 5 * 60 * 1000 < Date.now()) {
+    const tokens = await requestAccessToken(conn.fortnox_tenant_id)
+    const newExpiry = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+
+    await adminClient
+      .from("fortnox_connection")
+      .update({
+        access_token: tokens.access_token,
+        token_expires_at: newExpiry,
+      } as never)
+      .eq("id", conn.id as never)
+
+    return new FortnoxClient(tokens.access_token)
+  }
+
+  return new FortnoxClient(conn.access_token)
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,26 +71,7 @@ export async function GET(request: NextRequest) {
 
     const customerNumber = request.nextUrl.searchParams.get("customer")
     if (customerNumber) {
-      const { data: connData } = await adminClient
-        .from("fortnox_connection")
-        .select("*")
-        .limit(1)
-        .single()
-
-      if (!connData) {
-        return NextResponse.json({ error: "No Fortnox connection" }, { status: 400 })
-      }
-
-      const conn = connData as unknown as FortnoxConnection
-      let accessToken = conn.access_token
-
-      const tokenExpiry = new Date(conn.token_expires_at)
-      if (tokenExpiry.getTime() - 5 * 60 * 1000 < Date.now()) {
-        const tokens = await refreshAccessToken(conn.refresh_token)
-        accessToken = tokens.access_token
-      }
-
-      const fortnox = new FortnoxClient(accessToken)
+      const fortnox = await getFortnoxClient(adminClient)
       const result = await fortnox.getCustomer(customerNumber)
 
       return NextResponse.json({

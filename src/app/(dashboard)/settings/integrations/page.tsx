@@ -66,7 +66,7 @@ export default function IntegrationsPage() {
       "companyinformation customer invoice article costcenter bookkeeping settings salary"
     )
 
-    window.location.href = `https://apps.fortnox.se/oauth-v1/auth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}&response_type=code`
+    window.location.href = `https://apps.fortnox.se/oauth-v1/auth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${state}&response_type=code&account_type=service`
   }
 
   async function handleSync() {
