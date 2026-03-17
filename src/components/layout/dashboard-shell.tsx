@@ -6,7 +6,6 @@ import { SyncProvider } from "@/hooks/use-sync"
 import { SidebarProvider, Sidebar } from "@/components/layout/sidebar"
 import { SidebarNav } from "@/components/layout/sidebar-nav"
 import { Topbar } from "@/components/layout/topbar"
-import { SyncProgressBar } from "@/components/app/sync-progress-bar"
 
 function DashboardShell({
   profile,
@@ -25,7 +24,6 @@ function DashboardShell({
             </Sidebar>
             <div className="flex flex-1 flex-col overflow-hidden">
               <Topbar />
-              <SyncProgressBar />
               <main className="flex-1 overflow-y-auto p-6">
                 {children}
               </main>

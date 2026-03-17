@@ -2,17 +2,16 @@
 
 import * as React from "react"
 import {
-  RefreshCw,
   Loader2,
   CheckCircle2,
   XCircle,
+  RefreshCw,
   Play,
   Users,
   Building2,
   FileText,
   Clock,
   FileSignature,
-  Square,
   Trash2,
 } from "lucide-react"
 
@@ -50,7 +49,7 @@ const STEP_DESCRIPTIONS: Record<SyncStep, string> = {
 
 export default function SyncPage() {
   const { isAdmin } = useUser()
-  const { syncing, progress, startSync, stopSync } = useSync()
+  const { syncing, startSync } = useSync()
   const [recentJobs, setRecentJobs] = React.useState<SyncJob[]>([])
   const [loadingJobs, setLoadingJobs] = React.useState(true)
   const [clearing, setClearing] = React.useState(false)
@@ -102,63 +101,18 @@ export default function SyncPage() {
     )
   }
 
-  const overallProgress = progress
-    ? Math.round((progress.synced / progress.total) * 100)
-    : 0
-
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <CardTitle className="text-base">Fortnox Sync</CardTitle>
-              <CardDescription>
-                Run individual sync steps or sync everything at once
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              {syncing && (
-                <Button variant="outline" onClick={stopSync}>
-                  <Square className="size-4" />
-                  Stop
-                </Button>
-              )}
-              <Button onClick={() => startSync()} disabled={syncing}>
-                {syncing ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="size-4" />
-                )}
-                {syncing ? "Syncing..." : "Sync All"}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        {syncing && progress && (
-          <CardContent className="pt-0">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{progress.step}</span>
-                <span className="font-medium">
-                  {progress.synced}/{progress.total} steps
-                </span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-300"
-                  style={{ width: `${overallProgress}%` }}
-                />
-              </div>
-            </div>
-          </CardContent>
-        )}
-      </Card>
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {SYNC_STEPS.map((step) => {
           const Icon = STEP_ICONS[step]
-          const isCurrentStep = syncing && progress?.step.includes(STEP_LABELS[step])
+          const runningJobs = recentJobs.filter(
+            (j) =>
+              (j.status === "pending" || j.status === "processing") &&
+              ((j.payload as Record<string, unknown> | null)?.step_name === step ||
+                j.step_name === step)
+          )
+          const isRunning = runningJobs.length > 0
 
           return (
             <Card key={step}>
@@ -168,7 +122,7 @@ export default function SyncPage() {
                     <Icon className="size-4 text-muted-foreground" />
                     {STEP_LABELS[step]}
                   </CardTitle>
-                  {isCurrentStep && (
+                  {isRunning && (
                     <Badge variant="secondary" className="font-normal">
                       <Loader2 className="mr-1 size-3 animate-spin" />
                       Running
@@ -184,7 +138,7 @@ export default function SyncPage() {
                   variant="outline"
                   size="sm"
                   className="w-full"
-                  disabled={syncing}
+                  disabled={syncing || isRunning}
                   onClick={() => startSync([step])}
                 >
                   <Play className="size-3" />
@@ -209,7 +163,7 @@ export default function SyncPage() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={clearing || syncing}
+                disabled={clearing}
                 onClick={async () => {
                   setClearing(true)
                   const supabase = createClient()
