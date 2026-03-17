@@ -61,10 +61,7 @@ async function getConnectionWithValidToken(
 
 export function mapFortnoxCustomerToDb(
   fortnoxCustomer: FortnoxCustomer
-): Omit<
-  Database["public"]["Tables"]["customers"]["Insert"],
-  "account_manager_id"
-> {
+): Database["public"]["Tables"]["customers"]["Insert"] {
   return {
     fortnox_customer_number: fortnoxCustomer.CustomerNumber,
     name: fortnoxCustomer.Name,
@@ -362,7 +359,7 @@ export async function syncEmployees(
   return { created, updated, skipped, errors }
 }
 
-export async function linkCustomerAccountManagers(
+export async function linkCostCentersToProfiles(
   supabase: AdminClient
 ): Promise<{ linked: number; unmatched: number }> {
   const { data: costCenters } = (await supabase
@@ -404,45 +401,22 @@ export async function linkCustomerAccountManagers(
     }
   }
 
-  const costCenterCodeToProfileId = new Map<string, string>()
-  for (const cc of costCenters) {
-    if (cc.name) {
-      const profileId = nameToProfileId.get(normalizeName(cc.name).toLowerCase())
-      if (profileId) {
-        costCenterCodeToProfileId.set(cc.code, profileId)
-
-        await supabase
-          .from("profiles")
-          .update({ fortnox_cost_center: cc.code } as never)
-          .eq("id", profileId as never)
-      }
-    }
-  }
-
-  const { data: customers } = (await supabase
-    .from("customers")
-    .select("id, fortnox_cost_center")
-    .not("fortnox_cost_center", "is", null)) as unknown as {
-    data: { id: string; fortnox_cost_center: string | null }[] | null
-  }
-
-  if (!customers || customers.length === 0) {
-    return { linked: 0, unmatched: 0 }
-  }
-
   let linked = 0
   let unmatched = 0
 
-  for (const customer of customers) {
-    if (!customer.fortnox_cost_center) continue
+  for (const cc of costCenters) {
+    if (!cc.name) {
+      unmatched++
+      continue
+    }
 
-    const profileId = costCenterCodeToProfileId.get(customer.fortnox_cost_center)
+    const profileId = nameToProfileId.get(normalizeName(cc.name).toLowerCase())
 
     if (profileId) {
       await supabase
-        .from("customers")
-        .update({ account_manager_id: profileId } as never)
-        .eq("id", customer.id as never)
+        .from("profiles")
+        .update({ fortnox_cost_center: cc.code } as never)
+        .eq("id", profileId as never)
 
       linked++
     } else {

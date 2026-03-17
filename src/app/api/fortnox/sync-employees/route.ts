@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { syncEmployees, linkCustomerAccountManagers } from "@/lib/fortnox/sync"
+import { syncEmployees, linkCostCentersToProfiles } from "@/lib/fortnox/sync"
 import type { Profile } from "@/types/database"
 
 export async function POST() {
@@ -33,7 +33,7 @@ export async function POST() {
     const adminClient = createAdminClient()
 
     const employeeResult = await syncEmployees(adminClient)
-    const linkResult = await linkCustomerAccountManagers(adminClient)
+    const linkResult = await linkCostCentersToProfiles(adminClient)
 
     return NextResponse.json({
       employees: employeeResult,

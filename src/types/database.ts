@@ -58,7 +58,6 @@ export interface Customer {
   city: string | null
   country: string | null
   status: CustomerStatus
-  account_manager_id: string | null
   industry: string | null
   revenue: number | null
   employees: number | null

@@ -10,15 +10,9 @@ export const createCustomerSchema = z.object({
   zip_code: z.string().max(10).optional().or(z.literal("")),
   city: z.string().max(100).optional().or(z.literal("")),
   country: z.string().max(2).optional().default("SE"),
-  account_manager_id: z.uuid("Invalid user ID").nullable().optional(),
 })
 
 export const updateCustomerSchema = createCustomerSchema.partial()
 
-export const assignAccountManagerSchema = z.object({
-  account_manager_id: z.uuid("Invalid user ID").nullable(),
-})
-
 export type CreateCustomerInput = z.infer<typeof createCustomerSchema>
 export type UpdateCustomerInput = z.infer<typeof updateCustomerSchema>
-export type AssignAccountManagerInput = z.infer<typeof assignAccountManagerSchema>

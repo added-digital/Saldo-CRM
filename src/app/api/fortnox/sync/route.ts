@@ -5,7 +5,7 @@ import {
   syncCostCenters,
   fetchAllCustomerNumbers,
   syncCustomerBatch,
-  linkCustomerAccountManagers,
+  linkCostCentersToProfiles,
   setSyncStatus,
 } from "@/lib/fortnox/sync"
 import type { Profile } from "@/types/database"
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (step === "link") {
-      const linkResult = await linkCustomerAccountManagers(adminClient)
+      const linkResult = await linkCostCentersToProfiles(adminClient)
       await setSyncStatus(adminClient, "idle")
 
       return NextResponse.json({
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
       fromIndex = result.nextIndex
     }
 
-    const linkResult = await linkCustomerAccountManagers(adminClient)
+    const linkResult = await linkCostCentersToProfiles(adminClient)
 
     return NextResponse.json({
       costCenters: costCenterResult,

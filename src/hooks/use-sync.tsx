@@ -92,7 +92,7 @@ function SyncProvider({ children }: { children: ReactNode }) {
       }
 
       if (!abortRef.current) {
-        setProgress({ total, synced: totalSynced, step: "Linking account managers..." })
+        setProgress({ total, synced: totalSynced, step: "Linking cost centers..." })
 
         const linkRes = await fetch("/api/fortnox/sync", {
           method: "POST",

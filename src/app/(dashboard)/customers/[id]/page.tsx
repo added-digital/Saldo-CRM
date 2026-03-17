@@ -49,11 +49,12 @@ export default function CustomerDetailPage({
       const c = customerData as unknown as Customer | null
       setCustomer(c)
 
-      if (c?.account_manager_id) {
+      if (c?.fortnox_cost_center) {
         const { data: managerData } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", c.account_manager_id)
+          .eq("fortnox_cost_center", c.fortnox_cost_center)
+          .eq("is_active", true)
           .single()
 
         setAccountManager(managerData as unknown as Profile | null)

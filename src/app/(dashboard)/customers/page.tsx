@@ -6,7 +6,7 @@ import { type ColumnDef } from "@tanstack/react-table"
 import { Users, Tags } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
-import type { CustomerWithRelations, Segment } from "@/types/database"
+import type { CustomerWithRelations, Profile, Segment } from "@/types/database"
 import { PageHeader } from "@/components/app/page-header"
 import { DataTable } from "@/components/app/data-table"
 import { ActionBar } from "@/components/app/action-bar"
@@ -107,24 +107,33 @@ export default function CustomersPage() {
     const supabase = createClient()
 
     const PAGE_SIZE = 1000
-    let allRows: (CustomerWithRelations & {
-      account_manager: CustomerWithRelations["account_manager"]
-    })[] = []
+    let allRows: CustomerWithRelations[] = []
     let from = 0
     let hasMore = true
 
     while (hasMore) {
       const { data } = await supabase
         .from("customers")
-        .select("*, account_manager:profiles!account_manager_id(id, full_name, email)")
+        .select("*")
         .eq("status", "active")
         .order("name")
         .range(from, from + PAGE_SIZE - 1)
 
-      const rows = (data ?? []) as unknown as typeof allRows
+      const rows = (data ?? []) as unknown as CustomerWithRelations[]
       allRows = allRows.concat(rows)
       hasMore = rows.length === PAGE_SIZE
       from += PAGE_SIZE
+    }
+
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, fortnox_cost_center")
+      .eq("is_active", true)
+      .not("fortnox_cost_center", "is", null)
+
+    const profileByCostCenter = new Map<string, Pick<Profile, "id" | "full_name" | "email">>()
+    for (const p of (profileRows ?? []) as unknown as { id: string; full_name: string | null; email: string; fortnox_cost_center: string }[]) {
+      profileByCostCenter.set(p.fortnox_cost_center, { id: p.id, full_name: p.full_name, email: p.email })
     }
 
     const customerIds = allRows.map((c) => c.id)
@@ -152,6 +161,7 @@ export default function CustomersPage() {
 
     const enriched: CustomerWithRelations[] = allRows.map((c) => ({
       ...c,
+      account_manager: c.fortnox_cost_center ? profileByCostCenter.get(c.fortnox_cost_center) ?? null : null,
       segments: segmentMap[c.id] ?? [],
     }))
 
