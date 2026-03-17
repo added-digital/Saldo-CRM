@@ -3,14 +3,33 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useRef,
   useState,
   useCallback,
   type ReactNode,
 } from "react"
 import { createClient } from "@/lib/supabase/client"
-import type { FortnoxConnection } from "@/types/database"
+import type { SyncJob } from "@/types/database"
 import { toast } from "sonner"
+
+type SyncStep = "customers" | "employees" | "invoices" | "time-reports" | "contracts"
+
+const SYNC_STEPS: SyncStep[] = [
+  "customers",
+  "employees",
+  "invoices",
+  "time-reports",
+  "contracts",
+]
+
+const STEP_LABELS: Record<SyncStep, string> = {
+  customers: "Customers",
+  employees: "Employees",
+  invoices: "Invoices",
+  "time-reports": "Time Reports",
+  contracts: "Contracts",
+}
 
 interface SyncProgress {
   total: number
@@ -21,7 +40,7 @@ interface SyncProgress {
 interface SyncContextValue {
   syncing: boolean
   progress: SyncProgress | null
-  startSync: () => Promise<void>
+  startSync: (steps?: SyncStep[]) => Promise<void>
   stopSync: () => void
   resetSyncStatus: () => Promise<void>
 }
@@ -32,84 +51,151 @@ function SyncProvider({ children }: { children: ReactNode }) {
   const [syncing, setSyncing] = useState(false)
   const [progress, setProgress] = useState<SyncProgress | null>(null)
   const abortRef = useRef(false)
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null)
 
-  const startSync = useCallback(async () => {
-    if (syncing) return
-    setSyncing(true)
-    setProgress(null)
-    abortRef.current = false
+  useEffect(() => {
+    return () => {
+      if (channelRef.current) {
+        const supabase = createClient()
+        supabase.removeChannel(channelRef.current)
+      }
+    }
+  }, [])
 
-    try {
-      setProgress({ total: 0, synced: 0, step: "Fetching customer list..." })
+  const invokeEdgeFunction = useCallback(
+    async (
+      supabase: ReturnType<typeof createClient>,
+      functionName: string,
+      jobId: string
+    ) => {
+      const { data: session } = await supabase.auth.getSession()
+      const token = session?.session?.access_token
 
-      const initRes = await fetch("/api/fortnox/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ step: "init" }),
-      })
+      if (!token) {
+        throw new Error("Not authenticated")
+      }
 
-      if (!initRes.ok) throw new Error("Init failed")
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 
-      const initData = await initRes.json()
-      const customerNumbers: string[] = initData.customerNumbers ?? []
-      const total = initData.total ?? 0
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/${functionName}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ job_id: jobId }),
+        }
+      )
 
-      setProgress({ total, synced: 0, step: "Syncing customers..." })
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(`Edge Function ${functionName} failed: ${text}`)
+      }
 
-      let fromIndex = 0
-      let totalSynced = 0
+      return response.json()
+    },
+    []
+  )
 
-      while (fromIndex < customerNumbers.length) {
-        if (abortRef.current) {
-          await fetch("/api/fortnox/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ step: "link" }),
+  const startSync = useCallback(
+    async (steps?: SyncStep[]) => {
+      if (syncing) return
+      setSyncing(true)
+      setProgress(null)
+      abortRef.current = false
+
+      const supabase = createClient()
+      const stepsToRun = steps ?? SYNC_STEPS
+
+      try {
+        for (let i = 0; i < stepsToRun.length; i++) {
+          if (abortRef.current) {
+            toast.info("Sync stopped")
+            break
+          }
+
+          const step = stepsToRun[i]
+          const label = STEP_LABELS[step]
+
+          setProgress({
+            total: stepsToRun.length,
+            synced: i,
+            step: `Starting ${label}...`,
           })
-          toast.info(`Sync stopped at ${totalSynced}/${total} customers`)
-          break
+
+          const { data: jobRow, error: insertError } = await supabase
+            .from("sync_jobs")
+            .insert({
+              status: "pending",
+              progress: 0,
+              current_step: `Waiting for ${label}...`,
+              total_items: 0,
+              processed_items: 0,
+            } as never)
+            .select("id")
+            .single()
+
+          if (insertError || !jobRow) {
+            console.error("Failed to create sync job:", insertError)
+            continue
+          }
+
+          const jobId = (jobRow as unknown as { id: string }).id
+
+          const channel = supabase
+            .channel(`sync-job-${jobId}`)
+            .on(
+              "postgres_changes" as never,
+              {
+                event: "UPDATE",
+                schema: "public",
+                table: "sync_jobs",
+                filter: `id=eq.${jobId}`,
+              } as never,
+              (payload: { new: SyncJob }) => {
+                const job = payload.new
+                setProgress({
+                  total: stepsToRun.length,
+                  synced: i,
+                  step: `${label}: ${job.current_step ?? "Processing..."} (${job.progress}%)`,
+                })
+              }
+            )
+            .subscribe()
+
+          channelRef.current = channel
+
+          try {
+            await invokeEdgeFunction(supabase, `sync-${step}`, jobId)
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Unknown error"
+            console.error(`Sync step ${step} failed:`, message)
+            toast.error(`${label} sync failed: ${message}`)
+          }
+
+          supabase.removeChannel(channel)
+          channelRef.current = null
         }
 
-        const batchRes = await fetch("/api/fortnox/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            step: "customers",
-            customerNumbers,
-            fromIndex,
-            batchSize: 20,
-          }),
-        })
-
-        if (!batchRes.ok) throw new Error("Batch sync failed")
-
-        const batchData = await batchRes.json()
-        totalSynced += batchData.synced ?? 0
-        setProgress({ total, synced: totalSynced, step: "Syncing customers..." })
-
-        if (batchData.nextIndex === null) break
-        fromIndex = batchData.nextIndex
+        if (!abortRef.current) {
+          setProgress({
+            total: stepsToRun.length,
+            synced: stepsToRun.length,
+            step: "Complete",
+          })
+          toast.success("Sync completed")
+        }
+      } catch {
+        toast.error("Failed to sync")
       }
 
-      if (!abortRef.current) {
-        setProgress({ total, synced: totalSynced, step: "Linking cost centers..." })
-
-        const linkRes = await fetch("/api/fortnox/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ step: "link" }),
-        })
-
-        if (!linkRes.ok) throw new Error("Link step failed")
-        toast.success(`Synced ${totalSynced} of ${total} customers`)
-      }
-    } catch {
-      toast.error("Failed to sync")
-    }
-
-    setSyncing(false)
-    setProgress(null)
-  }, [syncing])
+      setSyncing(false)
+      setProgress(null)
+    },
+    [syncing, invokeEdgeFunction]
+  )
 
   const stopSync = useCallback(() => {
     abortRef.current = true
@@ -142,5 +228,5 @@ function useSync() {
   return context
 }
 
-export { SyncProvider, useSync }
-export type { SyncProgress }
+export { SyncProvider, useSync, SYNC_STEPS, STEP_LABELS }
+export type { SyncProgress, SyncStep }
