@@ -41,6 +41,7 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   searchKey?: string
   searchPlaceholder?: string
+  toolbarExtra?: React.ReactNode
   emptyState?: {
     icon: LucideIcon
     title: string
@@ -116,6 +117,7 @@ function DataTable<TData, TValue>({
   data,
   searchKey,
   searchPlaceholder,
+  toolbarExtra,
   emptyState,
   loading = false,
   pageSize = 20,
@@ -207,15 +209,18 @@ function DataTable<TData, TValue>({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        {searchKey ? (
-          <DataTableToolbar
-            table={table}
-            searchKey={searchKey}
-            searchPlaceholder={searchPlaceholder}
-          />
-        ) : (
-          <div />
-        )}
+        <div className="flex items-center gap-2">
+          {searchKey ? (
+            <DataTableToolbar
+              table={table}
+              searchKey={searchKey}
+              searchPlaceholder={searchPlaceholder}
+            />
+          ) : (
+            <div />
+          )}
+          {toolbarExtra}
+        </div>
         {table.getPageCount() > 1 && (
           <div className="flex shrink-0 items-center gap-2">
             <span className="text-sm text-muted-foreground">

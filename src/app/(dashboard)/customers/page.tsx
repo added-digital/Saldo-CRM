@@ -3,14 +3,14 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
-import { Users, Tags } from "lucide-react"
+import { Users, Tags, List, LayoutGrid } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import type { CustomerWithRelations, Profile, Segment } from "@/types/database"
 import { PageHeader } from "@/components/app/page-header"
 import { DataTable } from "@/components/app/data-table"
-import { CustomerToolbar } from "@/components/app/customer-toolbar"
 import { CustomerKpiView } from "@/components/app/customer-kpi-view"
+import { ActionBar } from "@/components/app/action-bar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -111,6 +111,20 @@ export default function CustomersPage() {
   const [assigning, setAssigning] = React.useState(false)
   const clearSelectionRef = React.useRef<(() => void) | null>(null)
   const [view, setView] = React.useState<"list" | "kpi">("list")
+  const [searchQuery, setSearchQuery] = React.useState("")
+
+  const filteredCustomers = React.useMemo(() => {
+    if (!searchQuery) return customers
+    const q = searchQuery.toLowerCase()
+    return customers.filter(
+      (c) =>
+        c.name?.toLowerCase().includes(q) ||
+        c.fortnox_customer_number?.toLowerCase().includes(q) ||
+        c.org_number?.toLowerCase().includes(q) ||
+        c.contact_name?.toLowerCase().includes(q) ||
+        c.email?.toLowerCase().includes(q)
+    )
+  }, [customers, searchQuery])
 
   async function fetchCustomers() {
     const supabase = createClient()
@@ -242,8 +256,33 @@ export default function CustomersPage() {
     clearSelectionRef.current?.()
   }
 
+  const viewToggle = (
+    <div className="flex items-center gap-1 rounded-md border p-0.5">
+      <Button
+        variant={view === "list" ? "default" : "ghost"}
+        size="sm"
+        className="h-7 px-2.5"
+        onClick={() => setView("list")}
+        aria-label="List view"
+      >
+        <List className="size-3.5" />
+        List
+      </Button>
+      <Button
+        variant={view === "kpi" ? "default" : "ghost"}
+        size="sm"
+        className="h-7 px-2.5"
+        onClick={() => setView("kpi")}
+        aria-label="KPI view"
+      >
+        <LayoutGrid className="size-3.5" />
+        KPIs
+      </Button>
+    </div>
+  )
+
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-6">
       <PageHeader
         title="Customers"
         description="Manage customer records synced from Fortnox"
@@ -255,6 +294,7 @@ export default function CustomersPage() {
           data={customers}
           searchKey="name"
           searchPlaceholder="Search customers..."
+          toolbarExtra={viewToggle}
           loading={loading}
           pageSize={15}
           selectable
@@ -273,12 +313,15 @@ export default function CustomersPage() {
           }}
         />
       ) : (
-        <CustomerKpiView customers={customers} />
+        <CustomerKpiView
+          customers={filteredCustomers}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          toolbarExtra={viewToggle}
+        />
       )}
 
-      <CustomerToolbar
-        view={view}
-        onViewChange={setView}
+      <ActionBar
         selectedCount={selectedCustomers.length}
         onClear={handleClearSelection}
         actions={[
