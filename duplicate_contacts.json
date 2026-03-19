@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-19T10:17:04.292Z",
+  "generated_at": "2026-03-19T14:35:02.471Z",
   "duplicates": [
     {
       "customer_id": "47a864ff-e5d9-40b0-9498-372bac143a80",
@@ -10,8 +10,20 @@
       "last_name": "Marchesan",
       "email": "mia.marchesan@hotmail.com",
       "phone": "",
-      "existing_contact_id": "c93b1770-4487-4e00-bebe-44c2a470cdfc",
+      "existing_contact_id": "2630126e-a62d-4a1c-8b17-35a89d27d300",
       "existing_customer_id": "212b083e-5aab-44de-9045-586c16918fc5"
+    },
+    {
+      "customer_id": "496dc9c8-0759-4b26-8ee5-a8347dbdda53",
+      "fortnox_customer_number": "438",
+      "customer_name": "A.Chiechi AB",
+      "full_name": "Alessandro Chiechi",
+      "first_name": "Alessandro",
+      "last_name": "Chiechi",
+      "email": "alessandrochiechi@hotmail.it",
+      "phone": "",
+      "existing_contact_id": "8bb78b7b-4a37-4572-9d13-ad90fe42683f",
+      "existing_customer_id": "c24a497a-3255-4d03-9621-ab7a366351bf"
     },
     {
       "customer_id": "7e8df739-9269-476e-9ab2-2b1356ff15a5",
@@ -22,7 +34,7 @@
       "last_name": "Andersson",
       "email": "hej@aadrian.se",
       "phone": "0707901656",
-      "existing_contact_id": "5464ef2a-bf8d-4d45-ba59-315e06cfd35d",
+      "existing_contact_id": "b0583ed3-2877-49a8-9997-5ee3a067dcd3",
       "existing_customer_id": "31917258-da4a-4f1d-a1aa-10a271f80286"
     },
     {
@@ -34,8 +46,8 @@
       "last_name": "Andersson",
       "email": "hej@aadrian.se",
       "phone": "",
-      "existing_contact_id": "5464ef2a-bf8d-4d45-ba59-315e06cfd35d",
-      "existing_customer_id": "31917258-da4a-4f1d-a1aa-10a271f80286"
+      "existing_contact_id": "b5a3f3a2-6055-4771-b657-da2b98c5b972",
+      "existing_customer_id": "7e8df739-9269-476e-9ab2-2b1356ff15a5"
     },
     {
       "customer_id": "4f97327a-5492-4332-8230-2ddd603b9137",
@@ -46,7 +58,7 @@
       "last_name": "Marie Brown",
       "email": "aase_brown@hotmail.com",
       "phone": "",
-      "existing_contact_id": "34dfabaf-7b75-4167-af3b-390bfbec2ab5",
+      "existing_contact_id": "eec780f0-880c-43fc-9eb9-88bb96f003eb",
       "existing_customer_id": "323bf4bf-e249-4856-9bda-9057ca802f2a"
     },
     {
@@ -58,8 +70,20 @@
       "last_name": "Lundqvist",
       "email": "oliver@added.digital",
       "phone": "0733307055",
-      "existing_contact_id": "22f0ce43-45b2-420a-b0e9-0c0b5059d9d2",
+      "existing_contact_id": "017e1d8a-0d0e-47af-b118-3a31527fbc42",
       "existing_customer_id": "14d62c27-4b93-42e4-806f-d057785bb51b"
+    },
+    {
+      "customer_id": "2a511492-79f0-4e0d-96d1-9fe7ea7cb197",
+      "fortnox_customer_number": "1872",
+      "customer_name": "Advokatbyrån Elisabeth Fritz AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "elisabeth.fritz@advokatfritz.com",
+      "phone": "+468211560",
+      "existing_contact_id": "137bafbb-1fb6-4305-a78d-c26fcf49b79b",
+      "existing_customer_id": "84a6e05e-cd60-420d-b681-7f71b7a13413"
     },
     {
       "customer_id": "b02ac3b1-ba90-45f0-a448-41146747bfe0",
@@ -70,8 +94,44 @@
       "last_name": "Marchesan",
       "email": "mia.marchesan@hotmail.com",
       "phone": "08-311338",
-      "existing_contact_id": "c93b1770-4487-4e00-bebe-44c2a470cdfc",
-      "existing_customer_id": "212b083e-5aab-44de-9045-586c16918fc5"
+      "existing_contact_id": "b9f31f32-3e81-4590-836c-c96bb4711862",
+      "existing_customer_id": "47a864ff-e5d9-40b0-9498-372bac143a80"
+    },
+    {
+      "customer_id": "151f6886-ceff-4222-8dc4-614683ce9b39",
+      "fortnox_customer_number": "1419",
+      "customer_name": "AMVENI Utveckling AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "victor@gambas.se",
+      "phone": "072-2003178",
+      "existing_contact_id": "85441deb-55f2-4ed7-95b1-53f142ef55db",
+      "existing_customer_id": "6733a600-7d4e-4a36-9933-abdab87fac1c"
+    },
+    {
+      "customer_id": "936175c2-07a3-4de4-94af-1b1bf3bd1f98",
+      "fortnox_customer_number": "1980",
+      "customer_name": "Ange Samia Irumva",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "gisagesamia@yahoo.fr",
+      "phone": "084753441",
+      "existing_contact_id": "7a92ea1f-a0f1-4a05-a06f-8eb4d1d43fff",
+      "existing_customer_id": "a1537fcc-5fce-492c-b978-88c52677315a"
+    },
+    {
+      "customer_id": "3eec1fd2-5ccb-4d2b-a2e9-d1bf49f9d385",
+      "fortnox_customer_number": "1876",
+      "customer_name": "APG Holding AB",
+      "full_name": "Petri Sandell",
+      "first_name": "Petri",
+      "last_name": "Sandell",
+      "email": "petri.sandell@accesspartners.com",
+      "phone": "070-8704717",
+      "existing_contact_id": "30dca032-d37f-4f6d-8ad4-56b556a37226",
+      "existing_customer_id": "3ca65366-e93a-4594-8d4b-5cbfd9e72854"
     },
     {
       "customer_id": "f7ea8fae-56ec-493e-9d4d-a643805afd35",
@@ -82,8 +142,8 @@
       "last_name": "Andersson",
       "email": "hej@aadrian.se",
       "phone": "0707901656",
-      "existing_contact_id": "5464ef2a-bf8d-4d45-ba59-315e06cfd35d",
-      "existing_customer_id": "31917258-da4a-4f1d-a1aa-10a271f80286"
+      "existing_contact_id": "d7bd93ed-ca47-4836-b60d-910e72da2e81",
+      "existing_customer_id": "43b96a46-bf5c-4920-8f07-9f914af0597a"
     },
     {
       "customer_id": "97040462-ba67-49b0-8feb-41ec65909717",
@@ -94,7 +154,7 @@
       "last_name": "Berndtson",
       "email": "henrik@berndtson.se",
       "phone": null,
-      "existing_contact_id": "040164c9-ccb7-4ba6-b299-9fe6fc5884ab",
+      "existing_contact_id": "ffcfb323-2dee-4782-9ec8-2ddd6c997175",
       "existing_customer_id": "14634478-a8ab-478c-8e61-af136762e041"
     },
     {
@@ -106,7 +166,7 @@
       "last_name": "Göthberg",
       "email": "jonas@danceacademy.net",
       "phone": "073-5106969",
-      "existing_contact_id": "0f5946b8-3f9b-4cb4-bfe1-1d6dd6366369",
+      "existing_contact_id": "7b898327-b2bc-4e4d-8887-9d41f66cdb43",
       "existing_customer_id": "560ddc8e-024f-40ff-abf6-5fc8cb3b9779"
     },
     {
@@ -118,8 +178,20 @@
       "last_name": "Wärngård",
       "email": "jonas@nordicwebteam.se",
       "phone": "0739245940",
-      "existing_contact_id": "f8ccac37-7d97-4324-85b1-6ccf522d7ba9",
+      "existing_contact_id": "2f6cdf87-a32d-4f01-b9cf-3b682ae9213f",
       "existing_customer_id": "e5d3fbdb-2c13-4977-9b72-b7202d6909dc"
+    },
+    {
+      "customer_id": "dd9498ab-3888-462e-a55d-4364b11e9d70",
+      "fortnox_customer_number": "1125",
+      "customer_name": "Brokvarn Fastigheter 2 AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "sigge@telgehalsocenter.se",
+      "phone": "0739431180",
+      "existing_contact_id": "cb0ca8ac-2d0b-46fa-ae59-4f73fcc8a61b",
+      "existing_customer_id": "32229cab-e0e1-4110-967d-0a7a8fdbfa06"
     },
     {
       "customer_id": "c40ab2a3-ddfe-413e-9105-6c65a184132b",
@@ -130,7 +202,7 @@
       "last_name": "Simonsson",
       "email": "sigge@tindrafastigheter.se",
       "phone": "08-30 73 00",
-      "existing_contact_id": "ddeb2b3c-8976-4e63-936d-4bc92564d385",
+      "existing_contact_id": "8c9a2648-6f75-4874-83cb-7e451c8ca0f5",
       "existing_customer_id": "8738c056-a013-468b-bcc3-4cbd7ab50cbd"
     },
     {
@@ -142,8 +214,20 @@
       "last_name": "Simonsson",
       "email": "sigge@tindrafastigheter.se",
       "phone": "",
-      "existing_contact_id": "ddeb2b3c-8976-4e63-936d-4bc92564d385",
-      "existing_customer_id": "8738c056-a013-468b-bcc3-4cbd7ab50cbd"
+      "existing_contact_id": "b052a20f-ad27-4ef7-8d63-fc670d8f4caf",
+      "existing_customer_id": "c40ab2a3-ddfe-413e-9105-6c65a184132b"
+    },
+    {
+      "customer_id": "131e7214-b14a-4c0b-bdf7-9451da3bf6a7",
+      "fortnox_customer_number": "638",
+      "customer_name": "Café Levinsky AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "levinskys@gmail.com",
+      "phone": "08-300840",
+      "existing_contact_id": "55605769-df01-4d4b-b438-cb9171e8a188",
+      "existing_customer_id": "36a0b8cb-29ab-4670-8576-6beb0c73d5e4"
     },
     {
       "customer_id": "a42d968b-0a9c-40fa-a22d-a63473d33309",
@@ -154,8 +238,20 @@
       "last_name": "Hjelmstedt",
       "email": "fredrik@calazo.se",
       "phone": "0705565103",
-      "existing_contact_id": "50684f56-f930-43f7-b070-7debe85b71a9",
+      "existing_contact_id": "bf7fe6f0-0fbb-41ab-a823-5439f53614a6",
       "existing_customer_id": "9afb5bb6-1973-4540-8091-b5a0136379e7"
+    },
+    {
+      "customer_id": "f458faeb-6513-441a-9747-dd592ef8ab71",
+      "fortnox_customer_number": "1363",
+      "customer_name": "Carla Enza AB",
+      "full_name": "Clara Vergara Alveraz",
+      "first_name": "Clara",
+      "last_name": "Vergara Alveraz",
+      "email": "c@carlaenza.com",
+      "phone": "0704328784",
+      "existing_contact_id": "77de6002-cf2b-40e3-825b-a36303559b50",
+      "existing_customer_id": "d20bfc04-3104-48ae-bd2d-faa6a61f19d5"
     },
     {
       "customer_id": "f46b12a6-1bca-47b3-890f-cdaef3102d7f",
@@ -166,8 +262,32 @@
       "last_name": "Yngbrant",
       "email": "christian.yngbrant@charlie.se",
       "phone": "",
-      "existing_contact_id": "4006cbab-704a-4606-9bfb-7bd4757cd3bc",
+      "existing_contact_id": "29338ccb-82c6-43e9-b3ad-8c4f56010004",
       "existing_customer_id": "11ecaa76-0594-4b6b-8f7c-36c23e7b7917"
+    },
+    {
+      "customer_id": "51c765ab-3190-4cc8-bb49-07c7032cfbef",
+      "fortnox_customer_number": "1504",
+      "customer_name": "Chen Group AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "sandylin1029@hotmail.com",
+      "phone": "0735068588",
+      "existing_contact_id": "88d9737f-876a-45b1-ae33-ed48b30d2b3e",
+      "existing_customer_id": "fd521def-1305-4f8a-abef-99ba15ba383d"
+    },
+    {
+      "customer_id": "613a167c-d2e7-4abf-8758-5d96e8aef712",
+      "fortnox_customer_number": "1990",
+      "customer_name": "CMB AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "martin@bergetworks.com",
+      "phone": "",
+      "existing_contact_id": "b6449358-fe55-4e16-bca0-93cbe5c05019",
+      "existing_customer_id": "b7838c18-1544-4fcf-9a02-1297539e759e"
     },
     {
       "customer_id": "0fa4ba26-8af6-4133-950e-5a5f922e1b2e",
@@ -178,7 +298,7 @@
       "last_name": "Mannheimer",
       "email": "philip.mannheimer@codesmile.io",
       "phone": null,
-      "existing_contact_id": "9ceb370f-461d-4b95-b0e1-46248be737dd",
+      "existing_contact_id": "3e5da912-50ab-4766-8ac8-8082e64c9d9b",
       "existing_customer_id": "e4f8c92e-0e3b-4a59-a23a-ac2510901327"
     },
     {
@@ -190,8 +310,32 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": "+4686511900",
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
+      "existing_contact_id": "d560ec53-0c2a-4afc-b7bd-456cdcb2c976",
       "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+    },
+    {
+      "customer_id": "893e4862-7384-4159-9db0-34191e160aa2",
+      "fortnox_customer_number": "505",
+      "customer_name": "Dan Morén Mediaförsäljning AB",
+      "full_name": "Dan Morén",
+      "first_name": "Dan",
+      "last_name": "Morén",
+      "email": "mattias@saldoredo.se",
+      "phone": "0708-30 34 20",
+      "existing_contact_id": "11d0882c-b7dd-44a4-887e-fa371f40edaf",
+      "existing_customer_id": "f1e81f65-2bc6-455a-82b9-bdb02c855e49"
+    },
+    {
+      "customer_id": "325401fd-f45a-4e1b-aa9d-eed07aa67f40",
+      "fortnox_customer_number": "1452",
+      "customer_name": "David Ghanbari Holding AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "david.ghanbari@fastighetsbyran.se",
+      "phone": "070-9820610",
+      "existing_contact_id": "5b217699-317e-404d-97f0-e5272cc53fae",
+      "existing_customer_id": "c8b4f2c3-ffd9-4131-83c8-76242569d185"
     },
     {
       "customer_id": "2ef07191-7d7a-414a-8b40-23de9dda72ca",
@@ -202,8 +346,44 @@
       "last_name": "Demski",
       "email": "lena@demski.se",
       "phone": "073-5930265",
-      "existing_contact_id": "3a5968d5-64ec-4b17-b78d-182dfbbf0e02",
+      "existing_contact_id": "01a65303-32bd-4d93-8829-a8cbe852c22f",
       "existing_customer_id": "1d65303d-5dc5-4fab-b928-1120e2eee36f"
+    },
+    {
+      "customer_id": "2fef8f74-c209-4b50-ad4a-fe2df7362090",
+      "fortnox_customer_number": "1440",
+      "customer_name": "Diamond Peak AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "tommy.forsell@gmail.com",
+      "phone": "070-4875315",
+      "existing_contact_id": "39ff20f3-c48f-43bd-ad12-c67ff4e5e56f",
+      "existing_customer_id": "f48a6251-9747-4691-8875-75edcd432a06"
+    },
+    {
+      "customer_id": "46bcca1a-df0e-4317-989e-add45e05602d",
+      "fortnox_customer_number": "1036",
+      "customer_name": "DOC Elisabeth Sundqvist AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "matias.a@saldoredo.se",
+      "phone": "0707836364",
+      "existing_contact_id": "03278a75-9e88-41dc-a158-e0d54ddcdeac",
+      "existing_customer_id": "b5397948-46ba-40e5-bc2d-aea94fac69c1"
+    },
+    {
+      "customer_id": "f5289e09-7bf1-46ee-bb23-14f7cd6a39cf",
+      "fortnox_customer_number": "1408",
+      "customer_name": "Dohsé Naprapatklinik AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "dohselars@gmail.com",
+      "phone": "031186947",
+      "existing_contact_id": "74e22311-0759-4cee-bdc8-23237d58b04b",
+      "existing_customer_id": "154b61eb-f562-4444-a7df-22075d98769f"
     },
     {
       "customer_id": "7133bc18-a422-4a07-8fe3-8cfa2bf1d73f",
@@ -214,8 +394,20 @@
       "last_name": "Drobin",
       "email": "dan.drobin@gmail.com",
       "phone": "0708-709088",
-      "existing_contact_id": "8363f9c5-d018-43cd-9dc5-36cd113bb19d",
+      "existing_contact_id": "3a7d0686-9223-4429-b623-91456fa74b60",
       "existing_customer_id": "8194fbcf-a952-4df3-86b7-befa5adb68e1"
+    },
+    {
+      "customer_id": "7858f603-a7a8-4c9a-8089-a5887758f33d",
+      "fortnox_customer_number": "1451",
+      "customer_name": "DT Ghanbari AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "david.ghanbari@fastighetsbyran.se",
+      "phone": "070-9820610",
+      "existing_contact_id": "43d6863b-27ee-4a1b-8b27-34cfb8ab44f1",
+      "existing_customer_id": "325401fd-f45a-4e1b-aa9d-eed07aa67f40"
     },
     {
       "customer_id": "2f724a18-af98-40ce-88aa-c079f68ba490",
@@ -226,7 +418,7 @@
       "last_name": "Kalajumic",
       "email": "dino.kalamujic@edplaw.com",
       "phone": null,
-      "existing_contact_id": "b68ea377-2aab-4a34-8b5b-78ea0913b181",
+      "existing_contact_id": "9e6b415c-db96-4177-81f8-54e7a6a89c66",
       "existing_customer_id": "401f2412-91fa-4df2-a889-4ef15586f790"
     },
     {
@@ -238,8 +430,32 @@
       "last_name": "Kalajumic",
       "email": "dino.kalamujic@edplaw.com",
       "phone": null,
-      "existing_contact_id": "b68ea377-2aab-4a34-8b5b-78ea0913b181",
-      "existing_customer_id": "401f2412-91fa-4df2-a889-4ef15586f790"
+      "existing_contact_id": "b33fb5f0-f4ed-4ba0-96c1-181f3b6c81a2",
+      "existing_customer_id": "2f724a18-af98-40ce-88aa-c079f68ba490"
+    },
+    {
+      "customer_id": "7f8d5660-6d78-41e1-a85d-95e68cbb0ed0",
+      "fortnox_customer_number": "1092",
+      "customer_name": "Ekelund Group AB",
+      "full_name": "Alex Ekelund",
+      "first_name": "Alex",
+      "last_name": "Ekelund",
+      "email": "alex.ekelund@yahoo.se",
+      "phone": "070-6688018",
+      "existing_contact_id": "ce0d88ea-53e4-4fd8-803d-7d9c62fdabf4",
+      "existing_customer_id": "61fd0c88-596f-4ed9-98c4-fd218d8d7b3a"
+    },
+    {
+      "customer_id": "07a460e7-dee6-4944-977b-28da9e8905dc",
+      "fortnox_customer_number": "1710",
+      "customer_name": "ELENA LARSSON",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "asa.e.larsson.author@gmail.com",
+      "phone": "",
+      "existing_contact_id": "24d52f7a-a028-40d7-a344-23e313b78afa",
+      "existing_customer_id": "20fc3695-e8fc-4b54-861e-b89bddd1e3a9"
     },
     {
       "customer_id": "ae0ac534-0ae7-43a2-9dfc-12e44b528a14",
@@ -250,8 +466,20 @@
       "last_name": "Walstam",
       "email": "jwalstam@dunlinab.com",
       "phone": "",
-      "existing_contact_id": "952cde7c-ecd0-409d-a3b2-88fed99e45ea",
+      "existing_contact_id": "87493343-ab6a-480d-aa3e-b1aeacfd0dea",
       "existing_customer_id": "f668ab0c-40d4-4d95-ac00-ba5fed9fe2bc"
+    },
+    {
+      "customer_id": "40d36030-6305-4e82-b9be-e095442faf13",
+      "fortnox_customer_number": "1747",
+      "customer_name": "Erbecka Aktiebolag",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "janne.thorstensson@gmail.com",
+      "phone": "0155-210353",
+      "existing_contact_id": "3cec776e-2e22-46fd-b72d-34a4663af54e",
+      "existing_customer_id": "326123be-5d2f-4501-9b17-651b1365b60d"
     },
     {
       "customer_id": "7dfe2b89-1178-4987-a29f-421cd48439c3",
@@ -262,8 +490,8 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": null,
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "215207d1-ed06-414f-9ec7-d688d0e96018",
+      "existing_customer_id": "a0f855eb-396f-42f6-9f8d-3ff389a3ea5f"
     },
     {
       "customer_id": "c25d5692-13ee-4a51-9365-6e6b03c30b48",
@@ -274,8 +502,8 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": null,
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "154f5c85-84cc-4ac5-8f22-81b75796c6f7",
+      "existing_customer_id": "7dfe2b89-1178-4987-a29f-421cd48439c3"
     },
     {
       "customer_id": "ac2aa767-c366-49ec-9a2a-8dccb073d08f",
@@ -286,8 +514,8 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": null,
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "50f23b7d-3ba2-450d-9761-8293639ac0f3",
+      "existing_customer_id": "c25d5692-13ee-4a51-9365-6e6b03c30b48"
     },
     {
       "customer_id": "0fe57585-ef22-4aee-9dbf-131ba83441bd",
@@ -298,8 +526,8 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": null,
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "38130636-6498-4d17-950a-a8ef4a947465",
+      "existing_customer_id": "ac2aa767-c366-49ec-9a2a-8dccb073d08f"
     },
     {
       "customer_id": "0f91201e-4bcf-4c88-b91c-7e37c0838266",
@@ -310,8 +538,8 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": null,
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "c7739f40-ab81-46cb-a210-0898dc7ea483",
+      "existing_customer_id": "0fe57585-ef22-4aee-9dbf-131ba83441bd"
     },
     {
       "customer_id": "a33cba81-2cea-4f33-99c1-8b685e41af48",
@@ -322,8 +550,8 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": null,
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "c8efc0b9-b2e8-4257-a676-6bd75331b821",
+      "existing_customer_id": "0f91201e-4bcf-4c88-b91c-7e37c0838266"
     },
     {
       "customer_id": "7e3d7b6d-3e76-4cbc-9055-ed2bef0a56bc",
@@ -334,8 +562,8 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": null,
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "bfa4b2cb-6676-458a-8245-cba27623b68e",
+      "existing_customer_id": "a33cba81-2cea-4f33-99c1-8b685e41af48"
     },
     {
       "customer_id": "c4f94e97-753b-4988-b360-4cea56481cfa",
@@ -346,8 +574,8 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": null,
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "d1b32999-f431-49c1-879b-52460f9430fd",
+      "existing_customer_id": "7e3d7b6d-3e76-4cbc-9055-ed2bef0a56bc"
     },
     {
       "customer_id": "885b4756-ea34-4fdc-b3f2-42eeb7484983",
@@ -358,7 +586,7 @@
       "last_name": "Söderling",
       "email": "rikard@expoimage.se",
       "phone": null,
-      "existing_contact_id": "d29dd7ce-3a14-4c12-837c-50fe2b30b439",
+      "existing_contact_id": "4597f09d-55e1-4858-91ad-030b5f3ba40c",
       "existing_customer_id": "b5f3fcff-f7e6-4d61-86ae-864ae4a7ffae"
     },
     {
@@ -370,7 +598,7 @@
       "last_name": "Ahlstrand",
       "email": "daniel.ahlstrand@verdane.com",
       "phone": null,
-      "existing_contact_id": "f0eaa0af-bf28-4d08-9feb-1498e959189b",
+      "existing_contact_id": "46837518-8a6b-4dfc-9ff3-975bbdd45c11",
       "existing_customer_id": "eab2e13c-2833-4158-968e-f5c8ec01822e"
     },
     {
@@ -382,7 +610,7 @@
       "last_name": "Knaust",
       "email": "per.knaust@notar.se",
       "phone": "",
-      "existing_contact_id": "71c02c91-fcf7-4aa3-94e6-7654c2a4b939",
+      "existing_contact_id": "dbc39362-356a-49ba-8053-d62b7ef3e833",
       "existing_customer_id": "5e4d6a9f-7168-46cd-aadf-6826cbe12ef6"
     },
     {
@@ -394,8 +622,32 @@
       "last_name": "Åström",
       "email": "anders.astrom@grandholm.se",
       "phone": "010-5560000",
-      "existing_contact_id": "ee383609-bfe3-44e5-b86f-212183aa6cd7",
+      "existing_contact_id": "f950bfd8-0adf-43e0-b1e9-b3e294ce274a",
       "existing_customer_id": "a8c80008-353c-44f8-99db-d130770ed040"
+    },
+    {
+      "customer_id": "378ff147-214b-43fe-a99a-639ce7779776",
+      "fortnox_customer_number": "1694",
+      "customer_name": "Fastighets AB Stentulpanen Stockholm",
+      "full_name": "Johan Lundberg",
+      "first_name": "Johan",
+      "last_name": "Lundberg",
+      "email": "johan.lundberg@nftventures.com",
+      "phone": "",
+      "existing_contact_id": "2aa6c36a-d374-4d55-97ce-2691305f5642",
+      "existing_customer_id": "9eea18bf-96e2-4a50-a3ef-ebf80cab0845"
+    },
+    {
+      "customer_id": "f9b58a65-de0c-48e1-ae62-93999e16be8b",
+      "fortnox_customer_number": "1130",
+      "customer_name": "Fastighetsbolaget Lindängen AB",
+      "full_name": "Sargon Simonsson",
+      "first_name": "Sargon",
+      "last_name": "Simonsson",
+      "email": "sigge@telgehalsocenter.se",
+      "phone": "+46704479369",
+      "existing_contact_id": "b8f5e67d-ad29-4e7a-a99d-1c6ab0a8e3b9",
+      "existing_customer_id": "dd9498ab-3888-462e-a55d-4364b11e9d70"
     },
     {
       "customer_id": "79bebac8-758b-45e1-900f-b39bff9ff303",
@@ -406,7 +658,7 @@
       "last_name": "Steen",
       "email": "richard@rivningshus.se",
       "phone": null,
-      "existing_contact_id": "07856caa-ca30-4144-8256-0d4431ce16ca",
+      "existing_contact_id": "725d98f6-6787-492d-b86d-31346f3d41d6",
       "existing_customer_id": "da19a8b9-1e40-47e9-ac62-9e3e62aa0048"
     },
     {
@@ -418,8 +670,20 @@
       "last_name": "Maurie",
       "email": "christopher.maurie@lansforsakringar.se",
       "phone": "08-56288990",
-      "existing_contact_id": "9ffadd41-c02f-4921-9bd0-9b3f9cc361ad",
+      "existing_contact_id": "74d1f894-0710-4369-86ee-5b98b05ba8d1",
       "existing_customer_id": "2c3a46bd-6ee6-4eda-b0b1-bf9c9526bcab"
+    },
+    {
+      "customer_id": "32459279-f350-4837-b4cf-6e64e54488fd",
+      "fortnox_customer_number": "1615",
+      "customer_name": "FER Hair Care AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "morris@lucainvest.se",
+      "phone": "08-4060505",
+      "existing_contact_id": "bf6bd441-fb50-45a3-b5bb-a53d074540a1",
+      "existing_customer_id": "2be51044-3bfd-48c4-8f9a-f8503b23d6bb"
     },
     {
       "customer_id": "664c2621-c530-41a2-9abe-8f31ef413817",
@@ -430,8 +694,80 @@
       "last_name": "Krohn",
       "email": "axel@mamas.se",
       "phone": "031-130442",
-      "existing_contact_id": "25320b1d-a290-4a56-87fc-3747f94308cd",
+      "existing_contact_id": "d70f5b1b-c69f-465d-87ce-3e626547b555",
       "existing_customer_id": "a3940995-42f8-46b1-8e9e-25a6195fc814"
+    },
+    {
+      "customer_id": "5a595061-df24-47ad-a01b-caa811c28cde",
+      "fortnox_customer_number": "1616",
+      "customer_name": "Fine Transfer Sweden AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "morris@lucainvest.se",
+      "phone": "+4684060505",
+      "existing_contact_id": "b282385e-fdb6-44c7-bf18-4b7900f834a9",
+      "existing_customer_id": "32459279-f350-4837-b4cf-6e64e54488fd"
+    },
+    {
+      "customer_id": "6ba896ff-dfa4-4997-950c-ed73a832c899",
+      "fortnox_customer_number": "1145",
+      "customer_name": "FL Ventures AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "fredrik.lundberg@nftventures.com",
+      "phone": "070-7536261",
+      "existing_contact_id": "24d0bab6-3557-41a1-8ab0-d2944e3b45a7",
+      "existing_customer_id": "0126d5d9-b9a2-4500-ab44-593427765646"
+    },
+    {
+      "customer_id": "71dcb6f9-4ca2-4bf3-901b-fbcd192a620a",
+      "fortnox_customer_number": "405",
+      "customer_name": "Flück & Co AB",
+      "full_name": "Stefan Flück",
+      "first_name": "Stefan",
+      "last_name": "Flück",
+      "email": "stefan.fluck@live.se",
+      "phone": "0707357387",
+      "existing_contact_id": "603f241a-d011-482c-91f0-304cec1f5c33",
+      "existing_customer_id": "ae35f2f4-4016-4460-8a8f-2dc457851a9f"
+    },
+    {
+      "customer_id": "53aab539-ba2b-494a-be21-faada7892332",
+      "fortnox_customer_number": "1222",
+      "customer_name": "Food Pharmacy Store AB",
+      "full_name": "Lina Nertby",
+      "first_name": "Lina",
+      "last_name": "Nertby",
+      "email": "lina.nertby@foodpharmacy.se",
+      "phone": "0705663642",
+      "existing_contact_id": "9584cf25-2f18-439a-a31d-14160f160aad",
+      "existing_customer_id": "1a9243e3-980d-4bc0-92e5-7078950ccfff"
+    },
+    {
+      "customer_id": "72fd7dcb-2ad4-41a4-b590-d0950c50300b",
+      "fortnox_customer_number": "687",
+      "customer_name": "Foodjam AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "mattias@saldoredo.se",
+      "phone": "",
+      "existing_contact_id": "294f7a35-919b-4f3f-aa88-eddd2b0c3840",
+      "existing_customer_id": "893e4862-7384-4159-9db0-34191e160aa2"
+    },
+    {
+      "customer_id": "87cab2ef-8800-40bb-a901-a20afd6d721e",
+      "fortnox_customer_number": "1066",
+      "customer_name": "Förslag",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "mattias@saldoredo.se",
+      "phone": null,
+      "existing_contact_id": "45a98649-39ca-44d1-92b5-3ec7971a5423",
+      "existing_customer_id": "72fd7dcb-2ad4-41a4-b590-d0950c50300b"
     },
     {
       "customer_id": "137c2ce3-e923-4943-9e32-15273cdc1361",
@@ -442,7 +778,7 @@
       "last_name": "Coello",
       "email": "raul@zocalo.se",
       "phone": "",
-      "existing_contact_id": "7b570a43-0e81-4338-9c6b-640b715f5542",
+      "existing_contact_id": "a6d7d645-2487-4fad-9439-e3d0e46a028f",
       "existing_customer_id": "f851d3d9-e08a-4e80-a0ca-31b1e355590f"
     },
     {
@@ -454,7 +790,7 @@
       "last_name": "Vethanayagiam",
       "email": "treslavar@hotmail.com",
       "phone": "073-6282070",
-      "existing_contact_id": "fc7b34f2-1c7a-441b-8974-a5d92523d5f0",
+      "existing_contact_id": "d8c432e4-3eb9-420a-aa6e-1ceb799f3d28",
       "existing_customer_id": "4cc35868-482a-4f9d-9e58-46766e0a44aa"
     },
     {
@@ -466,8 +802,32 @@
       "last_name": "Knaust",
       "email": "per.knaust@notar.se",
       "phone": "070-8997947",
-      "existing_contact_id": "71c02c91-fcf7-4aa3-94e6-7654c2a4b939",
-      "existing_customer_id": "5e4d6a9f-7168-46cd-aadf-6826cbe12ef6"
+      "existing_contact_id": "4c3132a7-1253-4736-9f08-7e4ad97e8b58",
+      "existing_customer_id": "be9fb6ab-4478-4c97-a345-275cb6300142"
+    },
+    {
+      "customer_id": "f5139631-01a3-4950-8890-9660e8b97387",
+      "fortnox_customer_number": "1946",
+      "customer_name": "G.S.W. Retail AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "gino.sharro@gmail.com",
+      "phone": "",
+      "existing_contact_id": "387de787-bf04-49c4-8f37-0f4d1d25a849",
+      "existing_customer_id": "c343d840-ab42-4fc4-86cc-8373d03ca460"
+    },
+    {
+      "customer_id": "044556e7-c021-43ff-9819-06b9bb4d7343",
+      "fortnox_customer_number": "1590",
+      "customer_name": "Gambas & Co AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "victor@gambas.se",
+      "phone": "",
+      "existing_contact_id": "1282be30-1546-4c8c-9609-5307a9ba2384",
+      "existing_customer_id": "151f6886-ceff-4222-8dc4-614683ce9b39"
     },
     {
       "customer_id": "029d1313-5881-4611-ba96-3f64adf3f2a9",
@@ -478,8 +838,8 @@
       "last_name": "Simonsson",
       "email": "sigge@tindrafastigheter.se",
       "phone": "",
-      "existing_contact_id": "ddeb2b3c-8976-4e63-936d-4bc92564d385",
-      "existing_customer_id": "8738c056-a013-468b-bcc3-4cbd7ab50cbd"
+      "existing_contact_id": "97d85e33-2f49-42ab-86aa-8b2400b60b8e",
+      "existing_customer_id": "0a5785f9-ea69-40f1-a06b-b9fd4ae5d560"
     },
     {
       "customer_id": "7f4e9dad-e7f6-4fa6-b5d6-1c6eaa92a2e4",
@@ -490,7 +850,7 @@
       "last_name": "Rydberg",
       "email": "christine.rydberg@mitti.se",
       "phone": "08-550 550 00",
-      "existing_contact_id": "360314b9-ae5d-4bef-acf0-909133fb008f",
+      "existing_contact_id": "79d0e0c0-e4c7-48ce-9b2d-35a168aaabe0",
       "existing_customer_id": "89f5f843-7fdb-4c80-9e7f-f2fbf0a10d32"
     },
     {
@@ -502,7 +862,7 @@
       "last_name": "Gerson",
       "email": "jacob@gersonrealestate.se",
       "phone": "072-2236090",
-      "existing_contact_id": "de25fb42-da4c-4175-9230-00b8ec5e6469",
+      "existing_contact_id": "741eb0fd-2f4a-42af-9b75-99cb54ba1083",
       "existing_customer_id": "4b136192-a547-4264-8446-a1dd24226f20"
     },
     {
@@ -514,8 +874,8 @@
       "last_name": "Yngbrant",
       "email": "christian.yngbrant@charlie.se",
       "phone": "0720100917",
-      "existing_contact_id": "4006cbab-704a-4606-9bfb-7bd4757cd3bc",
-      "existing_customer_id": "11ecaa76-0594-4b6b-8f7c-36c23e7b7917"
+      "existing_contact_id": "e885411a-7604-449c-a410-d26ea7cb7d17",
+      "existing_customer_id": "f46b12a6-1bca-47b3-890f-cdaef3102d7f"
     },
     {
       "customer_id": "95876ad7-d5f6-4291-aff3-d410fe4cf4d5",
@@ -526,8 +886,20 @@
       "last_name": "Åström",
       "email": "anders.astrom@grandholm.se",
       "phone": "070-3558007",
-      "existing_contact_id": "ee383609-bfe3-44e5-b86f-212183aa6cd7",
-      "existing_customer_id": "a8c80008-353c-44f8-99db-d130770ed040"
+      "existing_contact_id": "ae3d2282-3d00-42e5-80cf-b84be51db72d",
+      "existing_customer_id": "61ed3463-1a68-4c8e-9aca-3077ac20d3af"
+    },
+    {
+      "customer_id": "3fd1273a-7aee-40ac-8368-2304adba594a",
+      "fortnox_customer_number": "1708",
+      "customer_name": "GRANDHOLM HOLDING AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "anders.astrom@grandholm.se",
+      "phone": "",
+      "existing_contact_id": "70ae86f7-f78b-4786-8647-1d1e6ab5169b",
+      "existing_customer_id": "95876ad7-d5f6-4291-aff3-d410fe4cf4d5"
     },
     {
       "customer_id": "8ecccc97-ca55-4619-9717-b5d25eaf823a",
@@ -538,8 +910,8 @@
       "last_name": "Åström",
       "email": "anders.astrom@grandholm.se",
       "phone": "",
-      "existing_contact_id": "ee383609-bfe3-44e5-b86f-212183aa6cd7",
-      "existing_customer_id": "a8c80008-353c-44f8-99db-d130770ed040"
+      "existing_contact_id": "e96f7ffd-447d-4fad-a72e-6229861d90bd",
+      "existing_customer_id": "3fd1273a-7aee-40ac-8368-2304adba594a"
     },
     {
       "customer_id": "860ff70f-3b3f-4f50-b842-9870d9841921",
@@ -550,8 +922,8 @@
       "last_name": "Åström",
       "email": "anders.astrom@grandholm.se",
       "phone": "",
-      "existing_contact_id": "ee383609-bfe3-44e5-b86f-212183aa6cd7",
-      "existing_customer_id": "a8c80008-353c-44f8-99db-d130770ed040"
+      "existing_contact_id": "5c754e5b-5823-4f61-b653-8b8f320911e5",
+      "existing_customer_id": "8ecccc97-ca55-4619-9717-b5d25eaf823a"
     },
     {
       "customer_id": "ad5a5d58-fd93-4d7f-a31f-5d68cc5472fb",
@@ -562,7 +934,7 @@
       "last_name": "Fredin",
       "email": "invoice@gfrakt.se",
       "phone": "+46853029067",
-      "existing_contact_id": "4f19aaf2-9c45-4832-a39c-072cdce81aac",
+      "existing_contact_id": "6a02db58-b5ff-4c98-b587-1def4e414b5b",
       "existing_customer_id": "1ebc5215-7617-47fc-ba63-2c1f3d7509c1"
     },
     {
@@ -574,7 +946,7 @@
       "last_name": "Bergman",
       "email": "ulla.bergman@grundmaren.se",
       "phone": "+46706257841",
-      "existing_contact_id": "0a42cbdd-7b71-491f-af4c-20c8a067bcdc",
+      "existing_contact_id": "7649cea9-fefb-4b7f-a94d-3e54dbb3de66",
       "existing_customer_id": "d9f43899-9ae9-40c4-b528-51fc26bf981b"
     },
     {
@@ -586,8 +958,44 @@
       "last_name": "Frelin",
       "email": "anders.frelin@gmail.com",
       "phone": "",
-      "existing_contact_id": "dc6ae742-b835-4f1c-a823-93c2ee70eee4",
+      "existing_contact_id": "f58f858f-e214-4a57-85b4-fe5014e306ce",
       "existing_customer_id": "1f71203a-13e5-4518-ac07-2e1b9b75c687"
+    },
+    {
+      "customer_id": "3e4af755-d896-497f-af6c-55ce8594e593",
+      "fortnox_customer_number": "5234",
+      "customer_name": "Gysbert Menninga Iii",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "bert.menninga@gmail.com",
+      "phone": "",
+      "existing_contact_id": "67a09341-2ca5-460c-b9ea-823721566bb2",
+      "existing_customer_id": "d4678013-7e50-4584-8adb-bcac41d60ee9"
+    },
+    {
+      "customer_id": "b83a7de7-b668-4390-9e12-9a701da114df",
+      "fortnox_customer_number": "655",
+      "customer_name": "Hadesten Ren Förvaltning AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "info@renab.com",
+      "phone": "086690850",
+      "existing_contact_id": "d95be697-634e-457e-a9f6-e8a041d2c6ef",
+      "existing_customer_id": "ce8ad777-a428-4b3a-a0f0-20549a6d863d"
+    },
+    {
+      "customer_id": "332792b0-d4f3-432a-8654-d725925d5cdb",
+      "fortnox_customer_number": "1065",
+      "customer_name": "Hairoffice Karlstad AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "b.bezatto@gmail.com",
+      "phone": "0736941589",
+      "existing_contact_id": "648c8dd7-736f-4465-9dbf-20e5f227dc6b",
+      "existing_customer_id": "d7177512-ad03-4b1a-b124-29d4293a59de"
     },
     {
       "customer_id": "4358fd28-5633-41b2-a99b-2507eeee021f",
@@ -598,7 +1006,7 @@
       "last_name": "Þór Vigfússon",
       "email": "arni@varpizza.se",
       "phone": "",
-      "existing_contact_id": "3f880785-3c06-434c-abd7-645abadbfa15",
+      "existing_contact_id": "8221080d-2997-4b9b-8560-017353d35c96",
       "existing_customer_id": "3decdd63-5ef9-4acb-b848-2b21e35d12ae"
     },
     {
@@ -610,7 +1018,7 @@
       "last_name": "Modée",
       "email": "viktor.modee@hmpartners.se",
       "phone": null,
-      "existing_contact_id": "301a82a2-f9c5-47cd-9474-bea5d3c08df6",
+      "existing_contact_id": "25b46a16-68c8-449a-9f7c-92b560811502",
       "existing_customer_id": "fa38cf4a-ed8b-453b-95ee-672ad66fcea5"
     },
     {
@@ -622,8 +1030,8 @@
       "last_name": "Modée",
       "email": "viktor.modee@hmpartners.se",
       "phone": null,
-      "existing_contact_id": "301a82a2-f9c5-47cd-9474-bea5d3c08df6",
-      "existing_customer_id": "fa38cf4a-ed8b-453b-95ee-672ad66fcea5"
+      "existing_contact_id": "8d187115-c39a-4339-8968-cc160abec2bd",
+      "existing_customer_id": "f57882b9-e056-47e7-8b88-0735472f8d7d"
     },
     {
       "customer_id": "7763a8c6-c157-4cb1-b692-b6b35cf6ea46",
@@ -634,8 +1042,8 @@
       "last_name": "Modée",
       "email": "viktor.modee@hmpartners.se",
       "phone": null,
-      "existing_contact_id": "301a82a2-f9c5-47cd-9474-bea5d3c08df6",
-      "existing_customer_id": "fa38cf4a-ed8b-453b-95ee-672ad66fcea5"
+      "existing_contact_id": "bfdb3ad3-7896-4ac4-a516-38accef32be1",
+      "existing_customer_id": "f5f6af46-1789-401f-82bd-0f50cca80550"
     },
     {
       "customer_id": "433cfdb8-cac9-4b29-a094-82b3ee2e1f79",
@@ -646,8 +1054,8 @@
       "last_name": "Modée",
       "email": "viktor.modee@hmpartners.se",
       "phone": null,
-      "existing_contact_id": "301a82a2-f9c5-47cd-9474-bea5d3c08df6",
-      "existing_customer_id": "fa38cf4a-ed8b-453b-95ee-672ad66fcea5"
+      "existing_contact_id": "82c453d0-bf19-426e-9973-25069723e601",
+      "existing_customer_id": "7763a8c6-c157-4cb1-b692-b6b35cf6ea46"
     },
     {
       "customer_id": "94b950bd-d371-449e-b50c-16c0be79206d",
@@ -658,8 +1066,56 @@
       "last_name": "Quaglia",
       "email": "christian@herrjudit.se",
       "phone": "08-6583010",
-      "existing_contact_id": "4b0303bc-2eec-4d27-948a-1620c51bc146",
+      "existing_contact_id": "dd339ff1-d95b-4973-92d4-d31bc1e4ceb5",
       "existing_customer_id": "966b9896-d38c-46fc-95f0-05f0436c56d1"
+    },
+    {
+      "customer_id": "3acefb36-1333-4e98-874a-bc6c651f75fa",
+      "fortnox_customer_number": "1902",
+      "customer_name": "Hersby Invest AB",
+      "full_name": "Tomas Otterud",
+      "first_name": "Tomas",
+      "last_name": "Otterud",
+      "email": "tomas.otterud@grandholm.se",
+      "phone": "",
+      "existing_contact_id": "cecc803c-2fa8-4299-ae4c-5eb9ed03c896",
+      "existing_customer_id": "89d53387-4c01-4d26-9d8a-c8df020443ce"
+    },
+    {
+      "customer_id": "ef024ac0-bc0a-40fd-a7f8-96e89f0ac8a9",
+      "fortnox_customer_number": "1443",
+      "customer_name": "Högdalens matbutik AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "fedimarkus@gmail.com",
+      "phone": "07337609591",
+      "existing_contact_id": "6a3ed32e-d95a-4682-9301-6fbd3dc2023b",
+      "existing_customer_id": "9a1bf60b-f2da-4376-9f6d-caf91652cb6d"
+    },
+    {
+      "customer_id": "b86f4da6-e10f-4900-aff0-c40ab5bdd617",
+      "fortnox_customer_number": "1607",
+      "customer_name": "Ian & Burto AB",
+      "full_name": "Morris Batan",
+      "first_name": "Morris",
+      "last_name": "Batan",
+      "email": "morris@lucainvest.se",
+      "phone": "08-4060505",
+      "existing_contact_id": "940e31be-af1a-4f1b-ac99-5e583ec773e8",
+      "existing_customer_id": "5a595061-df24-47ad-a01b-caa811c28cde"
+    },
+    {
+      "customer_id": "a995ed03-6529-43e9-87d3-924e96c83ad2",
+      "fortnox_customer_number": "1673",
+      "customer_name": "Ikonen Media Group AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "fabian.ikonenmedia@gmail.com",
+      "phone": "",
+      "existing_contact_id": "c80cbc29-2d87-4c6a-af80-08bcb625325e",
+      "existing_customer_id": "c42c6d45-adb7-4a31-a738-921f54a9c7fd"
     },
     {
       "customer_id": "b3e5a37f-b345-4bd7-97fd-45b091a9f197",
@@ -670,7 +1126,7 @@
       "last_name": "Wojtal",
       "email": "innovaimex@gmail.com",
       "phone": "0707666892",
-      "existing_contact_id": "e52f8859-7aa8-4f06-9a4b-d926c0c0c8dd",
+      "existing_contact_id": "54ae7d0f-d9e3-46e1-981d-08c6e89323a1",
       "existing_customer_id": "b9a3d06c-1bc4-4a18-9007-e46e9c2cb352"
     },
     {
@@ -682,7 +1138,7 @@
       "last_name": "Lundberg",
       "email": "johan.lundberg@nftventures.com",
       "phone": "073-9880422",
-      "existing_contact_id": "268010e9-eb70-4845-a2be-c3e6f40f758e",
+      "existing_contact_id": "af808fff-3cb5-4266-b730-5a32680c1ee0",
       "existing_customer_id": "378ff147-214b-43fe-a99a-639ce7779776"
     },
     {
@@ -694,8 +1150,8 @@
       "last_name": "Lundberg",
       "email": "fredrik.lundberg@nftventures.com",
       "phone": "070-753 62 61",
-      "existing_contact_id": "c296b842-b510-4424-b285-1cc76e5e5af1",
-      "existing_customer_id": "0126d5d9-b9a2-4500-ab44-593427765646"
+      "existing_contact_id": "b34d11af-676a-424a-a43c-4803c6e75507",
+      "existing_customer_id": "6ba896ff-dfa4-4997-950c-ed73a832c899"
     },
     {
       "customer_id": "ac211bd7-8c80-498f-8755-a513dfb415f2",
@@ -706,7 +1162,7 @@
       "last_name": "Isaksson",
       "email": "gunnar@cyclopsinv.se",
       "phone": "",
-      "existing_contact_id": "c0b38079-097c-4c86-a92b-d28d303919cd",
+      "existing_contact_id": "1d5454a0-f91a-4d5e-b337-2c8d3274a50d",
       "existing_customer_id": "24ae2fba-5a4b-4f42-bf3b-6541acdbb2f2"
     },
     {
@@ -718,7 +1174,7 @@
       "last_name": "Ekbo",
       "email": "sten.ekbo@ise.se",
       "phone": "+4687646240",
-      "existing_contact_id": "30d9143d-0435-4762-9fac-dcd1af465902",
+      "existing_contact_id": "a5535155-2a7a-454c-a289-8d907c7bc51a",
       "existing_customer_id": "85036b03-8d21-45fe-8bba-510299bc2a37"
     },
     {
@@ -730,8 +1186,8 @@
       "last_name": "Thorstensson",
       "email": "janne.thorstensson@gmail.com",
       "phone": "+46155210535",
-      "existing_contact_id": "609a7803-c066-42fd-8623-c533a24d640a",
-      "existing_customer_id": "326123be-5d2f-4501-9b17-651b1365b60d"
+      "existing_contact_id": "c0496f54-820f-4635-815d-2f36507eeb17",
+      "existing_customer_id": "40d36030-6305-4e82-b9be-e095442faf13"
     },
     {
       "customer_id": "7bf0b8d3-8600-4144-8b6a-5c1e7fa8dc82",
@@ -742,7 +1198,7 @@
       "last_name": "Lundgren",
       "email": "robin.lundgren@jkn.se",
       "phone": null,
-      "existing_contact_id": "148869c8-19ee-4940-91a7-9540ead6960a",
+      "existing_contact_id": "70c8d6f9-1dd4-462d-a8d1-b84d2462c2fa",
       "existing_customer_id": "7afd0447-d6dd-47cd-be13-71868f8f9d12"
     },
     {
@@ -754,7 +1210,7 @@
       "last_name": "K Nilsson",
       "email": "johan.k.nilsson@jkn.se",
       "phone": null,
-      "existing_contact_id": "27020a7d-4844-4615-afb9-37178444a44e",
+      "existing_contact_id": "f1e4d6cc-4f10-4ed6-9e04-c064afce8c00",
       "existing_customer_id": "fb9c9d60-2550-4012-9298-de95ecc699e9"
     },
     {
@@ -766,7 +1222,7 @@
       "last_name": "Tear",
       "email": "leck@jorden.se",
       "phone": "08-7208650",
-      "existing_contact_id": "6b886004-fcc6-40a1-943d-3483b599da00",
+      "existing_contact_id": "40216b01-55c2-4ee4-8dcb-09ab7731cd67",
       "existing_customer_id": "ace4a4f2-a35b-43cb-b404-e4f6d32215fa"
     },
     {
@@ -778,7 +1234,7 @@
       "last_name": "Svensson",
       "email": "katarina.svensson@june.se",
       "phone": "08-6562700",
-      "existing_contact_id": "c3aac6cb-24b6-461b-9e6b-e66fe10f0ef5",
+      "existing_contact_id": "ae27cc7e-37fb-476a-9b53-68b2dc0a9921",
       "existing_customer_id": "698d99df-c24c-467a-9d97-f77e9f668684"
     },
     {
@@ -790,8 +1246,20 @@
       "last_name": "Jalalzadeh",
       "email": "navid.clean@gmail.com",
       "phone": "0707866696",
-      "existing_contact_id": "ef506ea6-c1c4-4a94-ac7f-2eee049ae2b5",
+      "existing_contact_id": "715cacb6-250d-45a4-8366-1144acb2d75e",
       "existing_customer_id": "594d0b96-b583-4e39-92f5-49674c69991e"
+    },
+    {
+      "customer_id": "69b2a28b-26f0-4289-81a5-4faf43459ad4",
+      "fortnox_customer_number": "796",
+      "customer_name": "Kalle & Dogges Mat AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "rest.kagges@gmail.com",
+      "phone": "070-4422524",
+      "existing_contact_id": "d61465f6-73e9-4483-9a96-6eb3ebc38597",
+      "existing_customer_id": "069fa631-635b-44ff-858b-98a428e8d18c"
     },
     {
       "customer_id": "d2b7eb06-c5b3-483a-b0dc-3ce2f0fc7c50",
@@ -802,8 +1270,8 @@
       "last_name": "Åström",
       "email": "anders.astrom@grandholm.se",
       "phone": "",
-      "existing_contact_id": "ee383609-bfe3-44e5-b86f-212183aa6cd7",
-      "existing_customer_id": "a8c80008-353c-44f8-99db-d130770ed040"
+      "existing_contact_id": "63a0e383-1c0b-4166-931b-04ff3b3faded",
+      "existing_customer_id": "860ff70f-3b3f-4f50-b842-9870d9841921"
     },
     {
       "customer_id": "20b77228-26e5-4568-bc9e-de4a7387c251",
@@ -814,8 +1282,20 @@
       "last_name": "Åström",
       "email": "anders.astrom@grandholm.se",
       "phone": "",
-      "existing_contact_id": "ee383609-bfe3-44e5-b86f-212183aa6cd7",
-      "existing_customer_id": "a8c80008-353c-44f8-99db-d130770ed040"
+      "existing_contact_id": "a9ea2f6d-0901-4f8e-bfd7-85bf37a8f9f3",
+      "existing_customer_id": "d2b7eb06-c5b3-483a-b0dc-3ce2f0fc7c50"
+    },
+    {
+      "customer_id": "08f82e41-6782-4fdc-8644-ae252969b506",
+      "fortnox_customer_number": "1147",
+      "customer_name": "Kapitalförvaltnings AB Stentulpanen",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "johan.lundberg@nftventures.com",
+      "phone": "08-307300",
+      "existing_contact_id": "c3651756-1b27-4d75-9f05-8e316c4661d6",
+      "existing_customer_id": "69258348-6465-4484-9292-a4f664da39fe"
     },
     {
       "customer_id": "28995218-e8c0-4a42-aa34-db0460675f43",
@@ -826,8 +1306,20 @@
       "last_name": "Lundgren",
       "email": "robin.lundgren@jkn.se",
       "phone": "+4686629400",
-      "existing_contact_id": "148869c8-19ee-4940-91a7-9540ead6960a",
-      "existing_customer_id": "7afd0447-d6dd-47cd-be13-71868f8f9d12"
+      "existing_contact_id": "cee4c790-3501-414b-be0d-89cf93ba1c2a",
+      "existing_customer_id": "7bf0b8d3-8600-4144-8b6a-5c1e7fa8dc82"
+    },
+    {
+      "customer_id": "bc699ae4-ce1f-4458-9ab7-870c55a34923",
+      "fortnox_customer_number": "1110",
+      "customer_name": "Kasper Kleihs",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "madeleine@saldoredo.se",
+      "phone": "073-8238058",
+      "existing_contact_id": "75e4a8a5-fd70-4167-aa41-9d0e603beba6",
+      "existing_customer_id": "a63e90b1-d9be-48b9-9425-984590c74356"
     },
     {
       "customer_id": "81086d78-005f-495a-828d-2cb4c8079dce",
@@ -838,8 +1330,8 @@
       "last_name": "Steen",
       "email": "richard@rivningshus.se",
       "phone": "+4686430330",
-      "existing_contact_id": "07856caa-ca30-4144-8256-0d4431ce16ca",
-      "existing_customer_id": "da19a8b9-1e40-47e9-ac62-9e3e62aa0048"
+      "existing_contact_id": "337e80ec-11ee-4ce7-a84f-a98cc8882008",
+      "existing_customer_id": "79bebac8-758b-45e1-900f-b39bff9ff303"
     },
     {
       "customer_id": "01aaab65-db1b-4ec6-8789-e74733738517",
@@ -850,7 +1342,7 @@
       "last_name": "Nehro",
       "email": "daroun.nehro@swemed.se",
       "phone": "08-6560077",
-      "existing_contact_id": "725c5485-fbf9-42b2-b93b-f145b7aea601",
+      "existing_contact_id": "bf0d9179-fa8c-4372-abe5-2ed1ee153ff7",
       "existing_customer_id": "06d11ae3-dd8b-4b11-9e5e-c7aa234af2ce"
     },
     {
@@ -862,7 +1354,7 @@
       "last_name": "Kleinwichs Magnusson",
       "email": "anna@stockholmsskrivbyra.se",
       "phone": "",
-      "existing_contact_id": "01ac87a5-10d1-4beb-90fb-5ca1904a7f1e",
+      "existing_contact_id": "2c5c119b-12d7-4205-aa90-38d62ebf1b1d",
       "existing_customer_id": "0510de15-ef56-4e2f-a449-1a93d4e04f6e"
     },
     {
@@ -874,8 +1366,32 @@
       "last_name": "Knaust",
       "email": "per.knaust@notar.se",
       "phone": "08-54581500",
-      "existing_contact_id": "71c02c91-fcf7-4aa3-94e6-7654c2a4b939",
-      "existing_customer_id": "5e4d6a9f-7168-46cd-aadf-6826cbe12ef6"
+      "existing_contact_id": "f3f94ca5-99f7-49c0-99aa-38c4e17ff30a",
+      "existing_customer_id": "d5627a6b-43da-48dc-976e-9a73a54fd32a"
+    },
+    {
+      "customer_id": "cdc32c99-51e1-4185-aa35-b01f64aae172",
+      "fortnox_customer_number": "691",
+      "customer_name": "Kodea systems AB",
+      "full_name": "Christina Östman",
+      "first_name": "Christina",
+      "last_name": "Östman",
+      "email": "madeleine@saldoredo.se",
+      "phone": "+46708345697",
+      "existing_contact_id": "2e75f801-c56f-4177-a701-eb14f7bac7a7",
+      "existing_customer_id": "bc699ae4-ce1f-4458-9ab7-870c55a34923"
+    },
+    {
+      "customer_id": "093ed5e3-cabf-46e2-bb50-df5580174063",
+      "fortnox_customer_number": "1158",
+      "customer_name": "Konopa Holding AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "christian@makerietfilm.se",
+      "phone": "084753441",
+      "existing_contact_id": "04214271-6781-43ac-98e2-62d4f7394661",
+      "existing_customer_id": "b34af22d-6d72-42ea-8865-c60acfb2342c"
     },
     {
       "customer_id": "9f86ac5c-e049-40ca-ad78-18b4fc510239",
@@ -886,7 +1402,7 @@
       "last_name": "Kananian",
       "email": "korosh.kananian@gmail.com",
       "phone": "08-307300",
-      "existing_contact_id": "e13e8a9f-312c-4f78-a339-7b90a0a18d71",
+      "existing_contact_id": "481264a0-f1e9-450a-94cd-e5d3c4836e10",
       "existing_customer_id": "115a470e-b71f-4e71-964c-521eebc75f8a"
     },
     {
@@ -898,7 +1414,7 @@
       "last_name": "Kull",
       "email": "tomas@kull.se",
       "phone": null,
-      "existing_contact_id": "506743a0-5ef6-46c5-8e9c-0a42033ccd6d",
+      "existing_contact_id": "f183aa53-1c23-4fee-a623-06f78ea78fe8",
       "existing_customer_id": "ac78b12f-6efe-4278-b8f3-76a02782113d"
     },
     {
@@ -910,8 +1426,20 @@
       "last_name": "Yilmaz",
       "email": "fikri@bar54.se",
       "phone": "070-7358984",
-      "existing_contact_id": "0f2a0bf9-bb16-41dd-8c81-732b9cd0c8a2",
+      "existing_contact_id": "349a30b3-c2d9-4c89-a183-48f209e94ad8",
       "existing_customer_id": "755678b3-4632-4e46-a9c1-33688744787d"
+    },
+    {
+      "customer_id": "bc6e05a5-4a7e-4a13-b8bf-a448dbdb6d9d",
+      "fortnox_customer_number": "296",
+      "customer_name": "Kuylenstierna William",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "william.kuylenstierna@gmail.com",
+      "phone": "",
+      "existing_contact_id": "b1d2ccde-c97f-438f-afdf-ae210996d0d0",
+      "existing_customer_id": "4950cd46-fc19-4b12-a4df-6e8e00242720"
     },
     {
       "customer_id": "7a5eb37d-f382-41cf-89d2-ac94a49a0ba4",
@@ -922,7 +1450,7 @@
       "last_name": "Bergstedt",
       "email": "fredrik-bergstedt@telia.com",
       "phone": null,
-      "existing_contact_id": "a1b69715-145b-4070-84ac-16e7802457f0",
+      "existing_contact_id": "8d7bf91d-7edf-46b3-8275-3590f4fdf649",
       "existing_customer_id": "79f89745-7618-4c2c-811a-7d14333ea8ea"
     },
     {
@@ -934,8 +1462,20 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "070-7536261",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
+      "existing_contact_id": "607dddb0-c26a-4c84-9893-35bbdb0bb221",
       "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+    },
+    {
+      "customer_id": "42235ceb-5ddc-4dce-98be-4e7de6fa0000",
+      "fortnox_customer_number": "1441",
+      "customer_name": "Landsnora Software AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "tommy.forsell@gmail.com",
+      "phone": "",
+      "existing_contact_id": "b7ebd676-52a6-4073-97ac-3e5466df9c4d",
+      "existing_customer_id": "2fef8f74-c209-4b50-ad4a-fe2df7362090"
     },
     {
       "customer_id": "89fd9d3b-6325-42c0-8c92-0de9218884a5",
@@ -946,8 +1486,32 @@
       "last_name": "Kull",
       "email": "beata@beatastiftelsen.org",
       "phone": null,
-      "existing_contact_id": "9ac6719b-7494-45e0-aea3-e9401c4c95e5",
+      "existing_contact_id": "53dead5a-7aa7-46f9-a9f6-a30cdb0d5625",
       "existing_customer_id": "275d2c7e-8142-443c-9d31-771c953f39a5"
+    },
+    {
+      "customer_id": "947ae690-7bd3-49af-b1a3-9a7935af116b",
+      "fortnox_customer_number": "217",
+      "customer_name": "Larsson & Larsson AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "larssonjohan@me.com",
+      "phone": "",
+      "existing_contact_id": "bc010337-1199-4c7d-9ce8-5dad26c7b6ea",
+      "existing_customer_id": "0645fadd-938e-40fa-87a2-55f2720b1cec"
+    },
+    {
+      "customer_id": "4a7123fc-dc54-464d-9e83-23db3e260712",
+      "fortnox_customer_number": "1309",
+      "customer_name": "Laventura AB",
+      "full_name": "Emil Hellström",
+      "first_name": "Emil",
+      "last_name": "Hellström",
+      "email": "emil@outdoormap.com",
+      "phone": "070-5589787",
+      "existing_contact_id": "ef93ed18-aba7-4d67-b8eb-bfe8c5f6648d",
+      "existing_customer_id": "270ebb44-0391-4aeb-afd5-22ca10e97a34"
     },
     {
       "customer_id": "67571b70-4dbf-4ba9-a7c7-2a624369197a",
@@ -958,7 +1522,7 @@
       "last_name": "Assefa",
       "email": "lili@assefa.se",
       "phone": "08-55604109",
-      "existing_contact_id": "6420a450-e69a-4df7-9a32-80688c0b41a7",
+      "existing_contact_id": "f58271e0-8d6b-49c1-aa49-080ab10ebbbc",
       "existing_customer_id": "4106b752-0630-42c9-93f3-6ddd98a1f20a"
     },
     {
@@ -970,7 +1534,7 @@
       "last_name": "Jarlsdotter",
       "email": "eva.jarlsdotter@me.com",
       "phone": "070-393 62 40",
-      "existing_contact_id": "956d2452-20fe-4af2-ad33-852fd64a9b02",
+      "existing_contact_id": "06147a00-4cad-4569-b0d2-2a34a2798b17",
       "existing_customer_id": "1500b111-3879-4e82-8872-3513712527a0"
     },
     {
@@ -982,8 +1546,32 @@
       "last_name": "Quaglia",
       "email": "christian@herrjudit.se",
       "phone": "",
-      "existing_contact_id": "4b0303bc-2eec-4d27-948a-1620c51bc146",
-      "existing_customer_id": "966b9896-d38c-46fc-95f0-05f0436c56d1"
+      "existing_contact_id": "3c55b0c1-8124-4287-ad31-868401599162",
+      "existing_customer_id": "94b950bd-d371-449e-b50c-16c0be79206d"
+    },
+    {
+      "customer_id": "cd69e2bd-b430-4bf3-96c4-50f23758e082",
+      "fortnox_customer_number": "459",
+      "customer_name": "Lin Zhang Freund",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "madeleine@saldoredo.se",
+      "phone": "",
+      "existing_contact_id": "f15369f1-5b94-4113-ba35-0e28056553bd",
+      "existing_customer_id": "cdc32c99-51e1-4185-aa35-b01f64aae172"
+    },
+    {
+      "customer_id": "7f5507c7-3e59-4593-a089-ce7ebe97dd44",
+      "fortnox_customer_number": "1790",
+      "customer_name": "Lina Hage bilverkstad AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "linus@saldoredo.se",
+      "phone": "",
+      "existing_contact_id": "e0c83bcd-557d-44ea-a677-f2c4fd0b9b49",
+      "existing_customer_id": "2189b077-51b0-4d77-9e4e-bcda32218a2c"
     },
     {
       "customer_id": "9aa7c04f-be77-4510-84e4-fa669ee5a87b",
@@ -994,8 +1582,20 @@
       "last_name": "",
       "email": "rest.kagges@gmail.com",
       "phone": "",
-      "existing_contact_id": "99541577-09c1-4d41-a720-4d9e3b104fb3",
-      "existing_customer_id": "069fa631-635b-44ff-858b-98a428e8d18c"
+      "existing_contact_id": "7b15a3d7-b174-4543-b0ad-76c5e577d220",
+      "existing_customer_id": "69b2a28b-26f0-4289-81a5-4faf43459ad4"
+    },
+    {
+      "customer_id": "df73d564-687a-4680-85ff-6675e44aad9a",
+      "fortnox_customer_number": "954",
+      "customer_name": "Liras AB",
+      "full_name": "Hanna Engerdahl",
+      "first_name": "Hanna",
+      "last_name": "Engerdahl",
+      "email": "hannaengerdahl@hotmail.com",
+      "phone": null,
+      "existing_contact_id": "ba96a13f-a8cb-411a-b35e-283db852b108",
+      "existing_customer_id": "f418af5a-beab-4a05-b950-075a80f21a73"
     },
     {
       "customer_id": "62f09431-d017-42f6-b100-0120839600fe",
@@ -1006,8 +1606,8 @@
       "last_name": "Åström",
       "email": "anders.astrom@grandholm.se",
       "phone": "0708677581",
-      "existing_contact_id": "ee383609-bfe3-44e5-b86f-212183aa6cd7",
-      "existing_customer_id": "a8c80008-353c-44f8-99db-d130770ed040"
+      "existing_contact_id": "fadd4258-23f5-4dbe-a303-1f8d9db88ae5",
+      "existing_customer_id": "20b77228-26e5-4568-bc9e-de4a7387c251"
     },
     {
       "customer_id": "b73b621c-dd48-4357-b26a-d3a6b09fec5c",
@@ -1018,8 +1618,32 @@
       "last_name": "Scott",
       "email": "jimmy@jimmyscott.se",
       "phone": "070-0009920",
-      "existing_contact_id": "4304e1d7-c192-4bfb-9a01-d5f8644c5bb0",
+      "existing_contact_id": "3779f995-a4b6-45f5-bec2-763bbcc895ad",
       "existing_customer_id": "c8db0ecd-5654-40b6-8d94-df0d1093101d"
+    },
+    {
+      "customer_id": "a5c7bde4-5877-47fc-8e21-220f1abdb4dc",
+      "fortnox_customer_number": "1932",
+      "customer_name": "Lodun Design AB",
+      "full_name": "Stefan",
+      "first_name": "Stefan",
+      "last_name": "",
+      "email": "stefan@lodun.se",
+      "phone": "",
+      "existing_contact_id": "fa8c0abb-5821-4d7b-a1da-ffd3b48d098f",
+      "existing_customer_id": "f694ce46-9d70-4618-870c-3869231bba67"
+    },
+    {
+      "customer_id": "47ba8921-f0dd-4095-b3b6-e6b4ee77fe20",
+      "fortnox_customer_number": "5439",
+      "customer_name": "Lodun Holding AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "stefan@lodun.se",
+      "phone": "",
+      "existing_contact_id": "4c69cfcb-f92d-4da3-93b6-ffffbeabb8de",
+      "existing_customer_id": "a5c7bde4-5877-47fc-8e21-220f1abdb4dc"
     },
     {
       "customer_id": "eedb1b77-5fcc-42e1-b92a-b1d9f11ef602",
@@ -1030,8 +1654,32 @@
       "last_name": "Sundberg",
       "email": "johan.sundberg@edplaw.com",
       "phone": null,
-      "existing_contact_id": "8b0ace71-9fc5-4de0-9aa3-f40f28c6bd9f",
+      "existing_contact_id": "5932372b-08d8-4b45-8b89-daae9edaaf74",
       "existing_customer_id": "30bc9cf4-a973-4ed9-be31-0b73b1199c41"
+    },
+    {
+      "customer_id": "d79d5296-74d0-496f-aea1-9a61db7d1a82",
+      "fortnox_customer_number": "1685",
+      "customer_name": "LTN Holding AB",
+      "full_name": "Nicklas Edin",
+      "first_name": "Nicklas",
+      "last_name": "Edin",
+      "email": "nicklas.edin@multichallenge.se",
+      "phone": "",
+      "existing_contact_id": "de90e1ea-7f18-4ccb-aa60-d4b952c45810",
+      "existing_customer_id": "77b9278f-0118-4ba8-b3af-518b6545ffd6"
+    },
+    {
+      "customer_id": "33d029e3-18c4-451c-97ca-3f8032011b63",
+      "fortnox_customer_number": "1611",
+      "customer_name": "Lusso Marketing AB",
+      "full_name": "Henry Cantwell",
+      "first_name": "Henry",
+      "last_name": "Cantwell",
+      "email": "cantwellhenry61@gmail.com",
+      "phone": "+46723581441",
+      "existing_contact_id": "71d4648f-5b1b-49e3-b249-9cb9c1e0c120",
+      "existing_customer_id": "0f32bc61-6bb3-425f-8f32-294c76318222"
     },
     {
       "customer_id": "9c00af10-cfa7-4231-8655-7dcbeed63325",
@@ -1042,8 +1690,44 @@
       "last_name": "Olofsson",
       "email": "maria.olofsson@olofssonforvaltning.se",
       "phone": null,
-      "existing_contact_id": "549d43d5-d3bf-48cf-9a51-03a05ffe6de3",
+      "existing_contact_id": "b9315e16-bffb-4b07-a1f8-420fe262f789",
       "existing_customer_id": "90f5a481-ce8d-47e0-953f-39bc5d644469"
+    },
+    {
+      "customer_id": "ce95546f-db14-450b-9fed-92abd1ac348a",
+      "fortnox_customer_number": "1551",
+      "customer_name": "Mabäcker bruncas AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "alex@mabackergroup.se",
+      "phone": "",
+      "existing_contact_id": "aa59a5b4-c31c-44f7-b397-b2151a6af6fa",
+      "existing_customer_id": "f49bde5c-7d5b-4338-b97a-12fa999ac49e"
+    },
+    {
+      "customer_id": "a3a41afa-4b98-46ba-9b2f-b6d8e69b574b",
+      "fortnox_customer_number": "1550",
+      "customer_name": "Mabäcker bruncas Holding AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "alex@mabackergroup.se",
+      "phone": "",
+      "existing_contact_id": "927be472-4061-4008-bf4b-073c1d24340e",
+      "existing_customer_id": "ce95546f-db14-450b-9fed-92abd1ac348a"
+    },
+    {
+      "customer_id": "69c9d8a3-cced-4cd1-b9db-f66aec5fd0e1",
+      "fortnox_customer_number": "1382",
+      "customer_name": "Mabäcker Group AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "alex@mabackergroup.se",
+      "phone": "070-8881817",
+      "existing_contact_id": "fae955f5-02e0-4e3c-aef9-9c80569e6cd4",
+      "existing_customer_id": "a3a41afa-4b98-46ba-9b2f-b6d8e69b574b"
     },
     {
       "customer_id": "fa84f693-c8fd-4469-810f-d1671150524b",
@@ -1054,8 +1738,20 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "d113c682-d417-4019-bf2b-004523188ce8",
+      "existing_customer_id": "3ed2775c-2d4d-43b5-9baf-354d7524f5c2"
+    },
+    {
+      "customer_id": "2ae63f94-3b57-41d5-b1d7-7d09cd5f9867",
+      "fortnox_customer_number": "699",
+      "customer_name": "Makeriet AB",
+      "full_name": "Christian Kielberg",
+      "first_name": "Christian",
+      "last_name": "Kielberg",
+      "email": "christian@makerietfilm.se",
+      "phone": "0736213418",
+      "existing_contact_id": "2afb1691-5f53-4a75-b391-4a6032349c8b",
+      "existing_customer_id": "093ed5e3-cabf-46e2-bb50-df5580174063"
     },
     {
       "customer_id": "e54d984d-7ac5-4b54-92a0-eccc13d0237d",
@@ -1066,8 +1762,20 @@
       "last_name": "Karlsson",
       "email": "torbjorn.karlsson@gradient.se",
       "phone": "073-3430301",
-      "existing_contact_id": "088d8b2f-87db-41d5-92b5-65d6dc9438b0",
+      "existing_contact_id": "fba174e9-0315-43a1-8b17-1bdf62e9ef23",
       "existing_customer_id": "adc03d15-d6e2-47ed-acc6-53bbb575cf23"
+    },
+    {
+      "customer_id": "7c969e8d-295a-4591-bd17-2d289b6ed082",
+      "fortnox_customer_number": "1529",
+      "customer_name": "Mamas i Marstrand AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "axel@mamas.se",
+      "phone": "070-6660560",
+      "existing_contact_id": "53698817-e146-43d8-9837-7bfcee757eb9",
+      "existing_customer_id": "664c2621-c530-41a2-9abe-8f31ef413817"
     },
     {
       "customer_id": "9b1a9e6a-7ca1-4330-8cb8-49cca5e2d82a",
@@ -1078,8 +1786,8 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": "+4687979865",
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "406dabec-8172-44aa-b0e9-fc0379aec0a9",
+      "existing_customer_id": "c4f94e97-753b-4988-b360-4cea56481cfa"
     },
     {
       "customer_id": "f889da22-0210-4bd1-8cd3-b35160310a3a",
@@ -1090,8 +1798,20 @@
       "last_name": "",
       "email": "margarita.triantafyllidou@gmail.com",
       "phone": null,
-      "existing_contact_id": "ff223b23-7824-4f67-88db-d2eb5d5dee3b",
+      "existing_contact_id": "9e1b878b-c531-47bb-8530-e15550849e3c",
       "existing_customer_id": "f29d2e26-7a03-4712-9cee-fc7cc8f68669"
+    },
+    {
+      "customer_id": "b4f8b632-d806-41db-ab48-46d193530819",
+      "fortnox_customer_number": "1724",
+      "customer_name": "Maropost AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "joakim@findify.io",
+      "phone": "",
+      "existing_contact_id": "89e5f125-65fa-4eee-a0a4-909eb2d86b5d",
+      "existing_customer_id": "1cd43d87-8b1d-404a-8aee-2867ddf5a1aa"
     },
     {
       "customer_id": "37e1e0b8-723b-495b-903c-dcc034a10f7e",
@@ -1102,8 +1822,20 @@
       "last_name": "Krohn",
       "email": "axel@mamas.se",
       "phone": "",
-      "existing_contact_id": "25320b1d-a290-4a56-87fc-3747f94308cd",
-      "existing_customer_id": "a3940995-42f8-46b1-8e9e-25a6195fc814"
+      "existing_contact_id": "832c72d8-f9c9-4888-93c6-b804ce1eae5e",
+      "existing_customer_id": "7c969e8d-295a-4591-bd17-2d289b6ed082"
+    },
+    {
+      "customer_id": "36fb56f0-6efb-4c8f-a91c-13e28db0e304",
+      "fortnox_customer_number": "1366",
+      "customer_name": "Matías Ignacio Ruiz Tagle Tapia",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "matias.a@saldoredo.se",
+      "phone": "0739431180",
+      "existing_contact_id": "902e102e-7b1c-4126-9913-05db56330f4c",
+      "existing_customer_id": "46bcca1a-df0e-4317-989e-add45e05602d"
     },
     {
       "customer_id": "bc6fb522-a806-43dd-a045-4ab9abef7265",
@@ -1114,7 +1846,7 @@
       "last_name": "Hermundsson",
       "email": "mauri@mustigproduktion.se",
       "phone": "",
-      "existing_contact_id": "0d8cd5ac-6faa-4bd9-af91-4228ae65a769",
+      "existing_contact_id": "e7e13a25-704e-4428-a514-37c2a7248d21",
       "existing_customer_id": "5a17cc9c-1313-4b5e-b14c-0e64675e52d8"
     },
     {
@@ -1126,8 +1858,8 @@
       "last_name": "Hermundsson",
       "email": "mauri@mustigproduktion.se",
       "phone": "",
-      "existing_contact_id": "0d8cd5ac-6faa-4bd9-af91-4228ae65a769",
-      "existing_customer_id": "5a17cc9c-1313-4b5e-b14c-0e64675e52d8"
+      "existing_contact_id": "4d59cfa1-511d-463b-87c2-1ff470ec7de4",
+      "existing_customer_id": "bc6fb522-a806-43dd-a045-4ab9abef7265"
     },
     {
       "customer_id": "78b07c10-b594-4a87-86ce-dcf37b449b28",
@@ -1138,7 +1870,7 @@
       "last_name": "Libell",
       "email": "mattias.libell@gradient.se",
       "phone": "073-3430300",
-      "existing_contact_id": "7d45b2de-abfc-45e8-81fc-6321f5679d8d",
+      "existing_contact_id": "b39ebc33-94d0-4e22-af22-b0a36bcd247d",
       "existing_customer_id": "ec6f866c-af5b-48f9-b041-998abe19685a"
     },
     {
@@ -1150,8 +1882,8 @@
       "last_name": "Andersson",
       "email": "hej@aadrian.se",
       "phone": "0707901656",
-      "existing_contact_id": "5464ef2a-bf8d-4d45-ba59-315e06cfd35d",
-      "existing_customer_id": "31917258-da4a-4f1d-a1aa-10a271f80286"
+      "existing_contact_id": "74defc3e-f1cc-4825-a511-c0c5bbb23f52",
+      "existing_customer_id": "f7ea8fae-56ec-493e-9d4d-a643805afd35"
     },
     {
       "customer_id": "e8841895-6083-4b72-a222-ee29bd6d7944",
@@ -1162,8 +1894,8 @@
       "last_name": "Kleinwichs Magnusson",
       "email": "anna@stockholmsskrivbyra.se",
       "phone": "",
-      "existing_contact_id": "01ac87a5-10d1-4beb-90fb-5ca1904a7f1e",
-      "existing_customer_id": "0510de15-ef56-4e2f-a449-1a93d4e04f6e"
+      "existing_contact_id": "4e8a49a0-b8eb-4844-b2e1-6691a63a5156",
+      "existing_customer_id": "544702d1-ef69-4ad7-a7f2-92b91ce9d4e9"
     },
     {
       "customer_id": "01cf6224-2c3f-476c-8e29-335297252b4f",
@@ -1174,8 +1906,8 @@
       "last_name": "Þór Vigfússon",
       "email": "arni@varpizza.se",
       "phone": "0737500606",
-      "existing_contact_id": "3f880785-3c06-434c-abd7-645abadbfa15",
-      "existing_customer_id": "3decdd63-5ef9-4acb-b848-2b21e35d12ae"
+      "existing_contact_id": "2857288b-c9f2-4858-9867-ae8287aae552",
+      "existing_customer_id": "4358fd28-5633-41b2-a99b-2507eeee021f"
     },
     {
       "customer_id": "9bab408a-e092-4ddb-b08d-88fb7111056f",
@@ -1186,8 +1918,8 @@
       "last_name": "Andersson",
       "email": "hej@aadrian.se",
       "phone": "",
-      "existing_contact_id": "5464ef2a-bf8d-4d45-ba59-315e06cfd35d",
-      "existing_customer_id": "31917258-da4a-4f1d-a1aa-10a271f80286"
+      "existing_contact_id": "f48f04cd-a045-4d97-aeae-4f6b9a392a9f",
+      "existing_customer_id": "de04b51a-364a-464d-bac5-5a0776a6e1e1"
     },
     {
       "customer_id": "91d946bb-133a-4aaa-99a7-70b4c5432cb7",
@@ -1198,8 +1930,44 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "9bf5fb72-64e8-4bf2-b669-59f7b9898353",
+      "existing_customer_id": "fa84f693-c8fd-4469-810f-d1671150524b"
+    },
+    {
+      "customer_id": "a7e2ecd1-94d0-4ae9-9144-d544d832da79",
+      "fortnox_customer_number": "1670",
+      "customer_name": "Mikael Lönn AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "mikael@lonn-ab.se",
+      "phone": "",
+      "existing_contact_id": "f4b0328c-0ba1-4e6a-ae83-61ecb6be8818",
+      "existing_customer_id": "98ba49f4-d2c5-4248-81bf-d202f2b35e80"
+    },
+    {
+      "customer_id": "d746b77e-b3a4-4433-9a8f-4910a329be4c",
+      "fortnox_customer_number": "622",
+      "customer_name": "Millestrand Professional AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "info@millestrand.com",
+      "phone": "08-284814",
+      "existing_contact_id": "41adf54b-0c84-45d6-9bc7-ac4860401be6",
+      "existing_customer_id": "0a381e23-f837-4834-9f4b-546abd961de9"
+    },
+    {
+      "customer_id": "a1c6bb9e-fc1e-436d-9896-666c77b3c013",
+      "fortnox_customer_number": "457",
+      "customer_name": "Monica Sandberg",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "madeleine@saldoredo.se",
+      "phone": "",
+      "existing_contact_id": "e880716c-1a4d-4937-9bf6-ba3fabc2a2d8",
+      "existing_customer_id": "cd69e2bd-b430-4bf3-96c4-50f23758e082"
     },
     {
       "customer_id": "e423c319-2199-4ba1-8c72-a84657a611f0",
@@ -1210,7 +1978,7 @@
       "last_name": "Rönnholmen",
       "email": "marko.ronnholmen@gmail.com",
       "phone": "0767632100",
-      "existing_contact_id": "d5c4b32c-abfb-45c7-932c-10c465bc0988",
+      "existing_contact_id": "9691efbf-07b5-4710-9f65-fff02bc1affb",
       "existing_customer_id": "4aa84cbe-26e1-4532-8f9a-a44aec42c4fa"
     },
     {
@@ -1222,7 +1990,7 @@
       "last_name": "Fagergren",
       "email": "peggy@mrcake.se",
       "phone": "",
-      "existing_contact_id": "e9427100-f095-462b-88ad-343193b85568",
+      "existing_contact_id": "89c06130-960b-4d87-8153-6ad6a372596f",
       "existing_customer_id": "0a42fc94-0ca0-4fb6-ba27-351a54ae8967"
     },
     {
@@ -1234,8 +2002,8 @@
       "last_name": "Fagergren",
       "email": "peggy@mrcake.se",
       "phone": "070-7907848",
-      "existing_contact_id": "e9427100-f095-462b-88ad-343193b85568",
-      "existing_customer_id": "0a42fc94-0ca0-4fb6-ba27-351a54ae8967"
+      "existing_contact_id": "94550cba-bb3a-42fa-8b0e-10e51e523f62",
+      "existing_customer_id": "1522dd3b-89ce-43d3-a4af-8ea91d9e4ae6"
     },
     {
       "customer_id": "5583083b-2add-494d-a8c6-2fd7edbbe698",
@@ -1246,8 +2014,8 @@
       "last_name": "Fagergren",
       "email": "peggy@mrcake.se",
       "phone": "+46840017190",
-      "existing_contact_id": "e9427100-f095-462b-88ad-343193b85568",
-      "existing_customer_id": "0a42fc94-0ca0-4fb6-ba27-351a54ae8967"
+      "existing_contact_id": "74617831-6654-4ce2-95c3-54cac281943b",
+      "existing_customer_id": "c7416eaa-fc04-43e7-b9f4-7dbab4da2052"
     },
     {
       "customer_id": "b17806a9-0e6b-4d3f-a6c4-e6024bc04a36",
@@ -1258,8 +2026,8 @@
       "last_name": "Fagergren",
       "email": "peggy@mrcake.se",
       "phone": "",
-      "existing_contact_id": "e9427100-f095-462b-88ad-343193b85568",
-      "existing_customer_id": "0a42fc94-0ca0-4fb6-ba27-351a54ae8967"
+      "existing_contact_id": "5fc39351-2463-4dbc-9e15-023ddb1129d1",
+      "existing_customer_id": "5583083b-2add-494d-a8c6-2fd7edbbe698"
     },
     {
       "customer_id": "a0c1901d-1ba5-40d6-8d45-15e52410948b",
@@ -1270,7 +2038,7 @@
       "last_name": "Öster",
       "email": "roland@nordictile.se",
       "phone": null,
-      "existing_contact_id": "c48f3617-b934-4ed1-84fe-0f892acfd8fc",
+      "existing_contact_id": "82cb3c92-bb97-4fe7-8524-4962228fcc9c",
       "existing_customer_id": "93f3d576-ac6d-448b-a3ba-59fce79103cc"
     },
     {
@@ -1282,7 +2050,7 @@
       "last_name": "Stojanovic",
       "email": "maja@goga.se",
       "phone": "",
-      "existing_contact_id": "53649382-374e-4953-92c8-81a06033dc76",
+      "existing_contact_id": "1350245b-029b-4db9-8560-6160491a0fbc",
       "existing_customer_id": "92ed9615-ad1c-4185-a9dc-35803b0bc487"
     },
     {
@@ -1294,7 +2062,7 @@
       "last_name": "Lim",
       "email": "jpl@mudo.se",
       "phone": "",
-      "existing_contact_id": "91605fa0-6c7d-48da-8610-f341802dbbab",
+      "existing_contact_id": "a5b314ef-6c9e-4a10-a1ce-e3f8ce89f9e5",
       "existing_customer_id": "da9364bd-fd1f-478a-ba0c-805513964e9a"
     },
     {
@@ -1306,8 +2074,8 @@
       "last_name": "Kull",
       "email": "tomas@kull.se",
       "phone": null,
-      "existing_contact_id": "506743a0-5ef6-46c5-8e9c-0a42033ccd6d",
-      "existing_customer_id": "ac78b12f-6efe-4278-b8f3-76a02782113d"
+      "existing_contact_id": "a24a136e-745f-4753-9f0f-ed1868e0cfb7",
+      "existing_customer_id": "8c1b4607-2f40-4918-9f2f-4f9281ff3dd8"
     },
     {
       "customer_id": "9b8f4a80-b73e-4613-8925-1db9d5bb9a3b",
@@ -1318,8 +2086,8 @@
       "last_name": "Hermundsson",
       "email": "mauri@mustigproduktion.se",
       "phone": "",
-      "existing_contact_id": "0d8cd5ac-6faa-4bd9-af91-4228ae65a769",
-      "existing_customer_id": "5a17cc9c-1313-4b5e-b14c-0e64675e52d8"
+      "existing_contact_id": "61fb123e-f296-4a95-bae6-07c5473b9339",
+      "existing_customer_id": "772da07e-4443-4b1b-b245-82eec4515532"
     },
     {
       "customer_id": "2f2060bb-0aa0-422c-90bb-80b21964c938",
@@ -1330,7 +2098,7 @@
       "last_name": "Forsell",
       "email": "john@miyakodori.se",
       "phone": "0735234733",
-      "existing_contact_id": "f8be0214-9b29-4fb4-a691-0731f3eb311e",
+      "existing_contact_id": "1ddb33e6-480c-4fbd-b166-160e649c5852",
       "existing_customer_id": "02336f3f-fbc1-43aa-81a2-4c46480f03c9"
     },
     {
@@ -1342,8 +2110,8 @@
       "last_name": "Forssell",
       "email": "john@miyakodori.se",
       "phone": "0735234733",
-      "existing_contact_id": "f8be0214-9b29-4fb4-a691-0731f3eb311e",
-      "existing_customer_id": "02336f3f-fbc1-43aa-81a2-4c46480f03c9"
+      "existing_contact_id": "72a5aad5-1f26-411d-aaba-8d13d52d2142",
+      "existing_customer_id": "2f2060bb-0aa0-422c-90bb-80b21964c938"
     },
     {
       "customer_id": "745e0b60-f5af-4c71-b6a5-b8ac17a4d100",
@@ -1354,8 +2122,8 @@
       "last_name": "Modée",
       "email": "viktor.modee@hmpartners.se",
       "phone": null,
-      "existing_contact_id": "301a82a2-f9c5-47cd-9474-bea5d3c08df6",
-      "existing_customer_id": "fa38cf4a-ed8b-453b-95ee-672ad66fcea5"
+      "existing_contact_id": "88378d75-08af-47ad-a03c-42e7418b7cdc",
+      "existing_customer_id": "433cfdb8-cac9-4b29-a094-82b3ee2e1f79"
     },
     {
       "customer_id": "188f89c7-b576-43c4-90b2-28fb5c2c6019",
@@ -1366,8 +2134,8 @@
       "last_name": "Svensson",
       "email": "katarina.svensson@june.se",
       "phone": "",
-      "existing_contact_id": "c3aac6cb-24b6-461b-9e6b-e66fe10f0ef5",
-      "existing_customer_id": "698d99df-c24c-467a-9d97-f77e9f668684"
+      "existing_contact_id": "67f3bfa5-dfa9-4b70-8f13-7cd130499af1",
+      "existing_customer_id": "65d6675e-c23e-4947-866d-d272cc59e2d5"
     },
     {
       "customer_id": "f5122b5a-586c-41b8-b49a-8b8e94edfa5f",
@@ -1378,7 +2146,7 @@
       "last_name": "Morén",
       "email": "dan.moren@neromannons.se",
       "phone": "08-40934500",
-      "existing_contact_id": "6082089b-4bb3-4935-9890-fc26ddfa7011",
+      "existing_contact_id": "34a89aee-74b3-4c33-94f3-311797dfbb8e",
       "existing_customer_id": "07864fe2-dafc-48c1-bf1c-76399061f255"
     },
     {
@@ -1390,8 +2158,8 @@
       "last_name": "Morén",
       "email": "dan.moren@neromannons.se",
       "phone": "0660-81040",
-      "existing_contact_id": "6082089b-4bb3-4935-9890-fc26ddfa7011",
-      "existing_customer_id": "07864fe2-dafc-48c1-bf1c-76399061f255"
+      "existing_contact_id": "97083ef1-fbf6-43c9-a516-45a3efea8d91",
+      "existing_customer_id": "f5122b5a-586c-41b8-b49a-8b8e94edfa5f"
     },
     {
       "customer_id": "6d16552f-56ef-427b-aea0-638819d2c5cf",
@@ -1402,8 +2170,8 @@
       "last_name": "Morén",
       "email": "dan.moren@neromannons.se",
       "phone": "070-6952231",
-      "existing_contact_id": "6082089b-4bb3-4935-9890-fc26ddfa7011",
-      "existing_customer_id": "07864fe2-dafc-48c1-bf1c-76399061f255"
+      "existing_contact_id": "2e445f1f-c7d4-4ed7-ab77-12dc74ba0680",
+      "existing_customer_id": "e617f227-04c5-45a2-a850-3b613ef1cdf3"
     },
     {
       "customer_id": "052721b9-d9d3-4682-b9c2-feb2133ca90e",
@@ -1414,8 +2182,8 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "070-7536261",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "31e8c45e-01bd-4784-8099-d2738688e8ee",
+      "existing_customer_id": "91d946bb-133a-4aaa-99a7-70b4c5432cb7"
     },
     {
       "customer_id": "6448786c-c87a-4984-a6e0-41b5009616db",
@@ -1426,8 +2194,8 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "b3e03202-a582-4780-9057-8e953c7e7102",
+      "existing_customer_id": "052721b9-d9d3-4682-b9c2-feb2133ca90e"
     },
     {
       "customer_id": "b815a213-15d7-403e-a8be-aa1c4af4ac5b",
@@ -1438,8 +2206,8 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "070-7536261",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "e5db5373-6828-4c99-8ee9-f4ce374d7cd7",
+      "existing_customer_id": "6448786c-c87a-4984-a6e0-41b5009616db"
     },
     {
       "customer_id": "c7da86c1-02ee-42e8-9dbd-9889b844c811",
@@ -1450,8 +2218,8 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "0a8f730b-3d0c-4e37-8b7c-ecbb154db06b",
+      "existing_customer_id": "b815a213-15d7-403e-a8be-aa1c4af4ac5b"
     },
     {
       "customer_id": "f0956bdc-7add-4fcf-a106-5f33832e9e86",
@@ -1462,8 +2230,8 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "ca3709c0-62a5-4154-ad69-de0ae2f65e12",
+      "existing_customer_id": "c7da86c1-02ee-42e8-9dbd-9889b844c811"
     },
     {
       "customer_id": "e70a2036-74a8-41f5-87a2-878ea997e13d",
@@ -1474,8 +2242,8 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "fca84069-d162-4bbc-98fd-135fa90d811d",
+      "existing_customer_id": "f0956bdc-7add-4fcf-a106-5f33832e9e86"
     },
     {
       "customer_id": "9c4445f8-cbb6-4a71-b57b-cc52522eb4f2",
@@ -1486,8 +2254,20 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "e20bdbbf-ddab-4293-b0c7-46adb52433a0",
+      "existing_customer_id": "e70a2036-74a8-41f5-87a2-878ea997e13d"
+    },
+    {
+      "customer_id": "3a074111-f5f3-465b-950d-a2f10b023668",
+      "fortnox_customer_number": "1149",
+      "customer_name": "NFT Ventures AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "markus.nasholm@nftventures.com",
+      "phone": "0707536261",
+      "existing_contact_id": "11cd1da6-0246-47c1-89e3-ec78dd209560",
+      "existing_customer_id": "9c4445f8-cbb6-4a71-b57b-cc52522eb4f2"
     },
     {
       "customer_id": "57f1bfa3-e984-4ae4-a56e-26bd89f405f6",
@@ -1498,8 +2278,20 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "070-7536261",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "423a2217-a59f-415c-ae14-4bedcd6a704b",
+      "existing_customer_id": "3a074111-f5f3-465b-950d-a2f10b023668"
+    },
+    {
+      "customer_id": "86a4b6b0-1ec2-4336-9d1b-f092911e891d",
+      "fortnox_customer_number": "1154",
+      "customer_name": "NFT Ventures Finland OY",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "martin@saldoredo.se",
+      "phone": "070-7536261",
+      "existing_contact_id": "ae29edc9-61b2-4259-8c39-821841694661",
+      "existing_customer_id": "76c4992b-78a5-4ab6-9b93-fd51aa67399d"
     },
     {
       "customer_id": "1c460752-94bf-4ece-866b-1bba482a7474",
@@ -1510,8 +2302,20 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "070-7536261",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "275f34f9-ebd2-40fc-b1c6-a18d6def5216",
+      "existing_customer_id": "57f1bfa3-e984-4ae4-a56e-26bd89f405f6"
+    },
+    {
+      "customer_id": "38cfc210-abad-42d8-954f-74f82d953152",
+      "fortnox_customer_number": "1958",
+      "customer_name": "Noord Mind AB",
+      "full_name": "Sajjad Saffari",
+      "first_name": "Sajjad",
+      "last_name": "Saffari",
+      "email": "sajjad@noorddarkness.com",
+      "phone": "",
+      "existing_contact_id": "00dadfd1-48d2-4ec2-97ba-bc32158d161b",
+      "existing_customer_id": "e430e6e6-7982-48b0-8e4a-eb24c8f28813"
     },
     {
       "customer_id": "d5b212eb-fa64-4385-9a59-107b48983778",
@@ -1522,7 +2326,7 @@
       "last_name": "Radeborn",
       "email": "oscar@grabbarnaflytt.fi",
       "phone": "",
-      "existing_contact_id": "5cbfd6aa-6a88-4122-9255-1e7fd5f7e4a2",
+      "existing_contact_id": "e87067d4-a770-4ad9-97c5-1f6838070a98",
       "existing_customer_id": "2bbda6c1-a807-4bab-b39f-b63e55b36527"
     },
     {
@@ -1534,8 +2338,8 @@
       "last_name": "Wärngård",
       "email": "jonas@nordicwebteam.se",
       "phone": "08-51817200",
-      "existing_contact_id": "f8ccac37-7d97-4324-85b1-6ccf522d7ba9",
-      "existing_customer_id": "e5d3fbdb-2c13-4977-9b72-b7202d6909dc"
+      "existing_contact_id": "5e77797f-c5ac-4f26-83a8-184ae3f6cc5b",
+      "existing_customer_id": "1f95d968-e9a7-4d68-959a-0008e0a379a8"
     },
     {
       "customer_id": "a7b7ce32-9165-4df2-8d48-47adbccc95b8",
@@ -1546,8 +2350,8 @@
       "last_name": "Thorstensson",
       "email": "janne.thorstensson@gmail.com",
       "phone": "0155-210535",
-      "existing_contact_id": "609a7803-c066-42fd-8623-c533a24d640a",
-      "existing_customer_id": "326123be-5d2f-4501-9b17-651b1365b60d"
+      "existing_contact_id": "03442bbb-79c3-4d8c-a8c8-4c398bdd33cb",
+      "existing_customer_id": "66a6fea2-ba19-43a8-bc0a-8862fd266ffd"
     },
     {
       "customer_id": "003ceb75-9a07-4bbf-9a50-2fd6f85e35f0",
@@ -1558,8 +2362,20 @@
       "last_name": "Blas",
       "email": "oscar@saldoredo.se",
       "phone": "",
-      "existing_contact_id": "fed27dfb-29a3-4ec7-a9ba-04cbacef1a2c",
+      "existing_contact_id": "cf3d1d9c-0fb0-4bf2-894a-a51f4ac98c09",
       "existing_customer_id": "83d22f75-536d-4563-896c-710fb2d7cd67"
+    },
+    {
+      "customer_id": "6bc9bf6f-6fb1-4127-b9a6-a8197ee66840",
+      "fortnox_customer_number": "386",
+      "customer_name": "Olof Åsberg",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "olof@bagoose.se",
+      "phone": "",
+      "existing_contact_id": "18df99e3-ec31-4362-900e-ab6890aed589",
+      "existing_customer_id": "b5198cbd-e6c1-4cd5-83d4-b65b60355b8c"
     },
     {
       "customer_id": "5a69b34f-9b73-4458-8f08-ae328db1621e",
@@ -1570,8 +2386,20 @@
       "last_name": "Olofsson",
       "email": "maria.olofsson@olofssonforvaltning.se",
       "phone": "+4687413100",
-      "existing_contact_id": "549d43d5-d3bf-48cf-9a51-03a05ffe6de3",
-      "existing_customer_id": "90f5a481-ce8d-47e0-953f-39bc5d644469"
+      "existing_contact_id": "78117d5d-0a40-4ff7-b560-c323a8793594",
+      "existing_customer_id": "9c00af10-cfa7-4231-8655-7dcbeed63325"
+    },
+    {
+      "customer_id": "e21b3818-4e1f-4f91-8207-9b7d7471dbb4",
+      "fortnox_customer_number": "5461",
+      "customer_name": "Omega Ekonomi Stockholm AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "matias.a@saldoredo.se",
+      "phone": "+46705432705",
+      "existing_contact_id": "9f605755-935b-4256-a372-378180db12e9",
+      "existing_customer_id": "36fb56f0-6efb-4c8f-a91c-13e28db0e304"
     },
     {
       "customer_id": "2f638ed7-6311-4108-85ee-667c84e542f3",
@@ -1582,8 +2410,32 @@
       "last_name": "Madeon",
       "email": "emilia@kamenicabygg.se",
       "phone": "",
-      "existing_contact_id": "061ccbba-1081-47ce-b0cf-a4b6c62991e5",
+      "existing_contact_id": "5341ba33-0855-45f9-bdc6-ddca9d053e83",
       "existing_customer_id": "6c983ecf-821e-4189-bc78-eb0da76f5ece"
+    },
+    {
+      "customer_id": "a12ff673-3c0b-486e-8853-6408be27aa0f",
+      "fortnox_customer_number": "1912",
+      "customer_name": "Orzley AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "margarita.triantafyllidou@gmail.com",
+      "phone": "",
+      "existing_contact_id": "3c9dd697-acac-42ad-894a-bce2b5b0a224",
+      "existing_customer_id": "f889da22-0210-4bd1-8cd3-b35160310a3a"
+    },
+    {
+      "customer_id": "c7e01833-342e-4ef6-8a70-cfaba6e19f4f",
+      "fortnox_customer_number": "1262",
+      "customer_name": "Östras Blommor AB",
+      "full_name": "Aleksandar Stepanovic",
+      "first_name": "Aleksandar",
+      "last_name": "Stepanovic",
+      "email": "ostras-blommor@live.se",
+      "phone": null,
+      "existing_contact_id": "79d6b5f9-c2eb-451a-aefe-3e8d86863944",
+      "existing_customer_id": "2001ef17-c885-4089-a21d-63d51128184b"
     },
     {
       "customer_id": "ba9d2f72-7172-47a7-a3cc-a36eb4953c80",
@@ -1594,8 +2446,32 @@
       "last_name": "Hellström",
       "email": "emil@outdoormap.com",
       "phone": "070-7758992",
-      "existing_contact_id": "d84b6b25-6ff8-414d-baca-548ed8bd2bb3",
+      "existing_contact_id": "72063587-0506-4f1c-8bb6-2fed21a3c6cc",
       "existing_customer_id": "4a7123fc-dc54-464d-9e83-23db3e260712"
+    },
+    {
+      "customer_id": "972258c9-a6fd-4c52-813c-d64070344dd7",
+      "fortnox_customer_number": "1749",
+      "customer_name": "Padeltastic AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "tony@omilo.se",
+      "phone": "",
+      "existing_contact_id": "3278b734-f817-4056-9f8f-9e65c169d2de",
+      "existing_customer_id": "d5a8a7dd-32a7-462a-a3a9-323d3f4aa96b"
+    },
+    {
+      "customer_id": "45f03d9a-1bef-4bf2-9f2b-805ea379891f",
+      "fortnox_customer_number": "1677",
+      "customer_name": "Paolo Salvatore Vacirca",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "paolo@vacirca.se",
+      "phone": null,
+      "existing_contact_id": "892e9855-32bf-4bad-93d0-7d303f825ab2",
+      "existing_customer_id": "f1054134-863d-4c65-a4b4-c8a8d5718748"
     },
     {
       "customer_id": "1f1de975-a469-44a3-acb6-eecfb7fc3dbb",
@@ -1606,8 +2482,8 @@
       "last_name": "Libell",
       "email": "mattias.libell@gradient.se",
       "phone": "",
-      "existing_contact_id": "7d45b2de-abfc-45e8-81fc-6321f5679d8d",
-      "existing_customer_id": "ec6f866c-af5b-48f9-b041-998abe19685a"
+      "existing_contact_id": "339bbfe4-a06f-4acd-9ab1-9473f42f154d",
+      "existing_customer_id": "78b07c10-b594-4a87-86ce-dcf37b449b28"
     },
     {
       "customer_id": "3ff94386-90b5-41cb-8e8b-2e60f44b72f7",
@@ -1618,7 +2494,7 @@
       "last_name": "Svensk",
       "email": "robin@blockparty.se",
       "phone": "",
-      "existing_contact_id": "b2f14307-874e-48e2-be84-e1d4b3203327",
+      "existing_contact_id": "65513fa2-0723-45e7-902d-bd364980924b",
       "existing_customer_id": "00198444-3e05-4309-8744-5285037d161d"
     },
     {
@@ -1630,7 +2506,7 @@
       "last_name": "Taylor",
       "email": "paul@paulsvensson.se",
       "phone": "0739118885",
-      "existing_contact_id": "08171914-96cc-463c-b94d-2ffe090deedd",
+      "existing_contact_id": "d0279aa9-5411-4b67-9866-55dceab70dc2",
       "existing_customer_id": "be2cdadb-35c4-4b1f-9a28-30802aa95fdf"
     },
     {
@@ -1642,8 +2518,8 @@
       "last_name": "Svensson",
       "email": "paul@paulsvensson.se",
       "phone": "0739118885",
-      "existing_contact_id": "08171914-96cc-463c-b94d-2ffe090deedd",
-      "existing_customer_id": "be2cdadb-35c4-4b1f-9a28-30802aa95fdf"
+      "existing_contact_id": "98ff9e06-1fec-4826-9e5b-caa433c07096",
+      "existing_customer_id": "9b6838aa-f7e8-48e2-82c8-3220f4afdf3b"
     },
     {
       "customer_id": "7c09cf48-cd5c-41b5-b7ed-6b43b96ba158",
@@ -1654,7 +2530,7 @@
       "last_name": "Baczkiewicz",
       "email": "pawel@humleakeri.se",
       "phone": "0739841881",
-      "existing_contact_id": "b3682e08-9d97-48ae-9fcc-5fcc32a0f5f4",
+      "existing_contact_id": "0a106340-5c90-42b2-ad4a-2dcd3592725b",
       "existing_customer_id": "360b830c-a82a-4de3-b426-3e5eb110bb81"
     },
     {
@@ -1666,7 +2542,7 @@
       "last_name": "Bergstedt",
       "email": "f.bergstedt@icoud.com",
       "phone": null,
-      "existing_contact_id": "3e61d765-262a-4815-b390-097f0a7cf94f",
+      "existing_contact_id": "82525510-2f4a-4e7b-afdd-053b85958bda",
       "existing_customer_id": "cda662f8-5e92-4cfb-bc35-cba5412c2112"
     },
     {
@@ -1678,8 +2554,20 @@
       "last_name": "Sten",
       "email": "viveca.sten@telia.com",
       "phone": null,
-      "existing_contact_id": "2b0414ad-b056-410c-879d-63d2e513863a",
+      "existing_contact_id": "b02d980b-920a-4f28-b07f-47877fcd71d5",
       "existing_customer_id": "11b8fc10-eb97-4762-8582-f64d8f29f20e"
+    },
+    {
+      "customer_id": "a6a14259-e111-4aa1-8ac1-af54fba44aeb",
+      "fortnox_customer_number": "1314",
+      "customer_name": "PM salongerna AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "jonas@paulmitchell.se",
+      "phone": "073-8067302",
+      "existing_contact_id": "c8dd582d-aaad-4b87-a81a-928c284dd8f2",
+      "existing_customer_id": "5fec6160-7076-495b-a1dd-07e8de46a262"
     },
     {
       "customer_id": "cfeb935c-2f53-40df-8ddc-ef77689bb1bb",
@@ -1690,8 +2578,20 @@
       "last_name": "Björkstrand",
       "email": "jens.bjorkstrand@elmajuridik.se",
       "phone": null,
-      "existing_contact_id": "31ff4664-72f9-4e23-a110-04c0811bf6c9",
+      "existing_contact_id": "b6fe8f1a-2e13-4002-9170-54da3f1cae29",
       "existing_customer_id": "a765522e-0b25-4465-a374-e02193d579ca"
+    },
+    {
+      "customer_id": "365f689f-73cb-4714-8bdc-83cc913aa589",
+      "fortnox_customer_number": "130",
+      "customer_name": "Prince King HB",
+      "full_name": "Edouard Khalaf",
+      "first_name": "Edouard",
+      "last_name": "Khalaf",
+      "email": "66isak@gmail.com",
+      "phone": "08-590 300 45",
+      "existing_contact_id": "00e2ee8a-2e69-449b-8af4-99588975257e",
+      "existing_customer_id": "9a77fef2-b95a-4954-9eac-7cbc80c5e009"
     },
     {
       "customer_id": "1ba58f06-5f4a-4ad5-b835-535e81f822fa",
@@ -1702,8 +2602,32 @@
       "last_name": "Erdös",
       "email": "thomas.erdos@atoll.se",
       "phone": "08-6125110",
-      "existing_contact_id": "6e955428-9b2a-42d3-929e-63330e92b0c1",
+      "existing_contact_id": "c47c69cd-238a-48db-9717-2834e5739ccf",
       "existing_customer_id": "757de7a1-4ca7-487e-9d27-39cb95827e62"
+    },
+    {
+      "customer_id": "cca185a3-f23c-463d-9398-d759d5f1fa2c",
+      "fortnox_customer_number": "1858",
+      "customer_name": "Quaglia Holding AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "christian@herrjudit.se",
+      "phone": "",
+      "existing_contact_id": "839f32f4-a38e-4fbe-89c8-c1f4d4a0e9a6",
+      "existing_customer_id": "15a721b4-0325-40bf-9e81-c9576358fde9"
+    },
+    {
+      "customer_id": "02ca6eae-a011-4ab6-a16b-c0aeab5a4e4a",
+      "fortnox_customer_number": "1479",
+      "customer_name": "Quality Caviar Stockholm AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "carol@qualitycaviar.se",
+      "phone": "08-7207793",
+      "existing_contact_id": "a56faaf5-fa2b-49f4-8168-21bb589fff3c",
+      "existing_customer_id": "a3a77cc1-556f-4b00-bd8b-fe763cf71f55"
     },
     {
       "customer_id": "85da472f-8b26-4086-86f0-f44a500e54f4",
@@ -1714,8 +2638,20 @@
       "last_name": "Merino",
       "email": "leonardo.merino@merino.se",
       "phone": "08-7967700",
-      "existing_contact_id": "d7878423-0ef7-4d64-bce7-5d6b485d5697",
+      "existing_contact_id": "edf69f7d-04e6-454f-a817-a5130be742e5",
       "existing_customer_id": "9954350a-1d58-4251-8bfc-fc994c1b32db"
+    },
+    {
+      "customer_id": "dfe675b8-3ff7-42de-b440-76004e1dbcd7",
+      "fortnox_customer_number": "1800",
+      "customer_name": "Rädda Djuren- Klubben",
+      "full_name": "Hannah Matkala Berg",
+      "first_name": "Hannah",
+      "last_name": "Matkala Berg",
+      "email": "hannah.matkala.berg@djurensratt.se",
+      "phone": "085559493",
+      "existing_contact_id": "a63f5387-acc6-4350-beeb-52c5e2c76209",
+      "existing_customer_id": "0dd8d659-d109-4e86-9ee6-5311a66aff2d"
     },
     {
       "customer_id": "7ef057fe-e73e-4680-9e01-bc26a7c4bbca",
@@ -1726,8 +2662,44 @@
       "last_name": "käll",
       "email": "henrik.kall@fxity.com",
       "phone": "",
-      "existing_contact_id": "958f3f46-cad3-4bf0-9491-df96908a8917",
+      "existing_contact_id": "52d3d263-f02c-45ae-940d-3f8880f9f6de",
       "existing_customer_id": "d20a4ba9-5af8-4e54-a9df-02f2dec8ed05"
+    },
+    {
+      "customer_id": "d8d254fa-4c83-4e8c-929f-7ebae6870087",
+      "fortnox_customer_number": "1185",
+      "customer_name": "Range Road Sweden AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "alex.ekelund@yahoo.se",
+      "phone": "",
+      "existing_contact_id": "e972f9a6-a025-4af2-9123-48d803226319",
+      "existing_customer_id": "7f8d5660-6d78-41e1-a85d-95e68cbb0ed0"
+    },
+    {
+      "customer_id": "4eb8d58d-895f-42fe-bb16-45bfffae2114",
+      "fortnox_customer_number": "1778",
+      "customer_name": "RBFG Properties AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "rasmus@thehouserehab.com",
+      "phone": "",
+      "existing_contact_id": "57fe3688-7cc3-4f4c-a836-a902b9847dee",
+      "existing_customer_id": "5d1820d6-5795-42b3-8eb4-a237d9ca6993"
+    },
+    {
+      "customer_id": "1c2cafe5-f157-4772-95d2-371d4891c635",
+      "fortnox_customer_number": "1105",
+      "customer_name": "RCCM Holding AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "raul@zocalo.se",
+      "phone": "0761271013",
+      "existing_contact_id": "41d4b124-29b6-4861-83d5-c49f75a02ce2",
+      "existing_customer_id": "137c2ce3-e923-4943-9e32-15273cdc1361"
     },
     {
       "customer_id": "f8a06de6-92a5-47f3-8c05-efbbe044ed45",
@@ -1738,7 +2710,7 @@
       "last_name": "Sandström",
       "email": "johansandstrom71@gmail.com",
       "phone": null,
-      "existing_contact_id": "004c9e8c-fa63-4ce0-8cf5-c331a2846efa",
+      "existing_contact_id": "72a96742-556c-46df-bebd-de5e7a300c6d",
       "existing_customer_id": "de372e3f-cfc2-49f8-8e79-deee72a9a7ff"
     },
     {
@@ -1750,8 +2722,44 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": null,
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "2c74b455-4db6-4936-a542-b56e7c104a99",
+      "existing_customer_id": "9b1a9e6a-7ca1-4330-8cb8-49cca5e2d82a"
+    },
+    {
+      "customer_id": "9ea1eef1-9919-4a4c-bc4e-f8f7fb3c3f0b",
+      "fortnox_customer_number": "1831",
+      "customer_name": "RiverRock AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "roger@member24.se",
+      "phone": "08-58037420",
+      "existing_contact_id": "fd1f8bea-fb6d-41ee-a51d-8c5aff9e6edc",
+      "existing_customer_id": "6a18393a-2d9a-4519-9a1b-8c882150ac55"
+    },
+    {
+      "customer_id": "5548aee0-ff1e-4315-93e6-caed949c963b",
+      "fortnox_customer_number": "1915",
+      "customer_name": "Robin Delselius Holding AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "robin@robindelseliusbageri.se",
+      "phone": "",
+      "existing_contact_id": "f8b50e4b-1084-4275-8a22-e4784fa48773",
+      "existing_customer_id": "15414334-52bc-48b0-8fd7-e59e3fe7e93e"
+    },
+    {
+      "customer_id": "b43f552f-89b1-442b-81c8-ba8a97213134",
+      "fortnox_customer_number": "1921",
+      "customer_name": "Robin Delselius i Enskede AB",
+      "full_name": "Robin Delselius",
+      "first_name": "Robin",
+      "last_name": "Delselius",
+      "email": "robin@robindelseliusbageri.se",
+      "phone": "08-6591400",
+      "existing_contact_id": "f3358c91-56d7-4286-9007-f654fdb71b1d",
+      "existing_customer_id": "5548aee0-ff1e-4315-93e6-caed949c963b"
     },
     {
       "customer_id": "d3a2ae6c-8307-483f-8845-fb321e52433f",
@@ -1762,7 +2770,7 @@
       "last_name": "Delselius",
       "email": "robin@robindelseliusbageri.se",
       "phone": "",
-      "existing_contact_id": "e192100d-edcb-4c7c-9ce2-e6e5736bfc46",
+      "existing_contact_id": "b0092047-2ba3-4c5f-a7d7-fff6e95d689c",
       "existing_customer_id": "b43f552f-89b1-442b-81c8-ba8a97213134"
     },
     {
@@ -1774,8 +2782,8 @@
       "last_name": "Delselius",
       "email": "robin@robindelseliusbageri.se",
       "phone": "08-40801615",
-      "existing_contact_id": "e192100d-edcb-4c7c-9ce2-e6e5736bfc46",
-      "existing_customer_id": "b43f552f-89b1-442b-81c8-ba8a97213134"
+      "existing_contact_id": "7c1afca6-7e2e-4275-b683-39617894dffd",
+      "existing_customer_id": "d3a2ae6c-8307-483f-8845-fb321e52433f"
     },
     {
       "customer_id": "5538d9fe-7ab6-4be5-885f-ec42effb4132",
@@ -1786,8 +2794,8 @@
       "last_name": "Delselius",
       "email": "robin@robindelseliusbageri.se",
       "phone": "",
-      "existing_contact_id": "e192100d-edcb-4c7c-9ce2-e6e5736bfc46",
-      "existing_customer_id": "b43f552f-89b1-442b-81c8-ba8a97213134"
+      "existing_contact_id": "d0fbdad3-d5f9-40b9-ae77-26116351a440",
+      "existing_customer_id": "9b8770b6-dfd9-488f-9cb9-c44a586e3b28"
     },
     {
       "customer_id": "38aa637e-d59e-4990-ad10-5108f6ca8dca",
@@ -1798,8 +2806,8 @@
       "last_name": "Delselius",
       "email": "robin@robindelseliusbageri.se",
       "phone": "",
-      "existing_contact_id": "e192100d-edcb-4c7c-9ce2-e6e5736bfc46",
-      "existing_customer_id": "b43f552f-89b1-442b-81c8-ba8a97213134"
+      "existing_contact_id": "550ffd29-cb0f-414b-b977-7e6dc006899c",
+      "existing_customer_id": "5538d9fe-7ab6-4be5-885f-ec42effb4132"
     },
     {
       "customer_id": "18ceb773-1f93-4ce2-b071-b5631b17e1ee",
@@ -1810,8 +2818,8 @@
       "last_name": "Delselius",
       "email": "robin@robindelseliusbageri.se",
       "phone": "08-57440447",
-      "existing_contact_id": "e192100d-edcb-4c7c-9ce2-e6e5736bfc46",
-      "existing_customer_id": "b43f552f-89b1-442b-81c8-ba8a97213134"
+      "existing_contact_id": "22c2b733-9c5f-4c89-90ba-012f12627d3c",
+      "existing_customer_id": "38aa637e-d59e-4990-ad10-5108f6ca8dca"
     },
     {
       "customer_id": "a15c3ce5-c0cd-40cc-9a78-c71a0dc35e5a",
@@ -1822,8 +2830,20 @@
       "last_name": "Ahlberg",
       "email": "bjorn.g.ahlberg@gmail.com",
       "phone": "08-307300",
-      "existing_contact_id": "689e899a-7bd4-46d7-879f-f512a809e617",
+      "existing_contact_id": "74d87be0-7601-4f0c-a39f-625f40c5fe27",
       "existing_customer_id": "205c7db6-5892-43b1-882f-98452f2bf60a"
+    },
+    {
+      "customer_id": "6249919e-afc0-4719-9769-eef5142416ae",
+      "fortnox_customer_number": "1201",
+      "customer_name": "Roi Group AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "goran.milu@gmail.com",
+      "phone": "076-8866987",
+      "existing_contact_id": "e5ac00a3-5faa-4337-b717-87e66196afd7",
+      "existing_customer_id": "9528734a-10e1-4e6e-96f5-225ae5c24530"
     },
     {
       "customer_id": "037861d9-bd7d-45fe-bc79-30e624424768",
@@ -1834,8 +2854,8 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "070-7536261",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "0e762fcf-0588-49df-89aa-a0fbd4b83aab",
+      "existing_customer_id": "1c460752-94bf-4ece-866b-1bba482a7474"
     },
     {
       "customer_id": "fcabf2db-f3e9-438f-ada2-d53d8d0fee59",
@@ -1846,8 +2866,20 @@
       "last_name": "Boman",
       "email": "erik@erikboman.se",
       "phone": null,
-      "existing_contact_id": "e6e3b79d-9221-4dc8-b70f-c4766c3ad1d1",
+      "existing_contact_id": "610dcd8c-cfe0-4c24-a53e-f658d4f3432b",
       "existing_customer_id": "17fdcce6-321b-4f96-952a-26b55244c6c9"
+    },
+    {
+      "customer_id": "a97e70a9-e3a5-46f9-a55c-031b4f59c534",
+      "fortnox_customer_number": "1532",
+      "customer_name": "SADINA Transport AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "saadishac@yahoo.com",
+      "phone": "070-3743465",
+      "existing_contact_id": "45b0f43b-b473-428a-94da-da942daf55ba",
+      "existing_customer_id": "375a23f8-95f9-4540-855c-33989e93622d"
     },
     {
       "customer_id": "8ed61220-dbc2-4d30-bdce-7ca75b390336",
@@ -1858,8 +2890,92 @@
       "last_name": "Nordblom",
       "email": "axel.nordblom@cfhill.com",
       "phone": "",
-      "existing_contact_id": "691f705a-349b-480a-bed5-721cafb4dc4f",
+      "existing_contact_id": "856c224f-f392-42ba-a947-b5a1f56d84d1",
       "existing_customer_id": "2f2187a6-dc13-46af-b6bf-64a45eb8a825"
+    },
+    {
+      "customer_id": "2d33bd9e-8765-4b63-b94b-819ad8bb4f28",
+      "fortnox_customer_number": "1892",
+      "customer_name": "Samfori Holding 1 AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "nimrod@samfori.se",
+      "phone": "",
+      "existing_contact_id": "85c3a44c-a97d-46c5-aab4-f4c754b84b4e",
+      "existing_customer_id": "f0e6fa6a-f2fc-4e08-837f-3f2e8ec38fe7"
+    },
+    {
+      "customer_id": "a621d551-d16c-4eee-81e7-4e74f4284fe1",
+      "fortnox_customer_number": "1893",
+      "customer_name": "Samfori Management AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "nimrod@samfori.se",
+      "phone": "",
+      "existing_contact_id": "c818cc42-634a-4d29-892f-64c1ef189da1",
+      "existing_customer_id": "2d33bd9e-8765-4b63-b94b-819ad8bb4f28"
+    },
+    {
+      "customer_id": "6086f28b-bc71-473c-9af8-b9763b13ca84",
+      "fortnox_customer_number": "1888",
+      "customer_name": "Samfori Olstorp Bostad AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "nimrod@samfori.se",
+      "phone": "",
+      "existing_contact_id": "d2cb829e-2875-472e-aeac-64d00ed013d6",
+      "existing_customer_id": "a621d551-d16c-4eee-81e7-4e74f4284fe1"
+    },
+    {
+      "customer_id": "3f1038e1-2a01-4d6d-995b-fdc157ac1866",
+      "fortnox_customer_number": "1889",
+      "customer_name": "Samfori Olstorp JV AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "nimrod@samfori.se",
+      "phone": "",
+      "existing_contact_id": "ce75f3de-be82-4f0a-8ddd-d0afdf915a4f",
+      "existing_customer_id": "6086f28b-bc71-473c-9af8-b9763b13ca84"
+    },
+    {
+      "customer_id": "0a9b2871-166f-4d08-acfa-0224b900c907",
+      "fortnox_customer_number": "1887",
+      "customer_name": "Samfori Olstorp Säbo AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "nimrod@samfori.se",
+      "phone": "",
+      "existing_contact_id": "ff808527-9442-4f26-84b0-340aeaf2d733",
+      "existing_customer_id": "3f1038e1-2a01-4d6d-995b-fdc157ac1866"
+    },
+    {
+      "customer_id": "5fbcbcd8-7fed-41c2-87bc-2f88eabf9b70",
+      "fortnox_customer_number": "1891",
+      "customer_name": "Samfori Pottholmen AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "nimrod@samfori.se",
+      "phone": "",
+      "existing_contact_id": "9799ea30-96f7-4de0-b51a-930ef1b188c4",
+      "existing_customer_id": "0a9b2871-166f-4d08-acfa-0224b900c907"
+    },
+    {
+      "customer_id": "68906512-14f0-4d9c-ac7b-77d6b4d594f5",
+      "fortnox_customer_number": "1890",
+      "customer_name": "Samfori Projekt 1 AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "nimrod@samfori.se",
+      "phone": "",
+      "existing_contact_id": "8e961ea4-9f8c-42ec-8180-6d4b8e0e6de8",
+      "existing_customer_id": "5fbcbcd8-7fed-41c2-87bc-2f88eabf9b70"
     },
     {
       "customer_id": "7881880a-9743-4d92-8d36-d9e2bc31b130",
@@ -1870,7 +2986,7 @@
       "last_name": "Bergman",
       "email": "sandrarosabergman@gmail.com",
       "phone": "0739-222 491",
-      "existing_contact_id": "dfdf1058-7dab-4661-a6a6-74919ad9e69a",
+      "existing_contact_id": "93691113-53a8-424d-86a0-db0e4f1c1f31",
       "existing_customer_id": "78a8f02f-a6f5-4249-b666-cb2beace0c38"
     },
     {
@@ -1882,8 +2998,8 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": null,
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "95cf0fdb-d76b-41d4-94ae-cebdb94e7a5f",
+      "existing_customer_id": "d8044b1e-483c-42f0-99b2-2575af97dea9"
     },
     {
       "customer_id": "92360658-c42c-40b6-8713-d0d5a0a0c9ed",
@@ -1894,8 +3010,44 @@
       "last_name": "Sten",
       "email": "viveca.sten@telia.com",
       "phone": null,
-      "existing_contact_id": "2b0414ad-b056-410c-879d-63d2e513863a",
-      "existing_customer_id": "11b8fc10-eb97-4762-8582-f64d8f29f20e"
+      "existing_contact_id": "47a6cab6-7488-4e25-9449-b5a70056255a",
+      "existing_customer_id": "94daf3bc-8047-40c1-a108-cb4adf22e2e8"
+    },
+    {
+      "customer_id": "7bea7bd5-79db-4382-ba57-eeca636b32ff",
+      "fortnox_customer_number": "1128",
+      "customer_name": "SaSi Förvaltning AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "sigge@telgehalsocenter.se",
+      "phone": "",
+      "existing_contact_id": "ab78f961-6115-43b1-bacb-8eb17ded3ea7",
+      "existing_customer_id": "f9b58a65-de0c-48e1-ae62-93999e16be8b"
+    },
+    {
+      "customer_id": "209a6930-bb4f-49c3-951f-2dea57ec6bfa",
+      "fortnox_customer_number": "1097",
+      "customer_name": "SBIC Holding AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "matthew.doerner-miller@sbic.se",
+      "phone": "08307300",
+      "existing_contact_id": "c7a2e98f-c2a7-43bb-b674-62d2ee2b15a9",
+      "existing_customer_id": "2ad1c494-685b-4e9b-a5cb-454394d21d02"
+    },
+    {
+      "customer_id": "b6a2e16b-7b04-404e-a88e-37837dbfcbab",
+      "fortnox_customer_number": "1548",
+      "customer_name": "Scandinavian CreaTech Invest AB (Fd MAP Agency)",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "lisa@mapinvest.se",
+      "phone": "070-7536261",
+      "existing_contact_id": "0800f193-befe-44b8-a6a2-94bd80a50705",
+      "existing_customer_id": "38fd3bf3-cfb9-4ba2-a5bc-225ae4d288c4"
     },
     {
       "customer_id": "e6bbbab0-abb0-4955-ac0a-02b43d19dd6d",
@@ -1906,7 +3058,7 @@
       "last_name": "Tjacka",
       "email": "tjacka@tjacka.se",
       "phone": "070-6668700",
-      "existing_contact_id": "6f4c7dee-d4e4-4e71-b9fb-eafda073efe2",
+      "existing_contact_id": "a23a38f4-c45d-418b-bc79-5969cb2465b5",
       "existing_customer_id": "60f643f5-445c-4f9d-8ecd-8aa820be9974"
     },
     {
@@ -1918,8 +3070,8 @@
       "last_name": "Andersson",
       "email": "mattias@saldoredo.se",
       "phone": "08307300",
-      "existing_contact_id": "5724e314-1243-4ef4-8996-463584b56194",
-      "existing_customer_id": "893e4862-7384-4159-9db0-34191e160aa2"
+      "existing_contact_id": "d8eeb556-4d81-4587-b526-62045dd3b0ff",
+      "existing_customer_id": "87cab2ef-8800-40bb-a901-a20afd6d721e"
     },
     {
       "customer_id": "79c2f349-da8f-4b96-9da4-8620f05d9d70",
@@ -1930,8 +3082,8 @@
       "last_name": "Segerbrand",
       "email": "mattias@saldoredo.se",
       "phone": "08-6447020",
-      "existing_contact_id": "5724e314-1243-4ef4-8996-463584b56194",
-      "existing_customer_id": "893e4862-7384-4159-9db0-34191e160aa2"
+      "existing_contact_id": "a8b1dabd-ffce-4ced-bcbd-26bd9f90602a",
+      "existing_customer_id": "16108b2c-82f4-4cd2-86bc-2fb6d719ed42"
     },
     {
       "customer_id": "94b95ca8-086b-4367-88df-a3e73e2f0c98",
@@ -1942,8 +3094,44 @@
       "last_name": "Kananian",
       "email": "laila@selectedbylaila.com",
       "phone": "0704448403",
-      "existing_contact_id": "a5a7a2b8-3c77-4cd3-965b-01dcf0f5c7c5",
+      "existing_contact_id": "5ec90e76-6a01-440b-a3de-d7549add9784",
       "existing_customer_id": "ba0705c4-0116-4816-ada6-bd000aa593cf"
+    },
+    {
+      "customer_id": "1bea2684-06c9-42bb-9519-6848e299cfe3",
+      "fortnox_customer_number": "1029",
+      "customer_name": "Sharland Holding AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "lotta.skarlund@kius.se",
+      "phone": "08-50440330",
+      "existing_contact_id": "0e1ee897-99e6-4379-811f-c745678eee2e",
+      "existing_customer_id": "af604641-da32-4d81-a9aa-5ba07a232913"
+    },
+    {
+      "customer_id": "acebaa2e-55c6-46e2-a0fa-1f71db50faa4",
+      "fortnox_customer_number": "1639",
+      "customer_name": "Shiba Shiba Hökens AB",
+      "full_name": "Roger Baburin",
+      "first_name": "Roger",
+      "last_name": "Baburin",
+      "email": "roger@member24.se",
+      "phone": "",
+      "existing_contact_id": "651d381f-f01f-4b69-8930-76e9f353cdf6",
+      "existing_customer_id": "9ea1eef1-9919-4a4c-bc4e-f8f7fb3c3f0b"
+    },
+    {
+      "customer_id": "c3146167-815c-48ce-82d5-d29c772891c2",
+      "fortnox_customer_number": "409",
+      "customer_name": "Silkestråden - Madeline Kulen",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "mirna@saldoredo.se",
+      "phone": "",
+      "existing_contact_id": "f060fb66-a94e-4483-b956-d3de2088cd7f",
+      "existing_customer_id": "19b417ea-c9a2-4d4d-b0cf-255da64e0999"
     },
     {
       "customer_id": "0f2e0481-e966-4930-a0aa-285f06113902",
@@ -1954,7 +3142,7 @@
       "last_name": "Tjärnhammar",
       "email": "sillidillab@gmail.com",
       "phone": "",
-      "existing_contact_id": "3e15db5e-d6f4-45bb-a8ef-0190cdf14d60",
+      "existing_contact_id": "849cccfa-d6f5-4fce-976f-565ed8d2128e",
       "existing_customer_id": "a4b7ccdd-ad0e-413f-90e6-d836ff2e9bc5"
     },
     {
@@ -1966,8 +3154,20 @@
       "last_name": "Sjöstedt",
       "email": "anders@martinssonking.com",
       "phone": "0708240103",
-      "existing_contact_id": "108a3bd1-8583-4e39-8ae4-1ed0e5a61370",
+      "existing_contact_id": "8158277b-0240-4e1b-8a87-820f7ab52bc8",
       "existing_customer_id": "7aadf2ec-c37d-4777-b3a6-400113c6871a"
+    },
+    {
+      "customer_id": "0a8166b8-bed8-4676-9498-000fc45d5ea3",
+      "fortnox_customer_number": "1173",
+      "customer_name": "Skarporth AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "janne.thorstensson@gmail.com",
+      "phone": "0155-210535",
+      "existing_contact_id": "3e9b0cdd-6b47-4b3c-be71-3ec674304547",
+      "existing_customer_id": "a7b7ce32-9165-4df2-8d48-47adbccc95b8"
     },
     {
       "customer_id": "d709e609-4748-4802-a402-a17719fb4825",
@@ -1978,7 +3178,7 @@
       "last_name": "Andersson",
       "email": "staffan.andersson@gmail.com",
       "phone": null,
-      "existing_contact_id": "0a13cbcf-c3b4-4d11-b0cd-ef2c74cb69f4",
+      "existing_contact_id": "086a715d-ef89-49a8-9295-b792861a4938",
       "existing_customer_id": "4dda5e38-72c7-4f8d-8f0f-b5018c4f82b5"
     },
     {
@@ -1990,8 +3190,8 @@
       "last_name": "Lindborg",
       "email": "rest.kagges@gmail.com",
       "phone": "070-4074156",
-      "existing_contact_id": "99541577-09c1-4d41-a720-4d9e3b104fb3",
-      "existing_customer_id": "069fa631-635b-44ff-858b-98a428e8d18c"
+      "existing_contact_id": "1e3564c5-a482-4515-a172-61624ac6c65c",
+      "existing_customer_id": "9aa7c04f-be77-4510-84e4-fa669ee5a87b"
     },
     {
       "customer_id": "2277e3bd-b8a2-4ad9-87e9-7e8c300531e8",
@@ -2002,7 +3202,7 @@
       "last_name": "Saliba",
       "email": "christina.saliba@hergroup.se",
       "phone": "",
-      "existing_contact_id": "67898b3e-d9ec-4eca-866a-1579183a7202",
+      "existing_contact_id": "9da9c37e-4fe9-4bae-a411-837910e614b4",
       "existing_customer_id": "0237a355-2feb-4706-b939-c03d568ebb4c"
     },
     {
@@ -2014,8 +3214,44 @@
       "last_name": "Elio",
       "email": "gabriella@sweedbeauty.com",
       "phone": "0768828181",
-      "existing_contact_id": "7e857e7d-26d3-4df6-9283-b4f90f708774",
+      "existing_contact_id": "4719be61-6e81-4abf-9525-7f040a60d415",
       "existing_customer_id": "ed3064e9-a906-4e4b-8e31-550293a07581"
+    },
+    {
+      "customer_id": "90594243-67c7-4be5-a3b9-9642b6435c0e",
+      "fortnox_customer_number": "857",
+      "customer_name": "Snltd Sweden AB",
+      "full_name": "Einar Einarsson",
+      "first_name": "Einar",
+      "last_name": "Einarsson",
+      "email": "einar@zocalo.se",
+      "phone": "08-40911500",
+      "existing_contact_id": "ebbbe631-96ce-44af-a8bf-c36bf64f7232",
+      "existing_customer_id": "eb6c498d-e4d0-4e8a-bc98-dfd92eb05a80"
+    },
+    {
+      "customer_id": "778db81a-917e-481c-ba52-c942c199df82",
+      "fortnox_customer_number": "1115",
+      "customer_name": "Soap Bar AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "cihat@soapbar.se",
+      "phone": "073-544 55 43",
+      "existing_contact_id": "926e0518-5298-46d7-91c8-04b46fc1a5ce",
+      "existing_customer_id": "7731224e-7707-443c-b3e1-2cf615df7a40"
+    },
+    {
+      "customer_id": "c425fdbc-15bb-4fd7-8cc1-8d2add231f92",
+      "fortnox_customer_number": "1751",
+      "customer_name": "Soap Bar Fastigheter AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "cihat@soapbar.se",
+      "phone": "",
+      "existing_contact_id": "7d1c6eca-eb7e-4d7b-92e7-63f68cbeed13",
+      "existing_customer_id": "778db81a-917e-481c-ba52-c942c199df82"
     },
     {
       "customer_id": "13f9c623-69e8-415b-991d-4039d4bb68cf",
@@ -2026,8 +3262,56 @@
       "last_name": "Sun",
       "email": "cihat@soapbar.se",
       "phone": "073-544 55 43",
-      "existing_contact_id": "12e826f5-b5b5-488e-a1a9-3322a9a4abae",
-      "existing_customer_id": "7731224e-7707-443c-b3e1-2cf615df7a40"
+      "existing_contact_id": "481a95cb-9fcf-48d3-ba2b-670c38eb034c",
+      "existing_customer_id": "c425fdbc-15bb-4fd7-8cc1-8d2add231f92"
+    },
+    {
+      "customer_id": "114ae823-a76e-4354-918e-874903b61778",
+      "fortnox_customer_number": "1981",
+      "customer_name": "Söders Pizzeria & Pasta KB Kommanditbolag",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "matias.a@saldoredo.se",
+      "phone": "0739431180",
+      "existing_contact_id": "e0c7bd49-c0c2-4ab6-8d9e-4fc2aa248e29",
+      "existing_customer_id": "e21b3818-4e1f-4f91-8207-9b7d7471dbb4"
+    },
+    {
+      "customer_id": "70a4f07d-b6f5-499e-8c58-1059e11cb0f5",
+      "fortnox_customer_number": "660",
+      "customer_name": "Södertörn Trafikskola AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "menagan.kulasingam@gmail.com",
+      "phone": "08-7112766",
+      "existing_contact_id": "1e9b7e61-1e1d-43f3-9533-d8d8efefd9d4",
+      "existing_customer_id": "83045d41-ef29-4e33-83f9-cfb81019b097"
+    },
+    {
+      "customer_id": "d6e16a0f-e765-4eb1-9e91-b9cf4aa719e5",
+      "fortnox_customer_number": "1984",
+      "customer_name": "SOLID Health Hub Stockholm AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "jani@crossfitsolid.se",
+      "phone": "",
+      "existing_contact_id": "96321c9a-3164-4ab4-a9c5-ab6cff39ef79",
+      "existing_customer_id": "9d81ae9b-866f-440c-8db3-ca5b51d8d4a9"
+    },
+    {
+      "customer_id": "35909f5e-4338-40e3-ac33-76e0d1c842ee",
+      "fortnox_customer_number": "1160",
+      "customer_name": "SoliFast 1 AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "martin@saldoredo.se",
+      "phone": "070-7536261",
+      "existing_contact_id": "87990659-02e7-44b2-bf13-693c0cc5d8b3",
+      "existing_customer_id": "86a4b6b0-1ec2-4336-9d1b-f092911e891d"
     },
     {
       "customer_id": "3cd2c3e9-00b5-45c8-a921-9c40c21683b7",
@@ -2038,7 +3322,7 @@
       "last_name": "Laestadius",
       "email": "henrik.laestadius@solifast.se",
       "phone": "",
-      "existing_contact_id": "8440922d-2c76-4ec0-9611-f1e31d4986d2",
+      "existing_contact_id": "7946beb6-ae86-4847-b771-29b00ec947e1",
       "existing_customer_id": "c368a2af-c958-450d-9ead-841931dfa9ff"
     },
     {
@@ -2050,8 +3334,32 @@
       "last_name": "Jansson",
       "email": "henrik.laestadius@solifast.se",
       "phone": "",
-      "existing_contact_id": "8440922d-2c76-4ec0-9611-f1e31d4986d2",
-      "existing_customer_id": "c368a2af-c958-450d-9ead-841931dfa9ff"
+      "existing_contact_id": "02c47103-7586-45d1-9331-537b2f9746fc",
+      "existing_customer_id": "3cd2c3e9-00b5-45c8-a921-9c40c21683b7"
+    },
+    {
+      "customer_id": "c4b5d2ab-797b-4ed2-8d11-c7756d32e785",
+      "fortnox_customer_number": "1968",
+      "customer_name": "Solna VVS AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "fia@bb-sweden.se",
+      "phone": "",
+      "existing_contact_id": "0de60bf7-3f3a-4d56-ad72-5132b8c183d3",
+      "existing_customer_id": "5a47d11a-f982-4550-954b-7e4a349138dd"
+    },
+    {
+      "customer_id": "9cd33e63-fdc8-4bdd-99e4-929a8b3cfcd0",
+      "fortnox_customer_number": "1766",
+      "customer_name": "SPEBER Invest AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "speijerp@gmail.com",
+      "phone": "",
+      "existing_contact_id": "8764ea71-c597-459f-b911-8d230cec7392",
+      "existing_customer_id": "6d8b2722-7ffe-484c-a0f9-9baa09e942aa"
     },
     {
       "customer_id": "320e71b4-a677-4bce-bf4f-29b278059466",
@@ -2062,7 +3370,7 @@
       "last_name": "Karlsson",
       "email": "m.karlsson@outlook.com",
       "phone": "",
-      "existing_contact_id": "b9d7c805-2a4f-49e9-b2e1-0ca04dbc62d6",
+      "existing_contact_id": "cc4ac8a3-8fe2-4f03-b565-982c2efd51ea",
       "existing_customer_id": "c5162336-db46-4aa5-a115-23305c2c5dbc"
     },
     {
@@ -2074,7 +3382,7 @@
       "last_name": "Hamrin Möré",
       "email": "anders@moree.se",
       "phone": null,
-      "existing_contact_id": "d0b1578a-dae6-48a0-abab-ba400f48c744",
+      "existing_contact_id": "df3bf88d-7aa0-4340-b3a0-c4a4c6c47b73",
       "existing_customer_id": "778a01fc-eddc-493a-af49-0368cb7a0888"
     },
     {
@@ -2086,8 +3394,20 @@
       "last_name": "Meijer",
       "email": "marie.meijer@sprall.com",
       "phone": "",
-      "existing_contact_id": "e2ed2f29-deb5-42e8-8612-df5d2165630b",
+      "existing_contact_id": "125ffb82-51c9-4010-8dd7-8273a512d165",
       "existing_customer_id": "7c78366c-cbbe-44e4-a019-9288f11d7505"
+    },
+    {
+      "customer_id": "58036ea6-2976-4fd6-96dd-a34cfa483c20",
+      "fortnox_customer_number": "5462",
+      "customer_name": "Stabilisator AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "alex@saldoredo.se",
+      "phone": "",
+      "existing_contact_id": "4da2bc13-f8de-4c75-94c9-2fa1311635f9",
+      "existing_customer_id": "1582bda0-85bf-48c8-be09-d74eecfb8bc0"
     },
     {
       "customer_id": "62279fd2-059d-4062-9e39-baedb41a3204",
@@ -2098,8 +3418,8 @@
       "last_name": "Steen",
       "email": "richard@rivningshus.se",
       "phone": null,
-      "existing_contact_id": "07856caa-ca30-4144-8256-0d4431ce16ca",
-      "existing_customer_id": "da19a8b9-1e40-47e9-ac62-9e3e62aa0048"
+      "existing_contact_id": "b79da676-8ae5-4971-8d09-3b6694bc965f",
+      "existing_customer_id": "81086d78-005f-495a-828d-2cb4c8079dce"
     },
     {
       "customer_id": "39e54a86-7076-4b9f-acee-cc036f5d3a8e",
@@ -2110,8 +3430,8 @@
       "last_name": "Lundberg",
       "email": "fredrik.lundberg@nftventures.com",
       "phone": "073-9880422",
-      "existing_contact_id": "c296b842-b510-4424-b285-1cc76e5e5af1",
-      "existing_customer_id": "0126d5d9-b9a2-4500-ab44-593427765646"
+      "existing_contact_id": "ae0bbbae-4e9b-4847-8b59-6c8f76ba7889",
+      "existing_customer_id": "459e05f2-1820-45b5-ab5e-dd289a15d2f6"
     },
     {
       "customer_id": "b1d53cd8-bf49-4856-90a8-744f2f9487e7",
@@ -2122,7 +3442,7 @@
       "last_name": "Roosvall",
       "email": "par.roosvall@nftventures.com",
       "phone": "",
-      "existing_contact_id": "c060c572-7f5c-4143-84a5-3ddc94db7809",
+      "existing_contact_id": "e58e3061-940b-49e8-b4e5-76294350a0ad",
       "existing_customer_id": "5195dbb7-ad96-4ea6-ab4c-07178d63d6ff"
     },
     {
@@ -2134,8 +3454,8 @@
       "last_name": "Näsholm",
       "email": "markus.nasholm@nftventures.com",
       "phone": "",
-      "existing_contact_id": "969de976-1357-4201-85f5-a75caee87bc8",
-      "existing_customer_id": "3d3c8793-39fc-4118-9bca-50acf8341f8a"
+      "existing_contact_id": "055a438e-5321-4f36-9a1e-d8aa47ac686c",
+      "existing_customer_id": "037861d9-bd7d-45fe-bc79-30e624424768"
     },
     {
       "customer_id": "a999f1a7-6e94-4f10-a891-85471f764918",
@@ -2146,7 +3466,7 @@
       "last_name": "Sten",
       "email": "lena@stenstrot.se",
       "phone": "+4687730075",
-      "existing_contact_id": "122dff7a-c502-4a47-b3cb-ce454edbd04f",
+      "existing_contact_id": "164c7038-0755-4b3b-9890-d31a6a1a23f3",
       "existing_customer_id": "60647299-ed16-48be-a178-ff82247e6502"
     },
     {
@@ -2158,8 +3478,8 @@
       "last_name": "Lundberg",
       "email": "fredrik.lundberg@nftventures.com",
       "phone": "",
-      "existing_contact_id": "c296b842-b510-4424-b285-1cc76e5e5af1",
-      "existing_customer_id": "0126d5d9-b9a2-4500-ab44-593427765646"
+      "existing_contact_id": "8846b005-eea0-4745-b517-d553202c82ca",
+      "existing_customer_id": "39e54a86-7076-4b9f-acee-cc036f5d3a8e"
     },
     {
       "customer_id": "264fdb1e-eb8f-4a04-bc0d-2671184c3000",
@@ -2170,8 +3490,20 @@
       "last_name": "Clarenbring",
       "email": "clarenbring@gmail.com",
       "phone": "",
-      "existing_contact_id": "7c754e8a-7f47-42ac-9c3f-05162c17126f",
+      "existing_contact_id": "5acce7a9-3676-4542-968e-7bb81511ba50",
       "existing_customer_id": "ceb6f9e9-4407-492c-9f31-9e2c97a494b9"
+    },
+    {
+      "customer_id": "35ada599-127f-4487-a7e1-455398a27fbd",
+      "fortnox_customer_number": "1141",
+      "customer_name": "Stjärngren Invest AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "matias.a@saldoredo.se",
+      "phone": "0739431180",
+      "existing_contact_id": "d45f5234-eebf-4fdb-aa66-3979015d35ca",
+      "existing_customer_id": "114ae823-a76e-4354-918e-874903b61778"
     },
     {
       "customer_id": "044c8d3a-b3be-4cad-bda7-8a03878043c8",
@@ -2182,8 +3514,20 @@
       "last_name": "Eidefors",
       "email": "thomas@eidefors.com",
       "phone": "",
-      "existing_contact_id": "b4b6ff91-c247-4ebc-9906-097fc3af0351",
+      "existing_contact_id": "c2e63ea8-66bf-4756-8665-603f5639fb97",
       "existing_customer_id": "58d52efa-107f-4323-971e-4bb8475eb2e5"
+    },
+    {
+      "customer_id": "2d62b86c-65bb-493c-9af0-3a1981fe947e",
+      "fortnox_customer_number": "1748",
+      "customer_name": "Stockholm fashion agency AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "janne.thorstensson@gmail.com",
+      "phone": "",
+      "existing_contact_id": "153f3d21-3786-4266-825a-1c3cb06963f9",
+      "existing_customer_id": "0a8166b8-bed8-4676-9498-000fc45d5ea3"
     },
     {
       "customer_id": "04c4ff63-f932-481a-9c04-6818569aa7d0",
@@ -2194,7 +3538,7 @@
       "last_name": "Batan",
       "email": "morris@lucainvest.se",
       "phone": "08-54551080",
-      "existing_contact_id": "b314463a-2f4a-4cfc-a129-b346201b7684",
+      "existing_contact_id": "34791760-4ef4-4a4c-bf74-e0b379f0b17e",
       "existing_customer_id": "b86f4da6-e10f-4900-aff0-c40ab5bdd617"
     },
     {
@@ -2206,7 +3550,7 @@
       "last_name": "Thorén",
       "email": "katarina@golvochplatt.se",
       "phone": null,
-      "existing_contact_id": "1b9cf950-7ffb-46bb-9862-7285686c4fe0",
+      "existing_contact_id": "27b9a6bb-a2be-4953-8bd3-336abc1c6633",
       "existing_customer_id": "76b3f69a-4f29-4aac-be7e-ffe567103556"
     },
     {
@@ -2218,8 +3562,8 @@
       "last_name": "Kleinwichs Magnusson",
       "email": "anna@stockholmsskrivbyra.se",
       "phone": "08-55604200",
-      "existing_contact_id": "01ac87a5-10d1-4beb-90fb-5ca1904a7f1e",
-      "existing_customer_id": "0510de15-ef56-4e2f-a449-1a93d4e04f6e"
+      "existing_contact_id": "64c5cc0c-17c4-4acc-bf4a-8bf6b4339c02",
+      "existing_customer_id": "e8841895-6083-4b72-a222-ee29bd6d7944"
     },
     {
       "customer_id": "0a847e34-d4b7-48ad-ad5c-df3f7e690263",
@@ -2230,7 +3574,7 @@
       "last_name": "Edström",
       "email": "jerker.edstrom@stroem.com",
       "phone": null,
-      "existing_contact_id": "abf3586a-79a3-48d8-b701-05a2b49983ad",
+      "existing_contact_id": "04d1f9ab-3701-41cb-9533-8ccd82c0bfa3",
       "existing_customer_id": "5da810ca-2a6f-451f-9e1c-e7abb30706c6"
     },
     {
@@ -2242,8 +3586,8 @@
       "last_name": "Edström",
       "email": "jerker.edstrom@stroem.com",
       "phone": null,
-      "existing_contact_id": "abf3586a-79a3-48d8-b701-05a2b49983ad",
-      "existing_customer_id": "5da810ca-2a6f-451f-9e1c-e7abb30706c6"
+      "existing_contact_id": "efc11a4a-143b-47a7-b60c-8abb9e7665cf",
+      "existing_customer_id": "0a847e34-d4b7-48ad-ad5c-df3f7e690263"
     },
     {
       "customer_id": "b462f942-f3c8-434b-a7d0-163f3b567293",
@@ -2254,8 +3598,20 @@
       "last_name": "Sun",
       "email": "cihat@soapbar.se",
       "phone": "",
-      "existing_contact_id": "12e826f5-b5b5-488e-a1a9-3322a9a4abae",
-      "existing_customer_id": "7731224e-7707-443c-b3e1-2cf615df7a40"
+      "existing_contact_id": "548480f2-aad3-4dd9-b0a5-6144860620f9",
+      "existing_customer_id": "13f9c623-69e8-415b-991d-4039d4bb68cf"
+    },
+    {
+      "customer_id": "ce110dc0-3bc9-4f07-b3b9-fc9ec1075d26",
+      "fortnox_customer_number": "1654",
+      "customer_name": "Sturebadet Holding AB",
+      "full_name": "Sunniva Fallan",
+      "first_name": "Sunniva",
+      "last_name": "Fallan",
+      "email": "sunniva.fallan.rod@sturebadet.se",
+      "phone": "",
+      "existing_contact_id": "e9bb9ad8-96e2-4865-808b-6fd632cbe300",
+      "existing_customer_id": "3f698bda-cb34-43a3-acb7-2afc9a1f8684"
     },
     {
       "customer_id": "07332fcb-4dd8-4206-a0da-05a2663eebc5",
@@ -2266,8 +3622,8 @@
       "last_name": "Svensson",
       "email": "katarina.svensson@june.se",
       "phone": "08-6562700",
-      "existing_contact_id": "c3aac6cb-24b6-461b-9e6b-e66fe10f0ef5",
-      "existing_customer_id": "698d99df-c24c-467a-9d97-f77e9f668684"
+      "existing_contact_id": "b085cbfc-9ac2-4d8a-b86c-3c84f6d68967",
+      "existing_customer_id": "188f89c7-b576-43c4-90b2-28fb5c2c6019"
     },
     {
       "customer_id": "4eba16c7-ce29-4710-a88b-57332366aa6f",
@@ -2278,7 +3634,7 @@
       "last_name": "Mastonstråle",
       "email": "susanne@maston.se",
       "phone": "",
-      "existing_contact_id": "22b30a65-5bb2-4d4f-a546-426ed7a92361",
+      "existing_contact_id": "c290a6b9-7ba8-4e8d-83bd-0c7603373a7c",
       "existing_customer_id": "e6679e01-be8a-47bb-813c-e412aa223040"
     },
     {
@@ -2290,7 +3646,7 @@
       "last_name": "Ishizaki",
       "email": "carl.ishizaki@gmail.com",
       "phone": "",
-      "existing_contact_id": "2c4f4a9c-879d-46ec-b299-590aee5b0d3e",
+      "existing_contact_id": "f67e701f-fdae-4c6b-a5f0-20c5207cbad0",
       "existing_customer_id": "cefd969e-749e-4620-8278-a91b38ccd857"
     },
     {
@@ -2302,7 +3658,7 @@
       "last_name": "Karlsson",
       "email": "peter@batunionen.com",
       "phone": "08-545 859 61",
-      "existing_contact_id": "bc0a9864-1def-42cb-9b82-55a6172ebbfb",
+      "existing_contact_id": "54a71a58-8301-4ae0-b3ed-ad572bd25aad",
       "existing_customer_id": "4acf12a3-ff08-4105-9e1d-55b80c8555fe"
     },
     {
@@ -2314,8 +3670,32 @@
       "last_name": "Löf",
       "email": "patrik.lof@kisel.se",
       "phone": "08-68409684",
-      "existing_contact_id": "dcc74ee0-6ebb-41bc-91d1-938fae8ef445",
+      "existing_contact_id": "ede118b3-7e62-40c1-acf0-c37dd60f9f57",
       "existing_customer_id": "4eb453c3-aa0a-4a98-af77-9a543031874b"
+    },
+    {
+      "customer_id": "650dedd3-6970-4d36-a382-85f38865f5e6",
+      "fortnox_customer_number": "1865",
+      "customer_name": "Svenska Veterinärgruppen Holding AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "alexander.larsen@svenskavet.se",
+      "phone": "070-2831587",
+      "existing_contact_id": "f5cebf4d-5d46-4f09-b00d-750e50dfd2f2",
+      "existing_customer_id": "0667e55b-7e80-4881-9dd5-5baa39e3ecb9"
+    },
+    {
+      "customer_id": "8bf90a29-8f6c-4d8f-8a5b-70ecb17be37d",
+      "fortnox_customer_number": "605",
+      "customer_name": "Swedish Travel Management System AB",
+      "full_name": "Jenny Lindahl",
+      "first_name": "Jenny",
+      "last_name": "Lindahl",
+      "email": "jenny.lindahl@hotellportalensverige.se",
+      "phone": "08-328050",
+      "existing_contact_id": "28b5b786-a118-4698-b9c1-a86f17d0a8c7",
+      "existing_customer_id": "c49ba6ad-a807-471c-b25a-6dcd20f90a5f"
     },
     {
       "customer_id": "9f22483e-f72e-4588-8cb3-52e640c2261d",
@@ -2326,8 +3706,32 @@
       "last_name": "Grenthe",
       "email": "andreasgrenthe@icloud.com",
       "phone": "0709-427002",
-      "existing_contact_id": "d7861928-8669-4ca3-ac8c-cda7caf8d8cb",
+      "existing_contact_id": "53c6b395-82a3-41e6-81ec-6a06f80332f3",
       "existing_customer_id": "63c53b46-e363-41db-a524-6b2c09d224fb"
+    },
+    {
+      "customer_id": "ae3f9212-06d5-40d5-ae8c-23b02045bea0",
+      "fortnox_customer_number": "1779",
+      "customer_name": "Tam Hangers ( Sweden ) AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "angel.garcia@tamhangers.com",
+      "phone": "",
+      "existing_contact_id": "6956d4c3-a4c6-409c-9341-c464802294fc",
+      "existing_customer_id": "e7ca6534-1fd5-4628-aa41-fb574c0511f5"
+    },
+    {
+      "customer_id": "0b7b1ba3-2e6b-43b8-b2fc-3743fa1c2a65",
+      "fortnox_customer_number": "1633",
+      "customer_name": "Tapas Bar i St Eriksplan AB",
+      "full_name": "Bobil Sharro",
+      "first_name": "Bobil",
+      "last_name": "Sharro",
+      "email": "bobil.sharro@gmail.com",
+      "phone": "08-317444",
+      "existing_contact_id": "2706e6b2-1e99-4e6f-a900-3b35df1b7c32",
+      "existing_customer_id": "ab8af909-7d77-4d5b-ba81-caf6cb5853d1"
     },
     {
       "customer_id": "8428b5f5-acdf-43fe-9c42-243cec254d35",
@@ -2338,8 +3742,32 @@
       "last_name": "Morén",
       "email": "dan.moren@neromannons.se",
       "phone": "0722324133",
-      "existing_contact_id": "6082089b-4bb3-4935-9890-fc26ddfa7011",
-      "existing_customer_id": "07864fe2-dafc-48c1-bf1c-76399061f255"
+      "existing_contact_id": "81077646-411d-48f8-82e7-d3d017ad9179",
+      "existing_customer_id": "6d16552f-56ef-427b-aea0-638819d2c5cf"
+    },
+    {
+      "customer_id": "58bdf4cd-2e7b-45ad-9b49-adf734874ef4",
+      "fortnox_customer_number": "1421",
+      "customer_name": "TechMDW AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "daniel@techmdw.com",
+      "phone": "073-4442469",
+      "existing_contact_id": "427e372e-7f4a-47be-8afd-76e1fe640b48",
+      "existing_customer_id": "b4e03447-de96-4065-ac0a-fbb916164c0f"
+    },
+    {
+      "customer_id": "1b9fd2c3-76d5-4116-a6a3-2d53fc6951b0",
+      "fortnox_customer_number": "1682",
+      "customer_name": "TechMDW Holding AB",
+      "full_name": "Daniel Fruergaard",
+      "first_name": "Daniel",
+      "last_name": "Fruergaard",
+      "email": "daniel@techmdw.com",
+      "phone": "",
+      "existing_contact_id": "b0de578f-444d-4d5d-a91c-56e5e811cbe3",
+      "existing_customer_id": "58bdf4cd-2e7b-45ad-9b49-adf734874ef4"
     },
     {
       "customer_id": "f38fa354-3fc1-455f-b075-279f6a8be8f4",
@@ -2350,8 +3778,20 @@
       "last_name": "Simonsson",
       "email": "sigge@telgehalsocenter.se",
       "phone": "08-55019981",
-      "existing_contact_id": "e0f4f4be-ad38-4ad0-a6c2-3f9069b25112",
-      "existing_customer_id": "f9b58a65-de0c-48e1-ae62-93999e16be8b"
+      "existing_contact_id": "fe06cf37-9740-4a6a-8860-46f82b0ccddf",
+      "existing_customer_id": "7bea7bd5-79db-4382-ba57-eeca636b32ff"
+    },
+    {
+      "customer_id": "dd149ef2-2bfb-4b3d-ad63-549ea7e92894",
+      "fortnox_customer_number": "1834",
+      "customer_name": "Tennfatet 12 AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "roger@member24.se",
+      "phone": "",
+      "existing_contact_id": "676c3036-2adf-42f1-959c-ae97bfd06434",
+      "existing_customer_id": "acebaa2e-55c6-46e2-a0fa-1f71db50faa4"
     },
     {
       "customer_id": "d84489cd-c79b-41c4-975c-b20441a14290",
@@ -2362,8 +3802,20 @@
       "last_name": "Yurakci",
       "email": "kyurekci@hotmail.com",
       "phone": "073-66 47 628",
-      "existing_contact_id": "c29ac79e-c42e-47de-a08b-c730c22270c5",
+      "existing_contact_id": "8cbf5260-f02d-499a-b5b1-a27e882868f2",
       "existing_customer_id": "821e9ab6-3871-450f-9ee7-2c810fe0ee71"
+    },
+    {
+      "customer_id": "c784d820-7edb-4c13-a39c-89e10f68e2bc",
+      "fortnox_customer_number": "1828",
+      "customer_name": "The Apt. 1026 AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "rasmus@thehouserehab.com",
+      "phone": "",
+      "existing_contact_id": "eaa57cb0-a626-424f-91d0-3307de889348",
+      "existing_customer_id": "4eb8d58d-895f-42fe-bb16-45bfffae2114"
     },
     {
       "customer_id": "c94b0a64-5237-4550-82cd-afbf8d0e82ed",
@@ -2374,7 +3826,7 @@
       "last_name": "Kvamme",
       "email": "andre@gokindly.se",
       "phone": "",
-      "existing_contact_id": "2121848a-b58b-42d7-9d0a-113a67a71ac3",
+      "existing_contact_id": "38e732bf-bb0c-4f5b-acb2-b97097a27635",
       "existing_customer_id": "87a241ac-4836-4c28-b843-ef2e15b4215a"
     },
     {
@@ -2386,8 +3838,8 @@
       "last_name": "Sun",
       "email": "cihat@soapbar.se",
       "phone": "073-544 55 43",
-      "existing_contact_id": "12e826f5-b5b5-488e-a1a9-3322a9a4abae",
-      "existing_customer_id": "7731224e-7707-443c-b3e1-2cf615df7a40"
+      "existing_contact_id": "eef4387a-bf50-47d6-a3aa-b600cdaf3bc9",
+      "existing_customer_id": "b462f942-f3c8-434b-a7d0-163f3b567293"
     },
     {
       "customer_id": "c717a9a7-5157-4159-b2d2-676a4fd0441c",
@@ -2398,8 +3850,8 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": null,
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "0251d593-2ca9-43c6-90e0-647574f407d5",
+      "existing_customer_id": "128ae446-5324-4b76-87a8-c81741cd4c97"
     },
     {
       "customer_id": "5c85c154-b34c-4e3b-9025-b6cfdf4e8cd1",
@@ -2410,8 +3862,20 @@
       "last_name": "Asmar",
       "email": "danny@thelinskonditori.se",
       "phone": "+4686511900",
-      "existing_contact_id": "d8041a33-d452-44e3-a9c3-1e818f9db14f",
-      "existing_customer_id": "f49b4b8e-ffdb-48d3-9432-93f57771032f"
+      "existing_contact_id": "bc16623a-4c94-4712-ae2b-7b13144211cf",
+      "existing_customer_id": "c717a9a7-5157-4159-b2d2-676a4fd0441c"
+    },
+    {
+      "customer_id": "00586ce6-af70-4b3f-a371-88ef876b66c1",
+      "fortnox_customer_number": "1689",
+      "customer_name": "Think Full Potential AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "vincent@inveniogrowth.com",
+      "phone": "",
+      "existing_contact_id": "285bc383-727c-4fbb-a633-1f2242b33f60",
+      "existing_customer_id": "10fabe0f-8051-46d9-8b1b-675a905cedce"
     },
     {
       "customer_id": "afda606b-da07-474a-8f6a-016647105e8b",
@@ -2422,8 +3886,8 @@
       "last_name": "Söderling",
       "email": "rikard@expoimage.se",
       "phone": null,
-      "existing_contact_id": "d29dd7ce-3a14-4c12-837c-50fe2b30b439",
-      "existing_customer_id": "b5f3fcff-f7e6-4d61-86ae-864ae4a7ffae"
+      "existing_contact_id": "8c840ba0-f567-404c-8f88-5ecdd658e61c",
+      "existing_customer_id": "885b4756-ea34-4fdc-b3f2-42eeb7484983"
     },
     {
       "customer_id": "8eb7be5c-751c-4d06-9498-87466901c8bb",
@@ -2434,8 +3898,20 @@
       "last_name": "Simonsson",
       "email": "sigge@tindrafastigheter.se",
       "phone": "",
-      "existing_contact_id": "ddeb2b3c-8976-4e63-936d-4bc92564d385",
-      "existing_customer_id": "8738c056-a013-468b-bcc3-4cbd7ab50cbd"
+      "existing_contact_id": "db9e570c-a834-47b0-b0c8-1cf947cef0cf",
+      "existing_customer_id": "029d1313-5881-4611-ba96-3f64adf3f2a9"
+    },
+    {
+      "customer_id": "ba3d163b-baa3-477b-aa90-406f3ca70924",
+      "fortnox_customer_number": "1952",
+      "customer_name": "Tindra Bro Projekt 1 AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "sigge@tindrafastigheter.se",
+      "phone": "0704479369",
+      "existing_contact_id": "a166150b-da07-443e-a88e-631a31cdd1b9",
+      "existing_customer_id": "8eb7be5c-751c-4d06-9498-87466901c8bb"
     },
     {
       "customer_id": "ec2f893f-e744-4409-9b69-adeee11a4bec",
@@ -2446,8 +3922,20 @@
       "last_name": "Simonsson",
       "email": "sigge@tindrafastigheter.se",
       "phone": "",
-      "existing_contact_id": "ddeb2b3c-8976-4e63-936d-4bc92564d385",
-      "existing_customer_id": "8738c056-a013-468b-bcc3-4cbd7ab50cbd"
+      "existing_contact_id": "b6f53b5b-b951-469f-b468-2d72b5ed4f56",
+      "existing_customer_id": "ba3d163b-baa3-477b-aa90-406f3ca70924"
+    },
+    {
+      "customer_id": "c8f4f3f9-24c5-4ee7-8ec7-f892509a86c7",
+      "fortnox_customer_number": "1131",
+      "customer_name": "Tindra Fastigheter AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "sigge@telgehalsocenter.se",
+      "phone": "0704479369",
+      "existing_contact_id": "c60f0c4d-fbde-440f-88d3-198bfa034886",
+      "existing_customer_id": "f38fa354-3fc1-455f-b075-279f6a8be8f4"
     },
     {
       "customer_id": "3158e1b3-dd06-48fc-920e-e145834a85eb",
@@ -2458,8 +3946,8 @@
       "last_name": "Simonsson",
       "email": "sigge@tindrafastigheter.se",
       "phone": "",
-      "existing_contact_id": "ddeb2b3c-8976-4e63-936d-4bc92564d385",
-      "existing_customer_id": "8738c056-a013-468b-bcc3-4cbd7ab50cbd"
+      "existing_contact_id": "3841b8ff-0760-4ec8-96fb-f376ff2b28ef",
+      "existing_customer_id": "ec2f893f-e744-4409-9b69-adeee11a4bec"
     },
     {
       "customer_id": "6651f3f6-b176-4fb3-9e8e-e81ce2be42ed",
@@ -2470,8 +3958,8 @@
       "last_name": "Sten",
       "email": "viveca.sten@telia.com",
       "phone": null,
-      "existing_contact_id": "2b0414ad-b056-410c-879d-63d2e513863a",
-      "existing_customer_id": "11b8fc10-eb97-4762-8582-f64d8f29f20e"
+      "existing_contact_id": "a0480736-2834-473c-a329-b66fa7ce008c",
+      "existing_customer_id": "92360658-c42c-40b6-8713-d0d5a0a0c9ed"
     },
     {
       "customer_id": "c5e8a763-d2da-4241-aaca-6bf9706a055c",
@@ -2482,7 +3970,7 @@
       "last_name": "Monko",
       "email": "martin.monko@notar.se",
       "phone": "08-52248040",
-      "existing_contact_id": "2abad9fb-5c8b-42d9-b57f-b265c02e1999",
+      "existing_contact_id": "248dc2e6-df32-4804-88dd-eaf2859e2265",
       "existing_customer_id": "3c2027f5-820e-477c-85e1-4fc59c3edbe3"
     },
     {
@@ -2494,8 +3982,56 @@
       "last_name": "Sun",
       "email": "cihat@soapbar.se",
       "phone": "",
-      "existing_contact_id": "12e826f5-b5b5-488e-a1a9-3322a9a4abae",
-      "existing_customer_id": "7731224e-7707-443c-b3e1-2cf615df7a40"
+      "existing_contact_id": "fc42b074-7dc9-4946-a3b7-fcf11a46e162",
+      "existing_customer_id": "48b273ef-cc8c-4744-999a-b0663200ae19"
+    },
+    {
+      "customer_id": "5a4fbed5-1b51-42ce-956e-b9a9ddc221ed",
+      "fortnox_customer_number": "1910",
+      "customer_name": "Trädgårdens Wok & Sushi AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "gino.sharro@gmail.com",
+      "phone": null,
+      "existing_contact_id": "7ee68aef-9410-450b-b1af-2c887e417f45",
+      "existing_customer_id": "f5139631-01a3-4950-8890-9660e8b97387"
+    },
+    {
+      "customer_id": "f30a86ce-6ebf-4e7d-9269-e218fce618d6",
+      "fortnox_customer_number": "1586",
+      "customer_name": "Tråkigt Aktiebolag",
+      "full_name": "Paolo Vacirca",
+      "first_name": "Paolo",
+      "last_name": "Vacirca",
+      "email": "paolo@vacirca.se",
+      "phone": "",
+      "existing_contact_id": "078ebdcd-b6d4-4dd3-80e9-03b06e94897e",
+      "existing_customer_id": "45f03d9a-1bef-4bf2-9f2b-805ea379891f"
+    },
+    {
+      "customer_id": "78796321-9f8b-473e-84a5-a43dc38238f8",
+      "fortnox_customer_number": "1899",
+      "customer_name": "Trakslammer Productions Aktiebolag",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "arianesamuelson@hotmail.com",
+      "phone": "",
+      "existing_contact_id": "2e45ecc2-db9a-49c0-b4bf-d21701e2e273",
+      "existing_customer_id": "bf9a71e1-73fd-4a9e-9e69-89f4281c5817"
+    },
+    {
+      "customer_id": "24ebc905-58dc-42a8-a1d3-9b3d2f638d58",
+      "fortnox_customer_number": "1628",
+      "customer_name": "Tulium AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "admin@rainbowtoursstockholm.com",
+      "phone": "",
+      "existing_contact_id": "91831af5-4ef2-4768-b581-a9705fa8e6ca",
+      "existing_customer_id": "07da732d-5ed3-4fcb-bcd8-de84c60c1aa3"
     },
     {
       "customer_id": "0e555d8e-813a-4fe8-b69a-5ea8917726bb",
@@ -2506,8 +4042,20 @@
       "last_name": "Yngbrant",
       "email": "christian.yngbrant@charlie.se",
       "phone": "",
-      "existing_contact_id": "4006cbab-704a-4606-9bfb-7bd4757cd3bc",
-      "existing_customer_id": "11ecaa76-0594-4b6b-8f7c-36c23e7b7917"
+      "existing_contact_id": "d683171d-f13c-4026-9ca8-549e6d780094",
+      "existing_customer_id": "822196bc-a30f-49dc-b300-6c2957a76e9b"
+    },
+    {
+      "customer_id": "0cf8be79-a1ed-456c-ab83-11f605345527",
+      "fortnox_customer_number": "1879",
+      "customer_name": "Uddevalla Pool & Autokonsult AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "mickesv@hotmail.com",
+      "phone": "",
+      "existing_contact_id": "4097c5ac-f31f-43d9-b306-ba3638e031ae",
+      "existing_customer_id": "f1cd0873-fcdd-4038-a874-b3a6efd4077d"
     },
     {
       "customer_id": "11cbbe49-b8cd-46ee-9042-fcc14d246ff3",
@@ -2518,8 +4066,8 @@
       "last_name": "Sten",
       "email": "viveca.sten@telia.com",
       "phone": null,
-      "existing_contact_id": "2b0414ad-b056-410c-879d-63d2e513863a",
-      "existing_customer_id": "11b8fc10-eb97-4762-8582-f64d8f29f20e"
+      "existing_contact_id": "94388cbe-a517-429c-b799-ef9c4a088257",
+      "existing_customer_id": "6651f3f6-b176-4fb3-9e8e-e81ce2be42ed"
     },
     {
       "customer_id": "80c66eb7-e45e-40a6-b149-130f095e0709",
@@ -2530,7 +4078,7 @@
       "last_name": "Paulsson",
       "email": "urban@nylofholding.com",
       "phone": null,
-      "existing_contact_id": "dd08bc30-097c-4c2b-8efc-3ef2a7bed3dd",
+      "existing_contact_id": "df2ee9c2-19f0-4e74-b82a-660beafa42f2",
       "existing_customer_id": "bbaaaeb8-fec2-438a-8dcf-1bc754c583e7"
     },
     {
@@ -2542,8 +4090,32 @@
       "last_name": "Jörén",
       "email": "urban@urbanpicture.com",
       "phone": "070-7170910",
-      "existing_contact_id": "25f4089b-6f37-42af-807e-3dba1c75d045",
+      "existing_contact_id": "97a4132b-0f6b-4574-86be-7a29cba7c787",
       "existing_customer_id": "83aa2d23-3f0e-411d-b574-2ce407af679c"
+    },
+    {
+      "customer_id": "66195830-42dc-45c9-8d2a-4b450f64deae",
+      "fortnox_customer_number": "886",
+      "customer_name": "VAJM Consulting AB",
+      "full_name": "Michael Wolf",
+      "first_name": "Michael",
+      "last_name": "Wolf",
+      "email": "sickla30@gmail.com",
+      "phone": "0702784559",
+      "existing_contact_id": "89981101-5c29-4183-84c3-c5dad56392e9",
+      "existing_customer_id": "c118c1e4-4ed4-483a-8fb5-e6ff9d19d483"
+    },
+    {
+      "customer_id": "c94a8523-a1ae-474a-b7cc-8395b0025cdc",
+      "fortnox_customer_number": "5453",
+      "customer_name": "Valla Egendom Förvaltnings AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "jonas.bergstrand@accesspartners.com",
+      "phone": null,
+      "existing_contact_id": "fa37f960-e0f6-4936-ad23-b67edd126162",
+      "existing_customer_id": "d0878416-6387-4725-a919-90cb209d4516"
     },
     {
       "customer_id": "a849ca3f-9067-4ed4-8993-e7841d186ac4",
@@ -2554,7 +4126,7 @@
       "last_name": "Ljustermo",
       "email": "therese.ljustermo@sollentunadjurklinik.se",
       "phone": "08-51175800",
-      "existing_contact_id": "07c8008a-1c6a-4127-bb7d-3d527eb416b1",
+      "existing_contact_id": "b019d486-94ad-4740-892f-104e2c3c276d",
       "existing_customer_id": "e19b549a-0ad0-4513-a663-23d76e0776ff"
     },
     {
@@ -2566,7 +4138,7 @@
       "last_name": "Hansson",
       "email": "236levfaktura.service@fastighetsagarna.se",
       "phone": null,
-      "existing_contact_id": "2026d86e-629c-4bcc-bfa1-75eaf96af12a",
+      "existing_contact_id": "57c6b6f5-8b27-43d0-a569-6caba8c87dda",
       "existing_customer_id": "bd87023e-9475-45e1-b9d2-5715ef5d14d8"
     },
     {
@@ -2578,8 +4150,8 @@
       "last_name": "Hansson",
       "email": "236levfaktura.service@fastighetsagarna.se",
       "phone": null,
-      "existing_contact_id": "2026d86e-629c-4bcc-bfa1-75eaf96af12a",
-      "existing_customer_id": "bd87023e-9475-45e1-b9d2-5715ef5d14d8"
+      "existing_contact_id": "4e7b8455-4256-4f53-a3b2-d0ce1589abb0",
+      "existing_customer_id": "3f57f3b3-f5fc-4cd7-b38f-968f4497e4c0"
     },
     {
       "customer_id": "d7d8123e-d7d9-4335-af9c-d43b38750902",
@@ -2590,8 +4162,8 @@
       "last_name": "Hansson",
       "email": "236levfaktura.service@fastighetsagarna.se",
       "phone": null,
-      "existing_contact_id": "2026d86e-629c-4bcc-bfa1-75eaf96af12a",
-      "existing_customer_id": "bd87023e-9475-45e1-b9d2-5715ef5d14d8"
+      "existing_contact_id": "4b69518c-e61b-485b-b99f-b9cd1ae341e3",
+      "existing_customer_id": "26c3de7a-df21-4b25-9ce0-675e5e3ad6f2"
     },
     {
       "customer_id": "b5fb082a-0437-4ed9-8530-234c06f76cb4",
@@ -2602,8 +4174,20 @@
       "last_name": "Wallander",
       "email": "maja.wallander@skovdedjurklinik.se",
       "phone": "0512-33680",
-      "existing_contact_id": "8960ba15-0a6e-4fa4-b447-a5562395edae",
+      "existing_contact_id": "6f7fcb73-dc87-4384-b380-a6572596c497",
       "existing_customer_id": "3456f1ce-46d6-4d1f-aa56-77a91bfabbe8"
+    },
+    {
+      "customer_id": "0d0b67b3-aee3-4b43-8c8e-4fa954d25d0c",
+      "fortnox_customer_number": "314",
+      "customer_name": "Vasakällaren AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "norwet@gmail.com",
+      "phone": "",
+      "existing_contact_id": "51a624d8-4f53-438f-ad3b-2db9ca19c2b3",
+      "existing_customer_id": "d47d22af-bd0a-49a6-8718-0c32b716c89b"
     },
     {
       "customer_id": "5765e8eb-42bc-4ac2-a053-73d8878d6366",
@@ -2614,8 +4198,20 @@
       "last_name": "Libell",
       "email": "mattias.libell@gradient.se",
       "phone": "",
-      "existing_contact_id": "7d45b2de-abfc-45e8-81fc-6321f5679d8d",
-      "existing_customer_id": "ec6f866c-af5b-48f9-b041-998abe19685a"
+      "existing_contact_id": "438d08a6-4189-443a-addf-1becbcfa6209",
+      "existing_customer_id": "1f1de975-a469-44a3-acb6-eecfb7fc3dbb"
+    },
+    {
+      "customer_id": "ab4b371c-5ef8-4aad-8d04-630128aa7738",
+      "fortnox_customer_number": "1664",
+      "customer_name": "VIETSMAK AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "chauthaovnexport@gmail.com",
+      "phone": "08-6446688",
+      "existing_contact_id": "0c59fa67-92d3-480d-8abe-5181d77f0fdb",
+      "existing_customer_id": "3223fb0d-f770-4a34-a5e4-ae7d908ad7e6"
     },
     {
       "customer_id": "ae49403f-a6ce-4c5c-a0dd-270a94b7c8bc",
@@ -2626,7 +4222,7 @@
       "last_name": "Eirnarsson",
       "email": "einar@zocalo.se",
       "phone": "",
-      "existing_contact_id": "0f691e03-4b50-4279-a355-63be88cb3354",
+      "existing_contact_id": "0643eb9e-ffb6-4b42-a7cb-84ca261c6e4a",
       "existing_customer_id": "90594243-67c7-4be5-a3b9-9642b6435c0e"
     },
     {
@@ -2638,8 +4234,8 @@
       "last_name": "Tjacka",
       "email": "tjacka@tjacka.se",
       "phone": "0706668700",
-      "existing_contact_id": "6f4c7dee-d4e4-4e71-b9fb-eafda073efe2",
-      "existing_customer_id": "60f643f5-445c-4f9d-8ecd-8aa820be9974"
+      "existing_contact_id": "b8b5136d-8cc0-45bb-a7d8-d6940a9689a8",
+      "existing_customer_id": "e6bbbab0-abb0-4955-ac0a-02b43d19dd6d"
     },
     {
       "customer_id": "996369f9-1713-4dd9-abc0-31d636fe4c8a",
@@ -2650,8 +4246,44 @@
       "last_name": "Toutoungi",
       "email": "micke@cafefoam.com",
       "phone": "08-307300",
-      "existing_contact_id": "0ad09e45-f61d-48c4-994d-c0865fae6cf0",
+      "existing_contact_id": "d13a98d8-804f-46d2-a821-5c841e025eb2",
       "existing_customer_id": "4fba626f-7c05-4c19-98d8-2de975c01046"
+    },
+    {
+      "customer_id": "ebbb6522-37ad-489b-a910-a668fc1c6547",
+      "fortnox_customer_number": "1768",
+      "customer_name": "Vista Management Helsingborg AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "sebastian@vistamanagement.se",
+      "phone": "",
+      "existing_contact_id": "c838a417-0066-4d11-b8f9-3f4d17af31c4",
+      "existing_customer_id": "83c49bb5-a9af-4033-a3bc-9e3437dfe58e"
+    },
+    {
+      "customer_id": "fc8c1963-74b6-40e3-9ac9-8b299b780b4b",
+      "fortnox_customer_number": "1769",
+      "customer_name": "Vista Rail Öst AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "sebastian@vistamanagement.se",
+      "phone": "",
+      "existing_contact_id": "5996c28a-0726-4eb9-b78a-2aa1df0eaf95",
+      "existing_customer_id": "ebbb6522-37ad-489b-a910-a668fc1c6547"
+    },
+    {
+      "customer_id": "03f3769d-ef84-4d0f-b0a7-50e42c8e5a19",
+      "fortnox_customer_number": "1341",
+      "customer_name": "Voxbon AB",
+      "full_name": "Anders Bernunger",
+      "first_name": "Anders",
+      "last_name": "Bernunger",
+      "email": "bernungera@gmail.com",
+      "phone": "",
+      "existing_contact_id": "8239795e-1c55-4f69-9e10-60625fc39565",
+      "existing_customer_id": "f2ae3dad-1e96-4a11-8328-a3bbf4302543"
     },
     {
       "customer_id": "83e26b41-9872-4cc4-9832-b3f88dbd5f06",
@@ -2662,8 +4294,8 @@
       "last_name": "Þór Vigfússon",
       "email": "arni@varpizza.se",
       "phone": "0737500606",
-      "existing_contact_id": "3f880785-3c06-434c-abd7-645abadbfa15",
-      "existing_customer_id": "3decdd63-5ef9-4acb-b848-2b21e35d12ae"
+      "existing_contact_id": "34892fee-5536-48db-a8c3-b188cfa60b33",
+      "existing_customer_id": "01cf6224-2c3f-476c-8e29-335297252b4f"
     },
     {
       "customer_id": "4f9f69ce-4502-4244-909c-d730c5619ef6",
@@ -2674,8 +4306,8 @@
       "last_name": "Þór Vigfússon",
       "email": "arni@varpizza.se",
       "phone": "08-323111",
-      "existing_contact_id": "3f880785-3c06-434c-abd7-645abadbfa15",
-      "existing_customer_id": "3decdd63-5ef9-4acb-b848-2b21e35d12ae"
+      "existing_contact_id": "145a38d6-2322-46ec-a4b5-3485ad2f95c9",
+      "existing_customer_id": "83e26b41-9872-4cc4-9832-b3f88dbd5f06"
     },
     {
       "customer_id": "5806741c-d485-4bd0-8f82-df8a6dca927c",
@@ -2686,8 +4318,8 @@
       "last_name": "Þór Vigfússon",
       "email": "arni@varpizza.se",
       "phone": "0737500606",
-      "existing_contact_id": "3f880785-3c06-434c-abd7-645abadbfa15",
-      "existing_customer_id": "3decdd63-5ef9-4acb-b848-2b21e35d12ae"
+      "existing_contact_id": "c9ab279c-742b-483a-83f8-3fa9700663a2",
+      "existing_customer_id": "4f9f69ce-4502-4244-909c-d730c5619ef6"
     },
     {
       "customer_id": "1f3c0b6a-7982-4a2b-b2b0-4a7453e1d4f8",
@@ -2698,8 +4330,8 @@
       "last_name": "Vigfusson",
       "email": "arni@varpizza.se",
       "phone": "0737500606",
-      "existing_contact_id": "3f880785-3c06-434c-abd7-645abadbfa15",
-      "existing_customer_id": "3decdd63-5ef9-4acb-b848-2b21e35d12ae"
+      "existing_contact_id": "20e65e23-a9f9-4992-b470-1a8e865c2fc1",
+      "existing_customer_id": "5806741c-d485-4bd0-8f82-df8a6dca927c"
     },
     {
       "customer_id": "22a3d1c0-a83d-4e9c-a647-c93c4c6a64f6",
@@ -2710,7 +4342,7 @@
       "last_name": "Vardanyan",
       "email": "vanik@vvsecurity.se",
       "phone": "",
-      "existing_contact_id": "2a6671dc-dafb-4b45-9882-c9861f4a4916",
+      "existing_contact_id": "9b6d2586-1a35-41cc-9453-5107a662a465",
       "existing_customer_id": "546559c2-ce91-4738-8f6c-2465438038a8"
     },
     {
@@ -2722,8 +4354,20 @@
       "last_name": "Bagge",
       "email": "laila@selectedbylaila.com",
       "phone": "0704448403",
-      "existing_contact_id": "a5a7a2b8-3c77-4cd3-965b-01dcf0f5c7c5",
-      "existing_customer_id": "ba0705c4-0116-4816-ada6-bd000aa593cf"
+      "existing_contact_id": "cbe5a947-3c32-4fdb-aa4f-c53c4b6a5818",
+      "existing_customer_id": "94b95ca8-086b-4367-88df-a3e73e2f0c98"
+    },
+    {
+      "customer_id": "9435ff9a-c249-4c95-b033-4f07f4e8a64e",
+      "fortnox_customer_number": "1754",
+      "customer_name": "Wendert Holding AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "jonas.wendert@zocalo.se",
+      "phone": "",
+      "existing_contact_id": "03f03cf1-fa0f-406e-a540-4b48d87bfb91",
+      "existing_customer_id": "4366f2b9-71ac-47fe-8189-87a2d6e8110a"
     },
     {
       "customer_id": "8232a476-be23-4e92-a236-423d1665b284",
@@ -2734,7 +4378,7 @@
       "last_name": "White",
       "email": "daniel@platypuspartners.co.uk",
       "phone": "",
-      "existing_contact_id": "fbe8fdda-fc8b-4580-908b-8d7931a6d591",
+      "existing_contact_id": "27c8a013-4857-45e2-bedb-f26ff3a3fc8e",
       "existing_customer_id": "4713b269-abc6-4f04-9c90-0a0ffdd08ffd"
     },
     {
@@ -2746,8 +4390,32 @@
       "last_name": "Urdinola",
       "email": "matilde.urdinola@gmail.com",
       "phone": "",
-      "existing_contact_id": "10738b2d-3019-4538-bde4-20f0e4fb5ca3",
+      "existing_contact_id": "ca293ca3-257d-4921-9c20-3cd9e4937de2",
       "existing_customer_id": "18e108e2-13cd-4cf0-b578-611867414f31"
+    },
+    {
+      "customer_id": "5f6dfb74-de67-4cbc-8635-54614db30a98",
+      "fortnox_customer_number": "1648",
+      "customer_name": "Yanko Invest AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "yankoninos@gmail.com",
+      "phone": "",
+      "existing_contact_id": "0765113a-9142-4f29-b140-0ffb530f096f",
+      "existing_customer_id": "a06946ee-8088-43f0-b9b8-70aef5fe23a9"
+    },
+    {
+      "customer_id": "b650545f-82f6-496e-9c92-ebdecaa7780d",
+      "fortnox_customer_number": "1502",
+      "customer_name": "Ye´s Fastfood Norr AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "sandylin1029@hotmail.com",
+      "phone": "+46735068588",
+      "existing_contact_id": "8edf39cb-a87b-4181-aec2-8a56596ce473",
+      "existing_customer_id": "51c765ab-3190-4cc8-bb49-07c7032cfbef"
     },
     {
       "customer_id": "c7b0b977-af59-4e86-b174-cb71d4c3b5e5",
@@ -2758,7 +4426,7 @@
       "last_name": "Sun",
       "email": "info@mellowbar.com",
       "phone": "073-9843750",
-      "existing_contact_id": "c7afcbbb-66aa-426c-853e-0f205053ed02",
+      "existing_contact_id": "776e7639-f6b5-4518-b12a-e7295fedcfa5",
       "existing_customer_id": "a3b988e9-5f2f-4b7c-92a3-5d5ef77656b8"
     },
     {
@@ -2770,7 +4438,7 @@
       "last_name": "Gahm",
       "email": "johan.gahm@gmail.com",
       "phone": "",
-      "existing_contact_id": "cd699aab-14f2-4b56-b89f-853493fc16d7",
+      "existing_contact_id": "7c179134-e6e3-4b8f-b93a-1330aad18624",
       "existing_customer_id": "06d3fd0d-8088-4b06-908a-4c1ab458bf50"
     },
     {
@@ -2782,8 +4450,32 @@
       "last_name": "Gahm",
       "email": "johan.gahm@gmail.com",
       "phone": "0707-328808",
-      "existing_contact_id": "cd699aab-14f2-4b56-b89f-853493fc16d7",
-      "existing_customer_id": "06d3fd0d-8088-4b06-908a-4c1ab458bf50"
+      "existing_contact_id": "ad2d6502-f015-4985-8ced-cdd05ae2cdce",
+      "existing_customer_id": "3a9b3094-5e72-4714-ac62-6fc7a982b7c7"
+    },
+    {
+      "customer_id": "1accd5b7-bd45-4729-8bfb-8bb17099c960",
+      "fortnox_customer_number": "113",
+      "customer_name": "Zap Management AB",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "stephanie@zapmodels.com",
+      "phone": "08-6611066",
+      "existing_contact_id": "d049e292-85cd-4f72-958a-bf7c6aad782a",
+      "existing_customer_id": "4c1ccee1-a03e-48de-9182-9a6d4e44d0d0"
+    },
+    {
+      "customer_id": "3b5d201e-bc9d-4797-8736-ba6dd472226e",
+      "fortnox_customer_number": "1895",
+      "customer_name": "Zerona Aktiebolag",
+      "full_name": "Not Imported",
+      "first_name": "Not",
+      "last_name": "Imported",
+      "email": "carin.leuhusen@gmail.com",
+      "phone": "",
+      "existing_contact_id": "23ef3198-4142-4e78-857a-090d44963cb8",
+      "existing_customer_id": "c3f90cc5-36b5-49e1-8c4d-feb41da8b2e5"
     },
     {
       "customer_id": "d4f809aa-962e-4a95-89c1-47459c9cc711",
@@ -2794,8 +4486,8 @@
       "last_name": "Eirnarsson",
       "email": "einar@zocalo.se",
       "phone": "",
-      "existing_contact_id": "0f691e03-4b50-4279-a355-63be88cb3354",
-      "existing_customer_id": "90594243-67c7-4be5-a3b9-9642b6435c0e"
+      "existing_contact_id": "cc2f9ec9-272b-4120-8ba9-d9e2e98d8fde",
+      "existing_customer_id": "ae49403f-a6ce-4c5c-a0dd-270a94b7c8bc"
     },
     {
       "customer_id": "dff1816f-6222-4aec-bae8-9fd726b607c9",
@@ -2806,8 +4498,8 @@
       "last_name": "Örn Einarsson",
       "email": "einar@zocalo.se",
       "phone": "",
-      "existing_contact_id": "0f691e03-4b50-4279-a355-63be88cb3354",
-      "existing_customer_id": "90594243-67c7-4be5-a3b9-9642b6435c0e"
+      "existing_contact_id": "9cc8e371-70ed-4c40-bbf0-64de7977a095",
+      "existing_customer_id": "d4f809aa-962e-4a95-89c1-47459c9cc711"
     }
   ]
 }
