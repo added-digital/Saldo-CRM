@@ -1,0 +1,480 @@
+"use client"
+
+import * as React from "react"
+import { ChevronDown, Filter } from "lucide-react"
+
+import type { CustomerWithRelations, Profile, Segment } from "@/types/database"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { SearchInput } from "@/components/app/search-input"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+
+type CustomerStatusFilter = "active" | "paused" | "former" | "archived"
+
+interface CustomerFilterState {
+  statuses: CustomerStatusFilter[]
+  segmentIds: string[]
+  managerIds: string[]
+  onlyWithInvoices: boolean
+  onlyWithHours: boolean
+  onlyWithContractValue: boolean
+}
+
+interface CustomerListColumnOption {
+  id: string
+  label: string
+  visible: boolean
+  alwaysVisible?: boolean
+}
+
+const EMPTY_FILTERS: CustomerFilterState = {
+  statuses: [],
+  segmentIds: [],
+  managerIds: [],
+  onlyWithInvoices: false,
+  onlyWithHours: false,
+  onlyWithContractValue: false,
+}
+
+const STATUS_OPTIONS: { value: CustomerStatusFilter; label: string }[] = [
+  { value: "active", label: "Active" },
+  { value: "paused", label: "Paused" },
+  { value: "former", label: "Former" },
+  { value: "archived", label: "Archived" },
+]
+
+function hasActiveFilters(filters: CustomerFilterState): boolean {
+  return (
+    filters.statuses.length > 0 ||
+    filters.segmentIds.length > 0 ||
+    filters.managerIds.length > 0 ||
+    filters.onlyWithInvoices ||
+    filters.onlyWithHours ||
+    filters.onlyWithContractValue
+  )
+}
+
+function applyFilters(
+  customers: CustomerWithRelations[],
+  filters: CustomerFilterState
+): CustomerWithRelations[] {
+  return customers.filter((c) => {
+    if (
+      filters.statuses.length > 0 &&
+      !filters.statuses.includes(c.status as CustomerStatusFilter)
+    ) {
+      return false
+    }
+
+    if (filters.segmentIds.length > 0) {
+      const customerSegmentIds = (c.segments ?? []).map((s) => s.id)
+      if (!filters.segmentIds.some((id) => customerSegmentIds.includes(id))) {
+        return false
+      }
+    }
+
+    if (filters.managerIds.length > 0) {
+      if (!c.account_manager || !filters.managerIds.includes(c.account_manager.id)) {
+        return false
+      }
+    }
+
+    if (
+      filters.onlyWithInvoices &&
+      (c.invoice_count == null || c.invoice_count === 0)
+    ) {
+      return false
+    }
+
+    if (filters.onlyWithHours && (c.total_hours == null || c.total_hours === 0)) {
+      return false
+    }
+
+    if (
+      filters.onlyWithContractValue &&
+      (c.contract_value == null || c.contract_value === 0)
+    ) {
+      return false
+    }
+
+    return true
+  })
+}
+
+interface FilterSectionProps {
+  title: string
+  count?: number
+  defaultOpen?: boolean
+  children: React.ReactNode
+}
+
+function FilterSection({
+  title,
+  count,
+  defaultOpen = false,
+  children,
+}: FilterSectionProps) {
+  return (
+    <Collapsible defaultOpen={defaultOpen} className="border-b last:border-b-0">
+      <CollapsibleTrigger asChild>
+        <Button
+          variant="ghost"
+          className="h-11 w-full justify-between rounded-none px-4 font-medium hover:bg-muted/50"
+        >
+          <div className="flex items-center gap-2">
+            <span>{title}</span>
+            {count ? (
+              <Badge variant="secondary" className="h-5 min-w-5 px-1 text-[11px]">
+                {count}
+              </Badge>
+            ) : null}
+          </div>
+          <ChevronDown className="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="px-4 pb-4">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+interface CustomerFiltersProps {
+  customers: CustomerWithRelations[]
+  filters: CustomerFilterState
+  onFiltersChange: (filters: CustomerFilterState) => void
+  onSaveFilter?: () => void
+  listColumns?: CustomerListColumnOption[]
+  onToggleListColumn?: (columnId: string) => void
+  onResetListColumns?: () => void
+}
+
+function CustomerFilters({
+  customers,
+  filters,
+  onFiltersChange,
+  onSaveFilter,
+  listColumns,
+  onToggleListColumn,
+  onResetListColumns,
+}: CustomerFiltersProps) {
+  const [managerQuery, setManagerQuery] = React.useState("")
+
+  const segments = React.useMemo(() => {
+    const map = new Map<string, Segment>()
+    for (const c of customers) {
+      for (const s of c.segments ?? []) {
+        if (!map.has(s.id)) map.set(s.id, s)
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [customers])
+
+  const managers = React.useMemo(() => {
+    const map = new Map<string, Pick<Profile, "id" | "full_name" | "email">>()
+    for (const c of customers) {
+      if (c.account_manager && !map.has(c.account_manager.id)) {
+        map.set(c.account_manager.id, c.account_manager)
+      }
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      (a.full_name ?? a.email).localeCompare(b.full_name ?? b.email)
+    )
+  }, [customers])
+
+  const visibleManagers = React.useMemo(() => {
+    if (!managerQuery) return managers
+
+    const query = managerQuery.toLowerCase()
+    return managers.filter((manager) =>
+      (manager.full_name ?? manager.email).toLowerCase().includes(query)
+    )
+  }, [managerQuery, managers])
+
+  const activeCount =
+    filters.statuses.length +
+    filters.segmentIds.length +
+    filters.managerIds.length +
+    (filters.onlyWithInvoices ? 1 : 0) +
+    (filters.onlyWithHours ? 1 : 0) +
+    (filters.onlyWithContractValue ? 1 : 0)
+
+  const dataCount = [
+    filters.onlyWithInvoices,
+    filters.onlyWithHours,
+    filters.onlyWithContractValue,
+  ].filter(Boolean).length
+
+  const hasHiddenListColumns =
+    listColumns?.some((column) => !column.alwaysVisible && !column.visible) ?? false
+
+  function toggleStatus(status: CustomerStatusFilter) {
+    const next = filters.statuses.includes(status)
+      ? filters.statuses.filter((s) => s !== status)
+      : [...filters.statuses, status]
+    onFiltersChange({ ...filters, statuses: next })
+  }
+
+  function toggleSegment(segmentId: string) {
+    const next = filters.segmentIds.includes(segmentId)
+      ? filters.segmentIds.filter((id) => id !== segmentId)
+      : [...filters.segmentIds, segmentId]
+    onFiltersChange({ ...filters, segmentIds: next })
+  }
+
+  function toggleManager(managerId: string) {
+    const next = filters.managerIds.includes(managerId)
+      ? filters.managerIds.filter((id) => id !== managerId)
+      : [...filters.managerIds, managerId]
+    onFiltersChange({ ...filters, managerIds: next })
+    setManagerQuery("")
+  }
+
+  function toggleFlag(
+    key: "onlyWithInvoices" | "onlyWithHours" | "onlyWithContractValue"
+  ) {
+    onFiltersChange({ ...filters, [key]: !filters[key] })
+  }
+
+  function clearAll() {
+    onFiltersChange(EMPTY_FILTERS)
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 gap-1.5">
+          <Filter className="size-3.5" />
+          Filters
+          {activeCount > 0 ? (
+            <Badge variant="secondary" className="ml-0.5 h-5 min-w-5 px-1 text-xs">
+              {activeCount}
+            </Badge>
+          ) : null}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[22rem] p-0">
+        <div className="border-b px-4 py-3">
+          <p className="text-sm font-medium">Filters</p>
+          <p className="text-xs text-muted-foreground">
+            Refine the customer list and choose what is showed in list.
+          </p>
+        </div>
+
+        <div>
+          <FilterSection title="Status" count={filters.statuses.length}>
+            <div className="space-y-2">
+              {STATUS_OPTIONS.map((option) => {
+                const checked = filters.statuses.includes(option.value)
+                const id = `customer-filter-status-${option.value}`
+
+                return (
+                  <label
+                    key={option.value}
+                    htmlFor={id}
+                    className="flex cursor-pointer items-center gap-3 text-sm"
+                  >
+                    <Checkbox
+                      id={id}
+                      checked={checked}
+                      onCheckedChange={() => toggleStatus(option.value)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </FilterSection>
+
+          <FilterSection title="Segments" count={filters.segmentIds.length}>
+            {segments.length > 0 ? (
+              <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                {segments.map((segment) => {
+                  const checked = filters.segmentIds.includes(segment.id)
+                  const id = `customer-filter-segment-${segment.id}`
+
+                  return (
+                    <label
+                      key={segment.id}
+                      htmlFor={id}
+                      className="flex cursor-pointer items-center gap-3 text-sm"
+                    >
+                      <Checkbox
+                        id={id}
+                        checked={checked}
+                        onCheckedChange={() => toggleSegment(segment.id)}
+                      />
+                      <Badge
+                        variant="outline"
+                        className="text-xs font-normal"
+                        style={{ borderColor: segment.color, color: segment.color }}
+                      >
+                        {segment.name}
+                      </Badge>
+                    </label>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No segments available.</p>
+            )}
+          </FilterSection>
+
+          <FilterSection title="Customer Manager" count={filters.managerIds.length}>
+            {managers.length > 0 ? (
+              <div className="space-y-3">
+                <SearchInput
+                  value={managerQuery}
+                  onChange={setManagerQuery}
+                  placeholder="Search managers..."
+                  className="w-full"
+                />
+                <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                  {visibleManagers.map((manager) => {
+                  const checked = filters.managerIds.includes(manager.id)
+                  const id = `customer-filter-manager-${manager.id}`
+
+                  return (
+                    <label
+                      key={manager.id}
+                      htmlFor={id}
+                      className="flex cursor-pointer items-center gap-3 text-sm"
+                    >
+                      <Checkbox
+                        id={id}
+                        checked={checked}
+                        onCheckedChange={() => toggleManager(manager.id)}
+                      />
+                      <span className="truncate">{manager.full_name ?? manager.email}</span>
+                    </label>
+                  )
+                  })}
+                  {visibleManagers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No managers match your search.</p>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No customer managers available.</p>
+            )}
+          </FilterSection>
+
+          <FilterSection title="Data" count={dataCount} defaultOpen>
+            <div className="space-y-2">
+              {[
+                { key: "onlyWithInvoices", label: "Only with invoices" },
+                { key: "onlyWithHours", label: "Only with hours" },
+                { key: "onlyWithContractValue", label: "Only with contract value" },
+              ].map((item) => {
+                const id = `customer-filter-${item.key}`
+                const checked = filters[item.key as keyof CustomerFilterState] as boolean
+
+                return (
+                  <label
+                    key={item.key}
+                    htmlFor={id}
+                    className="flex cursor-pointer items-center gap-3 text-sm"
+                  >
+                    <Checkbox
+                      id={id}
+                      checked={checked}
+                      onCheckedChange={() =>
+                        toggleFlag(
+                          item.key as
+                            | "onlyWithInvoices"
+                            | "onlyWithHours"
+                            | "onlyWithContractValue"
+                        )
+                      }
+                    />
+                    <span>{item.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </FilterSection>
+
+          {listColumns && onToggleListColumn ? (
+            <FilterSection
+              title="Showed in list"
+              count={listColumns.filter((column) => column.visible).length}
+            >
+              <div className="space-y-2">
+                {listColumns.map((column) => {
+                  const id = `customer-list-column-${column.id}`
+
+                  return (
+                    <label
+                      key={column.id}
+                      htmlFor={id}
+                      className="flex cursor-pointer items-center gap-3 text-sm"
+                    >
+                      <Checkbox
+                        id={id}
+                        checked={column.visible}
+                        disabled={column.alwaysVisible}
+                        onCheckedChange={() => onToggleListColumn(column.id)}
+                      />
+                      <span className={cn(column.alwaysVisible && "text-muted-foreground")}>
+                        {column.label}
+                        {column.alwaysVisible ? " (always shown)" : ""}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+              {hasHiddenListColumns && onResetListColumns ? (
+                <div className="pt-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-0 text-xs text-muted-foreground"
+                    onClick={onResetListColumns}
+                  >
+                    Show all list fields
+                  </Button>
+                </div>
+              ) : null}
+            </FilterSection>
+          ) : null}
+        </div>
+
+        <div className="border-t px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-0 text-xs text-muted-foreground"
+              onClick={clearAll}
+              disabled={!hasActiveFilters(filters)}
+            >
+              Clear all filters
+            </Button>
+            {onSaveFilter ? (
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onSaveFilter}>
+                Save filter
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+export {
+  CustomerFilters,
+  applyFilters,
+  hasActiveFilters,
+  EMPTY_FILTERS,
+  type CustomerFilterState,
+  type CustomerFiltersProps,
+  type CustomerListColumnOption,
+}

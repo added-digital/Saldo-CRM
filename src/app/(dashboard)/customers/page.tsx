@@ -3,14 +3,22 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
-import { Users, Tags, List, LayoutGrid } from "lucide-react"
+import { Users, Tags, LayoutGrid } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import type { CustomerWithRelations, Profile, Segment } from "@/types/database"
 import { PageHeader } from "@/components/app/page-header"
 import { DataTable } from "@/components/app/data-table"
-import { CustomerKpiView } from "@/components/app/customer-kpi-view"
+import { CustomerKpiCards } from "@/components/app/customer-kpi-view"
 import { ActionBar } from "@/components/app/action-bar"
+import {
+  CustomerFilters,
+  applyFilters,
+  EMPTY_FILTERS,
+  type CustomerFilterState,
+  type CustomerListColumnOption,
+} from "@/components/app/customer-filters"
+import { SearchInput } from "@/components/app/search-input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -25,12 +33,14 @@ import { toast } from "sonner"
 
 const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
   {
+    id: "name",
     accessorKey: "name",
     size: 250,
     minSize: 120,
     header: "Name",
   },
   {
+    id: "fortnox_customer_number",
     accessorKey: "fortnox_customer_number",
     size: 150,
     minSize: 100,
@@ -38,6 +48,7 @@ const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
     cell: ({ row }) => row.getValue("fortnox_customer_number") || "—",
   },
   {
+    id: "org_number",
     accessorKey: "org_number",
     size: 140,
     minSize: 100,
@@ -45,6 +56,7 @@ const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
     cell: ({ row }) => row.getValue("org_number") || "—",
   },
   {
+    id: "contact_name",
     accessorKey: "contact_name",
     size: 180,
     minSize: 100,
@@ -52,6 +64,7 @@ const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
     cell: ({ row }) => row.getValue("contact_name") || "—",
   },
   {
+    id: "email",
     accessorKey: "email",
     size: 220,
     minSize: 100,
@@ -68,6 +81,38 @@ const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
       if (!manager) return <span className="text-muted-foreground">—</span>
       return manager.full_name ?? manager.email
     },
+  },
+  {
+    id: "total_turnover",
+    accessorKey: "total_turnover",
+    size: 160,
+    minSize: 120,
+    header: "Turnover",
+    cell: ({ row }) => formatSek(row.getValue("total_turnover") as number | null),
+  },
+  {
+    id: "invoice_count",
+    accessorKey: "invoice_count",
+    size: 120,
+    minSize: 100,
+    header: "Invoices",
+    cell: ({ row }) => formatNumber(row.getValue("invoice_count") as number | null),
+  },
+  {
+    id: "total_hours",
+    accessorKey: "total_hours",
+    size: 120,
+    minSize: 100,
+    header: "Hours",
+    cell: ({ row }) => formatHours(row.getValue("total_hours") as number | null),
+  },
+  {
+    id: "contract_value",
+    accessorKey: "contract_value",
+    size: 170,
+    minSize: 120,
+    header: "Contract Value",
+    cell: ({ row }) => formatSek(row.getValue("contract_value") as number | null),
   },
   {
     id: "segments",
@@ -100,6 +145,65 @@ const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
   },
 ]
 
+const sekFormatter = new Intl.NumberFormat("sv-SE", {
+  style: "currency",
+  currency: "SEK",
+  maximumFractionDigits: 0,
+})
+
+const numberFormatter = new Intl.NumberFormat("sv-SE")
+
+const hoursFormatter = new Intl.NumberFormat("sv-SE", {
+  maximumFractionDigits: 1,
+  minimumFractionDigits: 1,
+})
+
+function formatSek(value: number | null): string {
+  if (value == null) return "—"
+  return sekFormatter.format(value)
+}
+
+function formatNumber(value: number | null): string {
+  if (value == null) return "—"
+  return numberFormatter.format(value)
+}
+
+function formatHours(value: number | null): string {
+  if (value == null) return "—"
+  return hoursFormatter.format(value)
+}
+
+const customerListColumnDefinitions: Omit<CustomerListColumnOption, "visible">[] = [
+  { id: "name", label: "Customer Name", alwaysVisible: true },
+  { id: "fortnox_customer_number", label: "Customer No." },
+  { id: "org_number", label: "Org Number" },
+  { id: "contact_name", label: "Primary Contact" },
+  { id: "email", label: "Email" },
+  { id: "account_manager", label: "Customer Manager" },
+  { id: "total_turnover", label: "Turnover" },
+  { id: "invoice_count", label: "Invoices" },
+  { id: "total_hours", label: "Hours" },
+  { id: "contract_value", label: "Contract Value" },
+  { id: "segments", label: "Segments" },
+]
+
+const CUSTOMER_FILTERS_STORAGE_KEY = "saldo-crm:customers:filters"
+
+function isCustomerFilterState(value: unknown): value is CustomerFilterState {
+  if (!value || typeof value !== "object") return false
+
+  const candidate = value as Record<string, unknown>
+
+  return (
+    Array.isArray(candidate.statuses) &&
+    Array.isArray(candidate.segmentIds) &&
+    Array.isArray(candidate.managerIds) &&
+    typeof candidate.onlyWithInvoices === "boolean" &&
+    typeof candidate.onlyWithHours === "boolean" &&
+    typeof candidate.onlyWithContractValue === "boolean"
+  )
+}
+
 export default function CustomersPage() {
   const router = useRouter()
   const [customers, setCustomers] = React.useState<CustomerWithRelations[]>([])
@@ -110,21 +214,47 @@ export default function CustomersPage() {
   const [checkedSegmentIds, setCheckedSegmentIds] = React.useState<Set<string>>(new Set())
   const [assigning, setAssigning] = React.useState(false)
   const clearSelectionRef = React.useRef<(() => void) | null>(null)
-  const [view, setView] = React.useState<"list" | "kpi">("list")
+  const [showKpiCards, setShowKpiCards] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [filters, setFilters] = React.useState<CustomerFilterState>(EMPTY_FILTERS)
+  const [visibleListColumns, setVisibleListColumns] = React.useState<Record<string, boolean>>(
+    () =>
+      Object.fromEntries(
+        customerListColumnDefinitions.map((column) => [column.id, true])
+      )
+  )
+
+  const listColumns = React.useMemo<CustomerListColumnOption[]>(
+    () =>
+      customerListColumnDefinitions.map((column) => ({
+        ...column,
+        visible: visibleListColumns[column.id] ?? true,
+      })),
+    [visibleListColumns]
+  )
+
+  const visibleColumns = React.useMemo(
+    () => columns.filter((column) => visibleListColumns[column.id ?? ""] ?? true),
+    [visibleListColumns]
+  )
 
   const filteredCustomers = React.useMemo(() => {
-    if (!searchQuery) return customers
-    const q = searchQuery.toLowerCase()
-    return customers.filter(
-      (c) =>
-        c.name?.toLowerCase().includes(q) ||
-        c.fortnox_customer_number?.toLowerCase().includes(q) ||
-        c.org_number?.toLowerCase().includes(q) ||
-        c.contact_name?.toLowerCase().includes(q) ||
-        c.email?.toLowerCase().includes(q)
-    )
-  }, [customers, searchQuery])
+    let result = customers
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(
+        (c) =>
+          c.name?.toLowerCase().includes(q) ||
+          c.fortnox_customer_number?.toLowerCase().includes(q) ||
+          c.org_number?.toLowerCase().includes(q) ||
+          c.contact_name?.toLowerCase().includes(q) ||
+          c.email?.toLowerCase().includes(q)
+      )
+    }
+
+    return applyFilters(result, filters)
+  }, [customers, searchQuery, filters])
 
   async function fetchCustomers() {
     const supabase = createClient()
@@ -197,6 +327,20 @@ export default function CustomersPage() {
     fetchCustomers()
   }, [])
 
+  React.useEffect(() => {
+    try {
+      const storedFilters = window.localStorage.getItem(CUSTOMER_FILTERS_STORAGE_KEY)
+      if (!storedFilters) return
+
+      const parsedFilters = JSON.parse(storedFilters) as unknown
+      if (isCustomerFilterState(parsedFilters)) {
+        setFilters(parsedFilters)
+      }
+    } catch {
+      window.localStorage.removeItem(CUSTOMER_FILTERS_STORAGE_KEY)
+    }
+  }, [])
+
   function handleOpenSegmentsDialog() {
     const supabase = createClient()
     supabase
@@ -256,28 +400,62 @@ export default function CustomersPage() {
     clearSelectionRef.current?.()
   }
 
-  const viewToggle = (
-    <div className="flex items-center gap-1 rounded-md border p-0.5">
-      <Button
-        variant={view === "list" ? "default" : "ghost"}
-        size="sm"
-        className="h-7 px-2.5"
-        onClick={() => setView("list")}
-        aria-label="List view"
-      >
-        <List className="size-3.5" />
-        List
-      </Button>
-      <Button
-        variant={view === "kpi" ? "default" : "ghost"}
-        size="sm"
-        className="h-7 px-2.5"
-        onClick={() => setView("kpi")}
-        aria-label="KPI view"
-      >
-        <LayoutGrid className="size-3.5" />
-        KPIs
-      </Button>
+  function toggleListColumn(columnId: string) {
+    const column = customerListColumnDefinitions.find((item) => item.id === columnId)
+    if (column?.alwaysVisible) return
+
+    setVisibleListColumns((prev) => ({
+      ...prev,
+      [columnId]: !(prev[columnId] ?? true),
+    }))
+  }
+
+  function resetListColumns() {
+    setVisibleListColumns(
+      Object.fromEntries(
+        customerListColumnDefinitions.map((column) => [column.id, true])
+      )
+    )
+  }
+
+  function handleSaveFilter() {
+    window.localStorage.setItem(CUSTOMER_FILTERS_STORAGE_KEY, JSON.stringify(filters))
+    toast.success("Filter saved")
+  }
+
+  const kpiToggle = (
+    <Button
+      variant={showKpiCards ? "default" : "outline"}
+      size="sm"
+      className="h-8"
+      onClick={() => setShowKpiCards((current) => !current)}
+      aria-pressed={showKpiCards}
+    >
+      <LayoutGrid className="size-3.5" />
+      KPI cards
+    </Button>
+  )
+
+  const toolbar = (
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <SearchInput
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search customers..."
+        className="w-full lg:max-w-sm"
+      />
+      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        {kpiToggle}
+        <CustomerFilters
+          customers={customers}
+          filters={filters}
+          onFiltersChange={setFilters}
+          onSaveFilter={handleSaveFilter}
+          listColumns={listColumns}
+          onToggleListColumn={toggleListColumn}
+          onResetListColumns={resetListColumns}
+        />
+      </div>
     </div>
   )
 
@@ -288,38 +466,30 @@ export default function CustomersPage() {
         description="Manage customer records synced from Fortnox"
       />
 
-      {view === "list" ? (
-        <DataTable
-          columns={columns}
-          data={customers}
-          searchKey="name"
-          searchPlaceholder="Search customers..."
-          toolbarExtra={viewToggle}
-          loading={loading}
-          pageSize={15}
-          selectable
-          onSelectionChange={setSelectedCustomers}
-          clearSelectionRef={clearSelectionRef}
-          onRowNavigate={(customer) => router.push(`/customers/${customer.id}`)}
-          emptyState={{
-            icon: Users,
-            title: "No customers",
-            description:
-              "Connect Fortnox in Settings → Integrations to sync your customer database.",
-            action: {
-              label: "Go to Integrations",
-              onClick: () => router.push("/settings/integrations"),
-            },
-          }}
-        />
-      ) : (
-        <CustomerKpiView
-          customers={filteredCustomers}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          toolbarExtra={viewToggle}
-        />
-      )}
+      {toolbar}
+
+      {showKpiCards ? <CustomerKpiCards customers={filteredCustomers} /> : null}
+
+      <DataTable
+        columns={visibleColumns}
+        data={filteredCustomers}
+        loading={loading}
+        pageSize={15}
+        selectable
+        onSelectionChange={setSelectedCustomers}
+        clearSelectionRef={clearSelectionRef}
+        onRowNavigate={(customer) => router.push(`/customers/${customer.id}`)}
+        emptyState={{
+          icon: Users,
+          title: "No customers",
+          description:
+            "Connect Fortnox in Settings → Integrations to sync your customer database.",
+          action: {
+            label: "Go to Integrations",
+            onClick: () => router.push("/settings/integrations"),
+          },
+        }}
+      />
 
       <ActionBar
         selectedCount={selectedCustomers.length}
