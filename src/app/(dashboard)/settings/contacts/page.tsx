@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { Mail, Pencil, Phone, Search, User, Users } from "lucide-react"
+import { toast } from "sonner"
 
 import { createClient } from "@/lib/supabase/client"
 import type { Customer, CustomerContact } from "@/types/database"
@@ -39,46 +40,25 @@ export default function ContactsPage() {
   const [saving, setSaving] = React.useState(false)
 
   const fetchContacts = React.useCallback(async () => {
-    const supabase = createClient()
-    const { data: contactRows } = await supabase
-      .from("customer_contacts")
-      .select("*")
-      .order("name")
+    setLoading(true)
 
-    const contactsData = (contactRows ?? []) as unknown as CustomerContact[]
-    const contactIds = contactsData.map((contact) => contact.id)
-    const customerMap = new Map<string, CustomerOption[]>()
+    const response = await fetch("/api/contacts", { cache: "no-store" })
+    const payload = (await response.json().catch(() => null)) as {
+      contacts?: ContactWithCustomers[]
+      customers?: CustomerOption[]
+      error?: string
+    } | null
 
-    if (contactIds.length > 0) {
-      const { data: linkRows } = await supabase
-        .from("customer_contact_links")
-        .select("contact_id, customer:customers(id, name, fortnox_customer_number)")
-        .in("contact_id", contactIds)
-
-      for (const row of (linkRows ?? []) as unknown as Array<{
-        contact_id: string
-        customer: CustomerOption | null
-      }>) {
-        if (!row.customer) continue
-        const existing = customerMap.get(row.contact_id) ?? []
-        existing.push(row.customer)
-        customerMap.set(row.contact_id, existing)
-      }
+    if (!response.ok) {
+      toast.error(payload?.error ?? "Failed to load contacts")
+      setContacts([])
+      setAllCustomers([])
+      setLoading(false)
+      return
     }
 
-    const { data: customerRows } = await supabase
-      .from("customers")
-      .select("id, name, fortnox_customer_number")
-      .eq("status", "active")
-      .order("name")
-
-    setAllCustomers((customerRows ?? []) as unknown as CustomerOption[])
-    setContacts(
-      contactsData.map((contact) => ({
-        ...contact,
-        customers: customerMap.get(contact.id) ?? [],
-      }))
-    )
+    setContacts(payload?.contacts ?? [])
+    setAllCustomers(payload?.customers ?? [])
     setLoading(false)
   }, [])
 

@@ -251,6 +251,8 @@ export interface ContractAccrual {
 export interface CustomerContact {
   id: string
   name: string
+  first_name: string | null
+  last_name: string | null
   role: string | null
   email: string | null
   phone: string | null
@@ -265,6 +267,7 @@ export interface CustomerContactLink {
   customer_id: string
   contact_id: string
   relationship_label: string | null
+  is_primary: boolean
   created_at: string
 }
 
