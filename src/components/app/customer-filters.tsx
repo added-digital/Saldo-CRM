@@ -16,15 +16,15 @@ import {
 } from "@/components/ui/collapsible"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
-type CustomerStatusFilter = "active" | "paused" | "former" | "archived"
+type CustomerStatusFilter = "active" | "archived"
 
 interface CustomerFilterState {
   statuses: CustomerStatusFilter[]
   segmentIds: string[]
   managerIds: string[]
-  onlyWithInvoices: boolean
-  onlyWithHours: boolean
-  onlyWithContractValue: boolean
+  missingPrimaryContact: boolean
+  missingEmail: boolean
+  missingCustomerManager: boolean
 }
 
 interface CustomerListColumnOption {
@@ -35,29 +35,29 @@ interface CustomerListColumnOption {
 }
 
 const EMPTY_FILTERS: CustomerFilterState = {
-  statuses: [],
+  statuses: ["active"],
   segmentIds: [],
   managerIds: [],
-  onlyWithInvoices: false,
-  onlyWithHours: false,
-  onlyWithContractValue: false,
+  missingPrimaryContact: false,
+  missingEmail: false,
+  missingCustomerManager: false,
 }
 
 const STATUS_OPTIONS: { value: CustomerStatusFilter; label: string }[] = [
   { value: "active", label: "Active" },
-  { value: "paused", label: "Paused" },
-  { value: "former", label: "Former" },
   { value: "archived", label: "Archived" },
 ]
 
 function hasActiveFilters(filters: CustomerFilterState): boolean {
+  const isDefaultStatus =
+    filters.statuses.length === 1 && filters.statuses[0] === "active"
   return (
-    filters.statuses.length > 0 ||
+    (!isDefaultStatus && filters.statuses.length > 0) ||
     filters.segmentIds.length > 0 ||
     filters.managerIds.length > 0 ||
-    filters.onlyWithInvoices ||
-    filters.onlyWithHours ||
-    filters.onlyWithContractValue
+    filters.missingPrimaryContact ||
+    filters.missingEmail ||
+    filters.missingCustomerManager
   )
 }
 
@@ -86,21 +86,15 @@ function applyFilters(
       }
     }
 
-    if (
-      filters.onlyWithInvoices &&
-      (c.invoice_count == null || c.invoice_count === 0)
-    ) {
+    if (filters.missingPrimaryContact && Boolean(c.contact_name?.trim())) {
       return false
     }
 
-    if (filters.onlyWithHours && (c.total_hours == null || c.total_hours === 0)) {
+    if (filters.missingEmail && Boolean(c.email?.trim())) {
       return false
     }
 
-    if (
-      filters.onlyWithContractValue &&
-      (c.contract_value == null || c.contract_value === 0)
-    ) {
+    if (filters.missingCustomerManager && Boolean(c.account_manager)) {
       return false
     }
 
@@ -198,18 +192,20 @@ function CustomerFilters({
     )
   }, [managerQuery, managers])
 
+  const isDefaultStatus =
+    filters.statuses.length === 1 && filters.statuses[0] === "active"
   const activeCount =
-    filters.statuses.length +
+    (isDefaultStatus ? 0 : filters.statuses.length) +
     filters.segmentIds.length +
     filters.managerIds.length +
-    (filters.onlyWithInvoices ? 1 : 0) +
-    (filters.onlyWithHours ? 1 : 0) +
-    (filters.onlyWithContractValue ? 1 : 0)
+    (filters.missingPrimaryContact ? 1 : 0) +
+    (filters.missingEmail ? 1 : 0) +
+    (filters.missingCustomerManager ? 1 : 0)
 
-  const dataCount = [
-    filters.onlyWithInvoices,
-    filters.onlyWithHours,
-    filters.onlyWithContractValue,
+  const missingFieldsCount = [
+    filters.missingPrimaryContact,
+    filters.missingEmail,
+    filters.missingCustomerManager,
   ].filter(Boolean).length
 
   const hasHiddenListColumns =
@@ -238,7 +234,7 @@ function CustomerFilters({
   }
 
   function toggleFlag(
-    key: "onlyWithInvoices" | "onlyWithHours" | "onlyWithContractValue"
+    key: "missingPrimaryContact" | "missingEmail" | "missingCustomerManager"
   ) {
     onFiltersChange({ ...filters, [key]: !filters[key] })
   }
@@ -366,12 +362,12 @@ function CustomerFilters({
             )}
           </FilterSection>
 
-          <FilterSection title="Data" count={dataCount} defaultOpen>
+          <FilterSection title="Missing fields" count={missingFieldsCount} defaultOpen>
             <div className="space-y-2">
               {[
-                { key: "onlyWithInvoices", label: "Only with invoices" },
-                { key: "onlyWithHours", label: "Only with hours" },
-                { key: "onlyWithContractValue", label: "Only with contract value" },
+                { key: "missingPrimaryContact", label: "Primary Contact" },
+                { key: "missingEmail", label: "Email" },
+                { key: "missingCustomerManager", label: "Customer Manager" },
               ].map((item) => {
                 const id = `customer-filter-${item.key}`
                 const checked = filters[item.key as keyof CustomerFilterState] as boolean
@@ -388,9 +384,9 @@ function CustomerFilters({
                       onCheckedChange={() =>
                         toggleFlag(
                           item.key as
-                            | "onlyWithInvoices"
-                            | "onlyWithHours"
-                            | "onlyWithContractValue"
+                            | "missingPrimaryContact"
+                            | "missingEmail"
+                            | "missingCustomerManager"
                         )
                       }
                     />

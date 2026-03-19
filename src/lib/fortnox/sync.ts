@@ -266,6 +266,27 @@ export async function syncSingleCustomer(
   }
 }
 
+export async function syncPrimaryContactToFortnox(
+  supabase: AdminClient,
+  customerNumber: string,
+  input: {
+    contactName: string | null
+    email: string | null
+    phone: string | null
+  }
+): Promise<void> {
+  const { client } = await getConnectionWithValidToken(supabase)
+  const currentResponse = await client.getCustomer(customerNumber)
+  const merged = {
+    ...currentResponse.Customer,
+    YourReference: input.contactName,
+    Email: input.email,
+    Phone1: input.phone,
+  }
+
+  await client.updateCustomer(customerNumber, merged)
+}
+
 export async function syncEmployees(
   supabase: AdminClient
 ): Promise<{ created: number; updated: number; skipped: number; errors: string[] }> {

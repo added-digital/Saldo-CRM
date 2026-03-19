@@ -21,7 +21,10 @@ import {
 import { toast } from "sonner"
 
 import { createClient } from "@/lib/supabase/client"
-import { CustomerMultiSelect } from "@/components/app/customer-multi-select"
+import {
+  EditContactDialog,
+  type ContactFields,
+} from "@/components/app/edit-contact-dialog"
 import type {
   Customer,
   CustomerContact,
@@ -52,25 +55,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { formatDate } from "@/lib/utils"
 
 type ContactWithLink = CustomerContact & {
-  relationship_label: string | null
   link_id: string
-  linked_customers: Pick<Customer, "id" | "name" | "fortnox_customer_number">[]
-}
-
-const EMPTY_FORM = {
-  name: "",
-  role: "",
-  email: "",
-  phone: "",
-  linkedin: "",
-  notes: "",
-  relationship_label: "",
+  linked_customers: Array<
+    Pick<Customer, "id" | "name" | "fortnox_customer_number"> & {
+      is_primary: boolean
+    }
+  >
 }
 
 export default function CustomerDetailPage({
@@ -88,6 +82,9 @@ export default function CustomerDetailPage({
   const [allCustomers, setAllCustomers] = React.useState<
     Pick<Customer, "id" | "name" | "fortnox_customer_number">[]
   >([])
+  const [existingPrimaryByCustomerId, setExistingPrimaryByCustomerId] = React.useState<
+    Record<string, { customerName: string; contactId: string; contactName: string }>
+  >({})
   const [segments, setSegments] = React.useState<Segment[]>([])
   const [loading, setLoading] = React.useState(true)
   const [syncingCustomer, setSyncingCustomer] = React.useState(false)
@@ -95,9 +92,6 @@ export default function CustomerDetailPage({
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editingContact, setEditingContact] =
     React.useState<ContactWithLink | null>(null)
-  const [relatedCustomerIds, setRelatedCustomerIds] = React.useState<string[]>([])
-  const [form, setForm] = React.useState(EMPTY_FORM)
-  const [saving, setSaving] = React.useState(false)
 
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [deletingContact, setDeletingContact] =
@@ -129,35 +123,42 @@ export default function CustomerDetailPage({
 
     const { data: linkRows } = await supabase
       .from("customer_contact_links")
-      .select("id, contact_id, relationship_label, contact:customer_contacts(*)")
+      .select("id, contact_id, contact:customer_contacts(*)")
       .eq("customer_id", id)
 
     const rawLinks = (linkRows ?? []) as unknown as {
       id: string
       contact_id: string
-      relationship_label: string | null
       contact: CustomerContact
     }[]
 
     const contactIds = rawLinks.map((link) => link.contact_id)
     const linkedCustomersByContactId = new Map<
       string,
-      Pick<Customer, "id" | "name" | "fortnox_customer_number">[]
+      Array<
+        Pick<Customer, "id" | "name" | "fortnox_customer_number"> & {
+          is_primary: boolean
+        }
+      >
     >()
 
     if (contactIds.length > 0) {
       const { data: allLinkRows } = await supabase
         .from("customer_contact_links")
-        .select("contact_id, customer:customers(id, name, fortnox_customer_number)")
+        .select("contact_id, is_primary, customer:customers(id, name, fortnox_customer_number)")
         .in("contact_id", contactIds)
 
       for (const row of (allLinkRows ?? []) as unknown as Array<{
         contact_id: string
+        is_primary: boolean
         customer: Pick<Customer, "id" | "name" | "fortnox_customer_number"> | null
       }>) {
         if (!row.customer) continue
         const existing = linkedCustomersByContactId.get(row.contact_id) ?? []
-        existing.push(row.customer)
+        existing.push({
+          ...row.customer,
+          is_primary: row.is_primary,
+        })
         linkedCustomersByContactId.set(row.contact_id, existing)
       }
     }
@@ -165,7 +166,6 @@ export default function CustomerDetailPage({
     setContacts(
       rawLinks.map((link) => ({
         ...link.contact,
-        relationship_label: link.relationship_label,
         link_id: link.id,
         linked_customers: linkedCustomersByContactId.get(link.contact_id) ?? [],
       })),
@@ -177,12 +177,44 @@ export default function CustomerDetailPage({
       .eq("status", "active")
       .order("name")
 
-    setAllCustomers(
-      (customerOptions ?? []) as unknown as Pick<
-        Customer,
-        "id" | "name" | "fortnox_customer_number"
-      >[],
+    const customerOptionRows = (customerOptions ?? []) as unknown as Pick<
+      Customer,
+      "id" | "name" | "fortnox_customer_number"
+    >[]
+    setAllCustomers(customerOptionRows)
+
+    const selectableCustomerIds = customerOptionRows.map((row) => row.id)
+    const customerNameById = new Map(
+      customerOptionRows.map((row) => [row.id, row.name]),
     )
+    const primaryMap: Record<
+      string,
+      { customerName: string; contactId: string; contactName: string }
+    > = {}
+
+    if (selectableCustomerIds.length > 0) {
+      const { data: primaryRows } = await supabase
+        .from("customer_contact_links")
+        .select("customer_id, contact_id, contact:customer_contacts(name)")
+        .in("customer_id", selectableCustomerIds)
+        .eq("is_primary", true)
+        .order("created_at", { ascending: false })
+
+      for (const row of (primaryRows ?? []) as unknown as Array<{
+        customer_id: string
+        contact_id: string
+        contact: Pick<CustomerContact, "name"> | null
+      }>) {
+        if (primaryMap[row.customer_id]) continue
+        primaryMap[row.customer_id] = {
+          customerName: customerNameById.get(row.customer_id) ?? "Customer",
+          contactId: row.contact_id,
+          contactName: row.contact?.name ?? "Unknown contact",
+        }
+      }
+    }
+
+    setExistingPrimaryByCustomerId(primaryMap)
 
     const { data: csRows } = await supabase
       .from("customer_segments")
@@ -199,25 +231,30 @@ export default function CustomerDetailPage({
     fetchData()
   }, [id])
 
+  const sortedContacts = React.useMemo(() => {
+    return [...contacts].sort((a, b) => {
+      const aIsPrimary = a.linked_customers.some(
+        (linkedCustomer) => linkedCustomer.id === id && linkedCustomer.is_primary,
+      )
+      const bIsPrimary = b.linked_customers.some(
+        (linkedCustomer) => linkedCustomer.id === id && linkedCustomer.is_primary,
+      )
+
+      if (aIsPrimary !== bIsPrimary) {
+        return aIsPrimary ? -1 : 1
+      }
+
+      return a.name.localeCompare(b.name)
+    })
+  }, [contacts, id])
+
   function openAddDialog() {
     setEditingContact(null)
-    setForm(EMPTY_FORM)
-    setRelatedCustomerIds([id])
     setDialogOpen(true)
   }
 
   function openEditDialog(contact: ContactWithLink) {
     setEditingContact(contact)
-    setForm({
-      name: contact.name,
-      role: contact.role ?? "",
-      email: contact.email ?? "",
-      phone: contact.phone ?? "",
-      linkedin: contact.linkedin ?? "",
-      notes: contact.notes ?? "",
-      relationship_label: contact.relationship_label ?? "",
-    })
-    setRelatedCustomerIds(contact.linked_customers.map((customer) => customer.id))
     setDialogOpen(true)
   }
 
@@ -226,18 +263,105 @@ export default function CustomerDetailPage({
     setDeleteDialogOpen(true)
   }
 
-  async function handleSave() {
-    if (!form.name.trim()) return
-    setSaving(true)
+  async function syncPrimaryFields(customerIds: string[]) {
+    const uniqueCustomerIds = Array.from(new Set(customerIds))
+    if (uniqueCustomerIds.length === 0) return
+
+    const response = await fetch("/api/contacts/primary-sync", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ customerIds: uniqueCustomerIds }),
+    })
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string
+      } | null
+      toast.error(payload?.error ?? "Failed to sync primary contact fields to Fortnox")
+    }
+  }
+
+  async function handleSaveContact(
+    payload: ContactFields & {
+      primaryCustomerIds: string[]
+      customerIds: string[]
+    },
+  ) {
     const supabase = createClient()
+    const uniquePrimaryIds = Array.from(new Set(payload.primaryCustomerIds))
+    const uniqueRegularIds = Array.from(
+      new Set(payload.customerIds.filter((customerId) => !uniquePrimaryIds.includes(customerId))),
+    )
+
+    async function removeConflictingPrimaryContacts(contactId: string) {
+      if (uniquePrimaryIds.length === 0) return
+
+      const { data: conflictingRows, error: conflictingError } = await supabase
+        .from("customer_contact_links")
+        .select("id, contact_id")
+        .in("customer_id", uniquePrimaryIds)
+        .eq("is_primary", true)
+        .neq("contact_id", contactId)
+
+      if (conflictingError) {
+        toast.error("Failed to validate primary contacts")
+        throw conflictingError
+      }
+
+      const conflicts = (conflictingRows ?? []) as Array<{ id: string; contact_id: string }>
+      const conflictingLinkIds = conflicts.map((row) => row.id)
+      const conflictingContactIds = Array.from(
+        new Set(conflicts.map((row) => row.contact_id)),
+      )
+
+      if (conflictingLinkIds.length > 0) {
+        const { error: removeConflictingError } = await supabase
+          .from("customer_contact_links")
+          .delete()
+          .in("id", conflictingLinkIds)
+
+        if (removeConflictingError) {
+          toast.error("Failed to replace existing primary contacts")
+          throw removeConflictingError
+        }
+      }
+
+      for (const conflictingContactId of conflictingContactIds) {
+        const { count, error: countError } = await supabase
+          .from("customer_contact_links")
+          .select("id", { count: "exact", head: true })
+          .eq("contact_id", conflictingContactId)
+
+        if (countError) {
+          toast.error("Failed to validate replaced contacts")
+          throw countError
+        }
+
+        if ((count ?? 0) === 0) {
+          const { error: deleteContactError } = await supabase
+            .from("customer_contacts")
+            .delete()
+            .eq("id", conflictingContactId)
+
+          if (deleteContactError) {
+            toast.error("Failed to clean up replaced primary contact")
+            throw deleteContactError
+          }
+        }
+      }
+    }
 
     const contactPayload = {
-      name: form.name.trim(),
-      role: form.role.trim() || null,
-      email: form.email.trim() || null,
-      phone: form.phone.trim() || null,
-      linkedin: form.linkedin.trim() || null,
-      notes: form.notes.trim() || null,
+      name: payload.name,
+      first_name: payload.firstName,
+      last_name: payload.lastName,
+      role: payload.role,
+      email: payload.email,
+      phone: payload.phone,
+      linkedin: payload.linkedin,
+      notes: payload.notes,
     }
 
     if (editingContact) {
@@ -248,69 +372,114 @@ export default function CustomerDetailPage({
 
       if (updateError) {
         toast.error("Failed to update contact")
-        setSaving(false)
-        return
+        throw updateError
       }
 
-      const { error: linkError } = await supabase
-        .from("customer_contact_links")
-        .update({
-          relationship_label: form.relationship_label.trim() || null,
-        } as never)
-        .eq("id", editingContact.link_id)
-
-      if (linkError) {
-        toast.error("Failed to update relationship")
-        setSaving(false)
-        return
-      }
-
-      const existingCustomerIds = new Set(
-        editingContact.linked_customers.map((customer) => customer.id),
+      const existingPrimaryIds = new Set(
+        editingContact.linked_customers
+          .filter((customer) => customer.is_primary)
+          .map((customer) => customer.id),
       )
-      const selectedCustomerIds = new Set(relatedCustomerIds)
+      const existingRegularIds = new Set(
+        editingContact.linked_customers
+          .filter((customer) => !customer.is_primary)
+          .map((customer) => customer.id),
+      )
+      const allExistingIds = new Set([...existingPrimaryIds, ...existingRegularIds])
 
-      const customerIdsToAdd = relatedCustomerIds.filter(
-        (customerId) => !existingCustomerIds.has(customerId),
+      const newPrimarySet = new Set(uniquePrimaryIds)
+      const newRegularSet = new Set(uniqueRegularIds)
+      const removedPrimaryIds = [...existingPrimaryIds].filter(
+        (customerId) => !newPrimarySet.has(customerId),
+      )
+      const allNewIds = new Set([...newPrimarySet, ...newRegularSet])
+
+      const idsToRemove = [...allExistingIds].filter(
+        (existingId) => !allNewIds.has(existingId),
       )
 
-      if (customerIdsToAdd.length > 0) {
-        const { error: insertLinksError } = await supabase
-          .from("customer_contact_links")
-          .insert(
-            customerIdsToAdd.map((customerId) => ({
-              customer_id: customerId,
-              contact_id: editingContact.id,
-              relationship_label: customerId === id
-                ? form.relationship_label.trim() || null
-                : null,
-            })) as never,
-          )
-
-        if (insertLinksError) {
-          toast.error("Failed to add customer relations")
-          setSaving(false)
-          return
-        }
-      }
-
-      const customerIdsToRemove = editingContact.linked_customers
-        .map((customer) => customer.id)
-        .filter((customerId) => customerId !== id && !selectedCustomerIds.has(customerId))
-
-      if (customerIdsToRemove.length > 0) {
-        const { error: removeLinksError } = await supabase
+      if (idsToRemove.length > 0) {
+        const { error: removeError } = await supabase
           .from("customer_contact_links")
           .delete()
           .eq("contact_id", editingContact.id)
-          .in("customer_id", customerIdsToRemove)
+          .in("customer_id", idsToRemove)
 
-        if (removeLinksError) {
+        if (removeError) {
           toast.error("Failed to remove customer relations")
-          setSaving(false)
-          return
+          throw removeError
         }
       }
+
+      const primaryToInsert = uniquePrimaryIds.filter(
+        (cid) => !allExistingIds.has(cid),
+      )
+      const regularToInsert = uniqueRegularIds.filter(
+        (cid) => !allExistingIds.has(cid),
+      )
+
+      const insertRows = [
+        ...primaryToInsert.map((customerId) => ({
+          customer_id: customerId,
+          contact_id: editingContact.id,
+          is_primary: true,
+          relationship_label: null,
+        })),
+        ...regularToInsert.map((customerId) => ({
+          customer_id: customerId,
+          contact_id: editingContact.id,
+          is_primary: false,
+          relationship_label: null,
+        })),
+      ]
+
+      if (insertRows.length > 0) {
+        const { error: insertError } = await supabase
+          .from("customer_contact_links")
+          .insert(insertRows as never)
+
+        if (insertError) {
+          toast.error("Failed to add customer relations")
+          throw insertError
+        }
+      }
+
+      const upgradeToPrimary = uniquePrimaryIds.filter(
+        (cid) => existingRegularIds.has(cid),
+      )
+      const downgradeToRegular = uniqueRegularIds.filter(
+        (cid) => existingPrimaryIds.has(cid),
+      )
+
+      for (const customerId of upgradeToPrimary) {
+        const { error } = await supabase
+          .from("customer_contact_links")
+          .update({ is_primary: true } as never)
+          .eq("contact_id", editingContact.id)
+          .eq("customer_id", customerId)
+
+        if (error) {
+          toast.error("Failed to update primary status")
+          throw error
+        }
+      }
+
+      for (const customerId of downgradeToRegular) {
+        const { error } = await supabase
+          .from("customer_contact_links")
+          .update({ is_primary: false } as never)
+          .eq("contact_id", editingContact.id)
+          .eq("customer_id", customerId)
+
+        if (error) {
+          toast.error("Failed to update primary status")
+          throw error
+        }
+      }
+
+      await removeConflictingPrimaryContacts(editingContact.id)
+
+      await syncPrimaryFields([...uniquePrimaryIds, ...removedPrimaryIds])
 
       toast.success("Contact updated")
     } else {
@@ -322,38 +491,48 @@ export default function CustomerDetailPage({
 
       if (insertError || !newContact) {
         toast.error("Failed to create contact")
-        setSaving(false)
-        return
+        throw insertError ?? new Error("No contact returned")
       }
 
       const inserted = newContact as unknown as { id: string }
 
-      const relationRows = Array.from(new Set(relatedCustomerIds)).map(
+      const primaryRows = uniquePrimaryIds.map(
         (customerId) => ({
           customer_id: customerId,
           contact_id: inserted.id,
-          relationship_label:
-            customerId === id ? form.relationship_label.trim() || null : null,
+          is_primary: true,
+          relationship_label: null,
         }),
       )
+      const regularRows = uniqueRegularIds
+        .map((customerId) => ({
+          customer_id: customerId,
+          contact_id: inserted.id,
+          is_primary: false,
+          relationship_label: null,
+        }))
 
-      const { error: linkError } = await supabase
-        .from("customer_contact_links")
-        .insert(relationRows as never)
+      const relationRows = [...primaryRows, ...regularRows]
 
-      if (linkError) {
-        toast.error("Failed to link contact")
-        setSaving(false)
-        return
+      if (relationRows.length > 0) {
+        const { error: linkError } = await supabase
+          .from("customer_contact_links")
+          .insert(relationRows as never)
+
+        if (linkError) {
+          toast.error("Failed to link contact")
+          throw linkError
+        }
       }
+
+      await removeConflictingPrimaryContacts(inserted.id)
+
+      await syncPrimaryFields(uniquePrimaryIds)
 
       toast.success("Contact added")
     }
 
-    setSaving(false)
-    setDialogOpen(false)
-    setRelatedCustomerIds([])
-    fetchData()
+    await fetchData()
   }
 
   async function handleDelete() {
@@ -651,7 +830,12 @@ export default function CustomerDetailPage({
             </p>
           ) : (
             <div className="space-y-3">
-              {contacts.map((contact) => (
+              {sortedContacts.map((contact) => {
+                const isPrimaryForCurrentCustomer = contact.linked_customers.some(
+                  (linkedCustomer) => linkedCustomer.id === id && linkedCustomer.is_primary,
+                )
+
+                return (
                 <div
                   key={contact.link_id}
                   className="flex items-start justify-between rounded-md border p-3"
@@ -661,12 +845,17 @@ export default function CustomerDetailPage({
                       <User className="size-4 text-muted-foreground" />
                     </div>
                     <div className="space-y-0.5">
-                      <p className="text-sm font-medium">{contact.name}</p>
-                      {(contact.role || contact.relationship_label) && (
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{contact.name}</p>
+                        {isPrimaryForCurrentCustomer ? (
+                          <Badge variant="secondary" className="text-[11px] font-medium">
+                            Primary
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {contact.role && (
                         <p className="text-xs text-muted-foreground">
-                          {[contact.role, contact.relationship_label]
-                            .filter(Boolean)
-                            .join(" · ")}
+                          {contact.role}
                         </p>
                       )}
                       <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -737,7 +926,8 @@ export default function CustomerDetailPage({
                     </Button>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>
@@ -765,134 +955,28 @@ export default function CustomerDetailPage({
         </Collapsible>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingContact ? "Edit Contact" : "Add Contact"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingContact
-                ? "Update the contact details."
-                : "Add a new contact person for this customer."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="contact-name">Name</Label>
-                <Input
-                  id="contact-name"
-                  placeholder="Full name"
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, name: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contact-role">Role</Label>
-                <Input
-                  id="contact-role"
-                  placeholder="e.g. CEO, CFO"
-                  value={form.role}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, role: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="contact-email">Email</Label>
-                <Input
-                  id="contact-email"
-                  type="email"
-                  placeholder="email@example.com"
-                  value={form.email}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, email: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contact-phone">Phone</Label>
-                <Input
-                  id="contact-phone"
-                  type="tel"
-                  placeholder="+46 70 123 45 67"
-                  value={form.phone}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, phone: e.target.value }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="contact-linkedin">LinkedIn</Label>
-                <Input
-                  id="contact-linkedin"
-                  placeholder="https://linkedin.com/in/..."
-                  value={form.linkedin}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, linkedin: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contact-relationship">Relationship</Label>
-                <Input
-                  id="contact-relationship"
-                  placeholder="e.g. Decision Maker, Technical"
-                  value={form.relationship_label}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      relationship_label: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="contact-notes">Notes</Label>
-              <Input
-                id="contact-notes"
-                placeholder="Additional notes..."
-                value={form.notes}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, notes: e.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Related Customers</Label>
-              <CustomerMultiSelect
-                customers={allCustomers}
-                selectedIds={relatedCustomerIds}
-                onChange={setRelatedCustomerIds}
-                lockedIds={[id]}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={!form.name.trim() || saving}
-              >
-                {saving
-                  ? "Saving..."
-                  : editingContact
-                    ? "Update Contact"
-                    : "Add Contact"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <EditContactDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        contact={editingContact}
+        existingPrimaryByCustomerId={existingPrimaryByCustomerId}
+        initialPrimaryCustomerIds={
+          editingContact
+            ? editingContact.linked_customers
+                .filter((c) => c.is_primary)
+                .map((c) => c.id)
+            : []
+        }
+        initialCustomerIds={
+          editingContact
+            ? editingContact.linked_customers
+                .filter((c) => !c.is_primary)
+                .map((c) => c.id)
+            : [id]
+        }
+        customers={allCustomers}
+        onSave={handleSaveContact}
+      />
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>

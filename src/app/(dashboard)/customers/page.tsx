@@ -198,9 +198,9 @@ function isCustomerFilterState(value: unknown): value is CustomerFilterState {
     Array.isArray(candidate.statuses) &&
     Array.isArray(candidate.segmentIds) &&
     Array.isArray(candidate.managerIds) &&
-    typeof candidate.onlyWithInvoices === "boolean" &&
-    typeof candidate.onlyWithHours === "boolean" &&
-    typeof candidate.onlyWithContractValue === "boolean"
+    typeof candidate.missingPrimaryContact === "boolean" &&
+    typeof candidate.missingEmail === "boolean" &&
+    typeof candidate.missingCustomerManager === "boolean"
   )
 }
 
@@ -268,7 +268,6 @@ export default function CustomersPage() {
       const { data } = await supabase
         .from("customers")
         .select("*")
-        .eq("status", "active")
         .order("name")
         .range(from, from + PAGE_SIZE - 1)
 

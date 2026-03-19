@@ -4,10 +4,14 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import type { Customer, CustomerContact, Profile } from "@/types/database"
 
-type CustomerOption = Pick<Customer, "id" | "name" | "fortnox_customer_number">
-type ContactLinkRow = { contact_id: string; customer_id: string }
+type CustomerOption = Pick<
+  Customer,
+  "id" | "name" | "fortnox_customer_number" | "status"
+>
+type ContactLinkRow = { contact_id: string; customer_id: string; is_primary: boolean }
 
 type ContactWithCustomers = CustomerContact & {
+  primaryCustomers: CustomerOption[]
   customers: CustomerOption[]
 }
 
@@ -42,7 +46,7 @@ async function fetchAllCustomers() {
   for (let offset = 0; ; offset += QUERY_BATCH_SIZE) {
     const { data, error } = await adminClient
       .from("customers")
-      .select("id, name, fortnox_customer_number")
+      .select("id, name, fortnox_customer_number, status")
       .order("name")
       .range(offset, offset + QUERY_BATCH_SIZE - 1)
 
@@ -64,7 +68,7 @@ async function fetchAllContactLinks() {
   for (let offset = 0; ; offset += QUERY_BATCH_SIZE) {
     const { data, error } = await adminClient
       .from("customer_contact_links")
-      .select("contact_id, customer_id")
+      .select("contact_id, customer_id, is_primary")
       .order("contact_id")
       .order("customer_id")
       .range(offset, offset + QUERY_BATCH_SIZE - 1)
@@ -123,6 +127,7 @@ export async function GET() {
     const contacts = (contactRows ?? []) as unknown as CustomerContact[]
     const customers = (customerRows ?? []) as unknown as CustomerOption[]
     const customerById = new Map(customers.map((customer) => [customer.id, customer]))
+    const primaryCustomerMap = new Map<string, CustomerOption[]>()
     const customerMap = new Map<string, CustomerOption[]>()
 
     const { data: linkRows, error: linksError } = await fetchAllContactLinks()
@@ -135,13 +140,15 @@ export async function GET() {
       const customer = customerById.get(row.customer_id)
       if (!customer) continue
 
-      const existing = customerMap.get(row.contact_id) ?? []
+      const targetMap = row.is_primary ? primaryCustomerMap : customerMap
+      const existing = targetMap.get(row.contact_id) ?? []
       existing.push(customer)
-      customerMap.set(row.contact_id, existing)
+      targetMap.set(row.contact_id, existing)
     }
 
     const contactsWithCustomers: ContactWithCustomers[] = contacts.map((contact) => ({
       ...contact,
+      primaryCustomers: primaryCustomerMap.get(contact.id) ?? [],
       customers: customerMap.get(contact.id) ?? [],
     }))
 

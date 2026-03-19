@@ -51,6 +51,19 @@ export class FortnoxClient {
     )
   }
 
+  async updateCustomer(
+    customerNumber: string,
+    customer: FortnoxCustomerSingleResponse["Customer"]
+  ): Promise<FortnoxCustomerSingleResponse> {
+    return this.request<FortnoxCustomerSingleResponse>(
+      `/3/customers/${customerNumber}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ Customer: customer }),
+      }
+    )
+  }
+
   async getEmployees(): Promise<FortnoxEmployeeListResponse> {
     return this.request<FortnoxEmployeeListResponse>(`/3/employees`)
   }

@@ -45,7 +45,10 @@ type DuplicateContactRecord = {
 }
 
 const CUSTOMER_PAGE_SIZE = 500
+const PRIMARY_LINK_PAGE_SIZE = 1000
 const DUPLICATE_CONTACTS_FILE = path.join(process.cwd(), "duplicate_contacts.json")
+const MISSING_NAME_FIRST = "Not"
+const MISSING_NAME_LAST = "Imported"
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim()
@@ -68,6 +71,35 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
   return {
     firstName,
     lastName: rest.join(" "),
+  }
+}
+
+function getContactNameParts(customer: CustomerRow): {
+  fullName: string
+  firstName: string
+  lastName: string
+  hasSourceName: boolean
+} {
+  const rawData = customer.fortnox_raw as Record<string, unknown> | null
+  const fullName = normalizeWhitespace(
+    getRawField(rawData, "YourReference") ?? customer.contact_name ?? ""
+  )
+
+  if (!fullName) {
+    return {
+      fullName: `${MISSING_NAME_FIRST} ${MISSING_NAME_LAST}`,
+      firstName: MISSING_NAME_FIRST,
+      lastName: MISSING_NAME_LAST,
+      hasSourceName: false,
+    }
+  }
+
+  const { firstName, lastName } = splitName(fullName)
+  return {
+    fullName,
+    firstName,
+    lastName,
+    hasSourceName: true,
   }
 }
 
@@ -106,34 +138,56 @@ async function fetchCustomers() {
 
 async function fetchExistingPrimaryLinks() {
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from("customer_contact_links")
-    .select(
-      "customer_id, contact_id, is_primary, contact:customer_contacts!inner(id, name, first_name, last_name, email, phone)"
-    )
-    .eq("is_primary", true)
+  const rows: PrimaryLinkRow[] = []
+  let from = 0
 
-  if (error) {
-    throw new Error(`Failed to fetch existing primary contacts: ${error.message}`)
+  while (true) {
+    const { data, error } = await supabase
+      .from("customer_contact_links")
+      .select(
+        "customer_id, contact_id, is_primary, contact:customer_contacts!inner(id, name, first_name, last_name, email, phone)"
+      )
+      .eq("is_primary", true)
+      .range(from, from + PRIMARY_LINK_PAGE_SIZE - 1)
+
+    if (error) {
+      throw new Error(`Failed to fetch existing primary contacts: ${error.message}`)
+    }
+
+    const pageRows = (data ?? []) as unknown as PrimaryLinkRow[]
+    if (pageRows.length === 0) break
+
+    rows.push(...pageRows)
+
+    if (pageRows.length < PRIMARY_LINK_PAGE_SIZE) break
+    from += PRIMARY_LINK_PAGE_SIZE
   }
 
-  return (data ?? []) as unknown as PrimaryLinkRow[]
+  return rows
 }
 
 async function upsertPrimaryContact(customer: CustomerRow, contact: PrimaryContactRow) {
   const supabase = createAdminClient()
   const rawData = customer.fortnox_raw as Record<string, unknown> | null
-  const fullName = normalizeWhitespace(getRawField(rawData, "YourReference") ?? customer.contact_name ?? "")
+  const { fullName, firstName, lastName, hasSourceName } = getContactNameParts(customer)
   const phone = getRawField(rawData, "Phone1") ?? customer.phone
   const email = normalizeEmail(getRawField(rawData, "Email") ?? customer.email)
-  const { firstName, lastName } = splitName(fullName)
+
+  const existingName = normalizeWhitespace(contact.name ?? "")
+  const existingFirstName = normalizeWhitespace(contact.first_name ?? "")
+  const existingLastName = normalizeWhitespace(contact.last_name ?? "")
+  const hasExistingName = Boolean(existingName || existingFirstName || existingLastName)
+
+  const nameToWrite = hasSourceName || !hasExistingName ? fullName : existingName
+  const firstNameToWrite = hasSourceName || !hasExistingName ? firstName : existingFirstName
+  const lastNameToWrite = hasSourceName || !hasExistingName ? lastName : existingLastName
 
   const { error } = await supabase
     .from("customer_contacts")
     .update({
-      name: fullName,
-      first_name: firstName || null,
-      last_name: lastName || null,
+      name: nameToWrite,
+      first_name: firstNameToWrite || null,
+      last_name: lastNameToWrite || null,
       email,
       phone,
     } as never)
@@ -147,10 +201,9 @@ async function upsertPrimaryContact(customer: CustomerRow, contact: PrimaryConta
 async function createPrimaryContact(customer: CustomerRow) {
   const supabase = createAdminClient()
   const rawData = customer.fortnox_raw as Record<string, unknown> | null
-  const fullName = normalizeWhitespace(getRawField(rawData, "YourReference") ?? customer.contact_name ?? "")
+  const { fullName, firstName, lastName } = getContactNameParts(customer)
   const phone = getRawField(rawData, "Phone1") ?? customer.phone
   const email = normalizeEmail(getRawField(rawData, "Email") ?? customer.email)
-  const { firstName, lastName } = splitName(fullName)
 
   const { data, error } = await supabase
     .from("customer_contacts")
@@ -214,16 +267,10 @@ async function main() {
 
   for (const customer of customers) {
     const rawData = customer.fortnox_raw as Record<string, unknown> | null
-    const fullName = normalizeWhitespace(getRawField(rawData, "YourReference") ?? customer.contact_name ?? "")
-
-    if (!fullName) {
-      skipped += 1
-      continue
-    }
+    const { fullName, firstName, lastName } = getContactNameParts(customer)
 
     const phone = getRawField(rawData, "Phone1") ?? customer.phone
     const email = normalizeEmail(getRawField(rawData, "Email") ?? customer.email)
-    const { firstName, lastName } = splitName(fullName)
 
     const existingPrimaryForCustomer = primaryByCustomerId.get(customer.id)
     if (existingPrimaryForCustomer) {
@@ -252,8 +299,6 @@ async function main() {
           existing_contact_id: existingPrimaryForEmail.contact_id,
           existing_customer_id: existingPrimaryForEmail.customer_id,
         })
-        skipped += 1
-        continue
       }
     }
 
