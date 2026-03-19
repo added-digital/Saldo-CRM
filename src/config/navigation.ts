@@ -3,6 +3,7 @@ import {
   Users,
   Shield,
   Settings,
+  BarChart3,
   type LucideIcon,
 } from "lucide-react"
 
@@ -31,6 +32,12 @@ export const navigation: NavSection[] = [
     title: "Management",
     items: [
       { label: "Customers", href: "/customers", icon: Users, scope: "customers" },
+    ],
+  },
+  {
+    title: "Analytics",
+    items: [
+      { label: "Reports", href: "/reports", icon: BarChart3, scope: "reports" },
     ],
   },
   {
