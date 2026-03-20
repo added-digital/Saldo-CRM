@@ -33,19 +33,19 @@ export const navigation: NavSection[] = [
     title: "Management",
     items: [
       { label: "Customers", href: "/customers", icon: Users, scope: "customers" },
-      { label: "Contacts", href: "/customers/contacts", icon: UserRound, scope: "customers" },
+      { label: "Contacts", href: "/contacts", icon: UserRound, scope: "customers" },
     ],
   },
   {
     title: "Analytics",
     items: [
-      { label: "Reports", href: "/reports", icon: BarChart3, scope: "reports" },
+      { label: "Reports", href: "/reports", icon: BarChart3, minRole: "user" },
     ],
   },
   {
     title: "Administration",
     items: [
-      { label: "Settings", href: "/settings", icon: Settings, minRole: "admin" },
+      { label: "Settings", href: "/settings", icon: Settings, minRole: "user" },
     ],
   },
 ]

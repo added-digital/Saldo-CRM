@@ -8,6 +8,7 @@ const VALID_STEPS = new Set([
   "invoices",
   "time-reports",
   "contracts",
+  "generate-kpis",
 ])
 
 const STEP_LABELS: Record<string, string> = {
@@ -16,6 +17,7 @@ const STEP_LABELS: Record<string, string> = {
   invoices: "Invoices",
   "time-reports": "Time Reports",
   contracts: "Contracts",
+  "generate-kpis": "Generate KPIs",
 }
 
 async function authorize() {

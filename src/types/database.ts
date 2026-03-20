@@ -124,6 +124,25 @@ export interface CustomerWithRelations extends Customer {
   segments?: Segment[]
 }
 
+export interface CustomerKpi {
+  id: string
+  customer_id: string
+  fortnox_customer_number: string | null
+  period_type: "year" | "month"
+  period_year: number
+  period_month: number
+  total_turnover: number
+  invoice_count: number
+  total_hours: number
+  customer_hours: number
+  absence_hours: number
+  internal_hours: number
+  other_hours: number
+  contract_value: number
+  created_at: string
+  updated_at: string
+}
+
 export interface FortnoxConnection {
   id: string
   access_token: string
@@ -241,6 +260,7 @@ export interface ContractAccrual {
   status: string | null
   accrual_type: string | null
   period: string | null
+  is_active: boolean
   total: number | null
   currency_code: string
   raw_data: Record<string, unknown> | null

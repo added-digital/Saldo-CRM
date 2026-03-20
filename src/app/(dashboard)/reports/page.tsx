@@ -5,8 +5,7 @@ import { Check, ChevronDown, Filter } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
-import type { Customer, CustomerWithRelations, Profile, Team } from "@/types/database"
-import { CustomerKpiCards } from "@/components/app/customer-kpi-view"
+import type { ContractAccrual, Customer, CustomerWithRelations, Invoice, Profile, Team } from "@/types/database"
 import { EmptyState } from "@/components/app/empty-state"
 import { PageHeader } from "@/components/app/page-header"
 import { Button } from "@/components/ui/button"
@@ -18,21 +17,63 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 
-const REPORTS_MIN_DATE = "2025-01-01"
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10)
+const REPORT_YEARS = ["2025", "2026"] as const
+const REPORT_MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const
+const REPORTS_MANAGER_ALIAS: Record<string, string> = {
+  "added@saldoredo.se": "Matias.a@saldoredo.se",
 }
 
-function clampDate(value: string, min: string, max: string): string {
-  if (!value) return min
-  if (value < min) return min
-  if (value > max) return max
-  return value
+const sekFormatter = new Intl.NumberFormat("sv-SE", {
+  style: "currency",
+  currency: "SEK",
+  maximumFractionDigits: 0,
+})
+
+const numberFormatter = new Intl.NumberFormat("sv-SE")
+
+const hoursFormatter = new Intl.NumberFormat("sv-SE", {
+  maximumFractionDigits: 1,
+  minimumFractionDigits: 1,
+})
+
+function getYearDateRange(year: string): { from: string; to: string } {
+  return {
+    from: `${year}-01-01`,
+    to: `${year}-12-31`,
+  }
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size))
+  }
+  return chunks
+}
+
+function annualizeContractTotal(total: number | null, period: string | null): number {
+  const base = Number(total ?? 0)
+  const periodNumber = Number(period ?? "")
+
+  if (periodNumber === 1) return base * 12
+  if (periodNumber === 3) return base * 4
+  return base
 }
 
 type TeamOption = Pick<Team, "id" | "name">
@@ -57,6 +98,29 @@ type SearchSelectProps = {
   onChange: (value: string | null) => void
   disabled?: boolean
   allLabel?: string
+  allowClear?: boolean
+}
+
+type MonthlyTimeReportingRow = {
+  month: number
+  label: string
+  customerHours: number
+  absenceHours: number
+  internalHours: number
+  otherHours: number
+  totalHours: number
+}
+
+function createEmptyMonthlyTimeReportingRows(): MonthlyTimeReportingRow[] {
+  return REPORT_MONTHS.map((label, index) => ({
+    month: index + 1,
+    label,
+    customerHours: 0,
+    absenceHours: 0,
+    internalHours: 0,
+    otherHours: 0,
+    totalHours: 0,
+  }))
 }
 
 function SearchSelect({
@@ -68,6 +132,7 @@ function SearchSelect({
   onChange,
   disabled = false,
   allLabel = "All",
+  allowClear = true,
 }: SearchSelectProps) {
   const [open, setOpen] = React.useState(false)
   const selected = options.find((option) => option.id === value) ?? null
@@ -92,17 +157,19 @@ function SearchSelect({
           <Command>
             <CommandInput placeholder={searchPlaceholder} />
             <CommandList>
-              <CommandItem
-                key="all"
-                value={allLabel}
-                onSelect={() => {
-                  onChange(null)
-                  setOpen(false)
-                }}
-              >
-                <Check className={cn("size-4", value === null ? "opacity-100" : "opacity-0")} />
-                <span>{allLabel}</span>
-              </CommandItem>
+              {allowClear ? (
+                <CommandItem
+                  key="all"
+                  value={allLabel}
+                  onSelect={() => {
+                    onChange(null)
+                    setOpen(false)
+                  }}
+                >
+                  <Check className={cn("size-4", value === null ? "opacity-100" : "opacity-0")} />
+                  <span>{allLabel}</span>
+                </CommandItem>
+              ) : null}
               <CommandEmpty>No options found.</CommandEmpty>
               {options.map((option) => (
                 <CommandItem
@@ -143,12 +210,31 @@ export default function ReportsPage() {
   const [selectedTeamId, setSelectedTeamId] = React.useState<string | null>(null)
   const [selectedManagerId, setSelectedManagerId] = React.useState<string | null>(null)
   const [selectedCustomerId, setSelectedCustomerId] = React.useState<string | null>(null)
-  const [fromDate, setFromDate] = React.useState<string>(REPORTS_MIN_DATE)
-  const [toDate, setToDate] = React.useState<string>(todayIsoDate())
-
-  const maxDate = React.useMemo(() => todayIsoDate(), [])
+  const [selectedYear, setSelectedYear] = React.useState<string>(REPORT_YEARS[0])
+  const [kpiLoading, setKpiLoading] = React.useState(false)
+  const [kpis, setKpis] = React.useState({
+    turnover: 0,
+    invoices: 0,
+    hours: 0,
+    contractValue: 0,
+  })
+  const [accrualsLoading, setAccrualsLoading] = React.useState(false)
+  const [customerAccruals, setCustomerAccruals] = React.useState<ContractAccrual[]>([])
+  const [invoicesLoading, setInvoicesLoading] = React.useState(false)
+  const [customerInvoices, setCustomerInvoices] = React.useState<Invoice[]>([])
+  const [timeReportingLoading, setTimeReportingLoading] = React.useState(false)
+  const [monthlyTimeReporting, setMonthlyTimeReporting] = React.useState<MonthlyTimeReportingRow[]>(
+    () => createEmptyMonthlyTimeReportingRows(),
+  )
 
   const showTeamFilter = isAdmin || user.role === "team_lead"
+  const teamFilterDisabled = user.role === "team_lead" && !isAdmin
+  const filterGridClass = showTeamFilter ? "lg:grid-cols-4" : "lg:grid-cols-3"
+  const selectedYearRange = React.useMemo(() => getYearDateRange(selectedYear), [selectedYear])
+  const yearOptions = React.useMemo<SelectOption[]>(
+    () => REPORT_YEARS.map((year) => ({ id: year, label: year })),
+    [],
+  )
 
   const teamOptions = React.useMemo<SelectOption[]>(
     () => teams.map((team) => ({ id: team.id, label: team.name })),
@@ -205,6 +291,11 @@ export default function ReportsPage() {
     )
   }, [managerScopedCustomers, selectedCustomerId])
 
+  const selectedCustomer = React.useMemo(
+    () => filteredCustomers[0] ?? null,
+    [filteredCustomers],
+  )
+
   React.useEffect(() => {
     if (selectedManagerId && !availableManagers.some((m) => m.id === selectedManagerId)) {
       setSelectedManagerId(null)
@@ -221,6 +312,34 @@ export default function ReportsPage() {
   async function fetchReportData() {
     setLoading(true)
     const supabase = createClient()
+
+    const aliasedManagerEmail = REPORTS_MANAGER_ALIAS[user.email.toLowerCase()] ?? null
+    let effectiveProfile: Pick<
+      Profile,
+      "id" | "full_name" | "email" | "team_id" | "fortnox_cost_center"
+    > = {
+      id: user.id,
+      full_name: user.full_name,
+      email: user.email,
+      team_id: user.team_id,
+      fortnox_cost_center: user.fortnox_cost_center,
+    }
+
+    if (aliasedManagerEmail && user.role === "user") {
+      const { data: aliasedProfile } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, team_id, fortnox_cost_center")
+        .ilike("email", aliasedManagerEmail)
+        .limit(1)
+        .maybeSingle()
+
+      if (aliasedProfile) {
+        effectiveProfile = aliasedProfile as Pick<
+          Profile,
+          "id" | "full_name" | "email" | "team_id" | "fortnox_cost_center"
+        >
+      }
+    }
 
     let scopedTeams: TeamOption[] = []
     let scopedManagers: ManagerOption[] = []
@@ -262,11 +381,11 @@ export default function ReportsPage() {
     } else {
       scopedManagers = [
         {
-          id: user.id,
-          full_name: user.full_name,
-          email: user.email,
-          team_id: user.team_id,
-          fortnox_cost_center: user.fortnox_cost_center,
+          id: effectiveProfile.id,
+          full_name: effectiveProfile.full_name,
+          email: effectiveProfile.email,
+          team_id: effectiveProfile.team_id,
+          fortnox_cost_center: effectiveProfile.fortnox_cost_center,
         },
       ]
     }
@@ -274,11 +393,11 @@ export default function ReportsPage() {
     if (scopedManagers.length === 0) {
       scopedManagers = [
         {
-          id: user.id,
-          full_name: user.full_name,
-          email: user.email,
-          team_id: user.team_id,
-          fortnox_cost_center: user.fortnox_cost_center,
+          id: effectiveProfile.id,
+          full_name: effectiveProfile.full_name,
+          email: effectiveProfile.email,
+          team_id: effectiveProfile.team_id,
+          fortnox_cost_center: effectiveProfile.fortnox_cost_center,
         },
       ]
     }
@@ -356,7 +475,7 @@ export default function ReportsPage() {
     setCustomers(enrichedCustomers)
 
     if (user.role === "user") {
-      setSelectedManagerId(user.id)
+      setSelectedManagerId(effectiveProfile.id)
       setSelectedTeamId(null)
     } else if (user.role === "team_lead" && scopedTeams.length === 1) {
       setSelectedTeamId(scopedTeams[0].id)
@@ -374,6 +493,237 @@ export default function ReportsPage() {
     fetchReportData()
   }, [user.id, user.role, user.team_id, user.fortnox_cost_center, isAdmin])
 
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function fetchDateScopedKpis() {
+      if (filteredCustomers.length === 0) {
+        setKpis({ turnover: 0, invoices: 0, hours: 0, contractValue: 0 })
+        setKpiLoading(false)
+        return
+      }
+
+      setKpiLoading(true)
+      const supabase = createClient()
+
+      const customerIds = filteredCustomers.map((customer) => customer.id)
+      const customerIdChunks = chunkArray(customerIds, 200)
+      const selectedYearNumber = Number(selectedYear)
+
+      let turnover = 0
+      let invoiceCount = 0
+      let hours = 0
+      let contractValue = 0
+
+      for (const idChunk of customerIdChunks) {
+        if (cancelled) return
+
+        const { data: kpiRows, error: kpiError } = await supabase
+          .from("customer_kpis")
+          .select("total_turnover, invoice_count, total_hours, contract_value")
+          .in("customer_id", idChunk)
+          .eq("period_type", "year")
+          .eq("period_year", selectedYearNumber)
+
+        if (kpiError) {
+          throw kpiError
+        }
+
+        const rows = (kpiRows ?? []) as Array<{
+          total_turnover: number | null
+          invoice_count: number | null
+          total_hours: number | null
+          contract_value: number | null
+        }>
+
+        for (const row of rows) {
+          turnover += Number(row.total_turnover ?? 0)
+          invoiceCount += Number(row.invoice_count ?? 0)
+          hours += Number(row.total_hours ?? 0)
+          contractValue += Number(row.contract_value ?? 0)
+        }
+      }
+
+      if (cancelled) return
+
+      setKpis({
+        turnover,
+        invoices: invoiceCount,
+        hours,
+        contractValue,
+      })
+      setKpiLoading(false)
+    }
+
+    fetchDateScopedKpis().catch(() => {
+      if (!cancelled) {
+        setKpis({ turnover: 0, invoices: 0, hours: 0, contractValue: 0 })
+        setKpiLoading(false)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [filteredCustomers, selectedYear])
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function fetchMonthlyTimeReporting() {
+      if (filteredCustomers.length === 0) {
+        setMonthlyTimeReporting(createEmptyMonthlyTimeReportingRows())
+        setTimeReportingLoading(false)
+        return
+      }
+
+      setTimeReportingLoading(true)
+      const supabase = createClient()
+      const monthlyRows = createEmptyMonthlyTimeReportingRows()
+      const customerIds = filteredCustomers.map((customer) => customer.id)
+      const customerIdChunks = chunkArray(customerIds, 200)
+      const selectedYearNumber = Number(selectedYear)
+
+      for (const idChunk of customerIdChunks) {
+        if (cancelled) return
+
+        const { data, error } = await supabase
+          .from("customer_kpis")
+          .select("period_month, customer_hours, absence_hours, internal_hours, other_hours, total_hours")
+          .in("customer_id", idChunk)
+          .eq("period_type", "month")
+          .eq("period_year", selectedYearNumber)
+
+        if (error) {
+          throw error
+        }
+
+        const rows = (data ?? []) as Array<{
+          period_month: number | null
+          customer_hours: number | null
+          absence_hours: number | null
+          internal_hours: number | null
+          other_hours: number | null
+          total_hours: number | null
+        }>
+
+        for (const row of rows) {
+          const month = Number(row.period_month ?? 0)
+          if (!Number.isInteger(month) || month < 1 || month > 12) continue
+
+          const target = monthlyRows[month - 1]
+          target.customerHours += Number(row.customer_hours ?? 0)
+          target.absenceHours += Number(row.absence_hours ?? 0)
+          target.internalHours += Number(row.internal_hours ?? 0)
+          target.otherHours += Number(row.other_hours ?? 0)
+          target.totalHours += Number(row.total_hours ?? 0)
+        }
+      }
+
+      if (cancelled) return
+
+      setMonthlyTimeReporting(monthlyRows)
+      setTimeReportingLoading(false)
+    }
+
+    fetchMonthlyTimeReporting().catch(() => {
+      if (!cancelled) {
+        setMonthlyTimeReporting(createEmptyMonthlyTimeReportingRows())
+        setTimeReportingLoading(false)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [filteredCustomers, selectedYear])
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function fetchCustomerAccruals() {
+      if (!selectedCustomerId || !selectedCustomer?.fortnox_customer_number) {
+        setCustomerAccruals([])
+        setAccrualsLoading(false)
+        return
+      }
+
+      setAccrualsLoading(true)
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from("contract_accruals")
+        .select("*")
+        .eq("fortnox_customer_number", selectedCustomer.fortnox_customer_number)
+        .order("start_date", { ascending: true })
+
+      if (cancelled) return
+
+      if (error) {
+        setCustomerAccruals([])
+        setAccrualsLoading(false)
+        return
+      }
+
+      setCustomerAccruals((data ?? []) as ContractAccrual[])
+      setAccrualsLoading(false)
+    }
+
+    fetchCustomerAccruals().catch(() => {
+      if (!cancelled) {
+        setCustomerAccruals([])
+        setAccrualsLoading(false)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedCustomerId, selectedCustomer?.fortnox_customer_number])
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function fetchCustomerInvoices() {
+      if (!selectedCustomerId) {
+        setCustomerInvoices([])
+        setInvoicesLoading(false)
+        return
+      }
+
+      setInvoicesLoading(true)
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from("invoices")
+        .select("*")
+        .eq("customer_id", selectedCustomerId)
+        .gte("invoice_date", selectedYearRange.from)
+        .lte("invoice_date", selectedYearRange.to)
+        .order("invoice_date", { ascending: false })
+
+      if (cancelled) return
+
+      if (error) {
+        setCustomerInvoices([])
+        setInvoicesLoading(false)
+        return
+      }
+
+      setCustomerInvoices((data ?? []) as Invoice[])
+      setInvoicesLoading(false)
+    }
+
+    fetchCustomerInvoices().catch(() => {
+      if (!cancelled) {
+        setCustomerInvoices([])
+        setInvoicesLoading(false)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedCustomerId, selectedYearRange])
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -389,7 +739,7 @@ export default function ReportsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 lg:grid-cols-5">
+          <div className={cn("grid gap-4", filterGridClass)}>
             {showTeamFilter ? (
               <SearchSelect
                 title="Team"
@@ -402,16 +752,10 @@ export default function ReportsPage() {
                   setSelectedManagerId(null)
                   setSelectedCustomerId(null)
                 }}
+                disabled={teamFilterDisabled}
                 allLabel="All teams"
               />
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Team</p>
-                <Button variant="outline" className="w-full justify-start" disabled>
-                  Team filtering is not available for your role
-                </Button>
-              </div>
-            )}
+            ) : null}
 
             <SearchSelect
               title="Customer Manager"
@@ -438,33 +782,15 @@ export default function ReportsPage() {
               allLabel="All customers"
             />
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium">From</p>
-              <Input
-                type="date"
-                min={REPORTS_MIN_DATE}
-                max={toDate}
-                value={fromDate}
-                onChange={(event) => {
-                  const next = clampDate(event.target.value, REPORTS_MIN_DATE, toDate)
-                  setFromDate(next)
-                }}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium">To</p>
-              <Input
-                type="date"
-                min={fromDate}
-                max={maxDate}
-                value={toDate}
-                onChange={(event) => {
-                  const next = clampDate(event.target.value, fromDate, maxDate)
-                  setToDate(next)
-                }}
-              />
-            </div>
+            <SearchSelect
+              title="Year"
+              placeholder="Select year"
+              searchPlaceholder="Search year..."
+              options={yearOptions}
+              value={selectedYear}
+              onChange={(value) => setSelectedYear(value ?? REPORT_YEARS[0])}
+              allowClear={false}
+            />
           </div>
         </CardContent>
       </Card>
@@ -486,10 +812,197 @@ export default function ReportsPage() {
           <p className="text-sm text-muted-foreground">
             Showing KPI totals for {filteredCustomers.length} customer{filteredCustomers.length === 1 ? "" : "s"}
           </p>
-          <p className="text-xs text-muted-foreground">
-            Date range: {fromDate} to {toDate}
-          </p>
-          <CustomerKpiCards customers={filteredCustomers} />
+            <p className="text-xs text-muted-foreground">Year: {selectedYear}</p>
+          {kpiLoading ? (
+            <Card>
+              <CardContent className="py-8">
+                <p className="text-sm text-muted-foreground">Calculating KPIs...</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Total Turnover
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-semibold">{sekFormatter.format(kpis.turnover)}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Total Invoices
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-semibold">{numberFormatter.format(kpis.invoices)}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Total Hours
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-semibold">{hoursFormatter.format(kpis.hours)}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Total Contract Value
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-semibold">{sekFormatter.format(kpis.contractValue)}</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Time reporting</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Monthly breakdown for {selectedYear} based on the current role and filter scope.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {timeReportingLoading ? (
+                <p className="text-sm text-muted-foreground">Loading time reporting...</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[860px] text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="px-2 py-2 font-medium">Month</th>
+                        <th className="px-2 py-2 font-medium">Customer Hours</th>
+                        <th className="px-2 py-2 font-medium">Absence</th>
+                        <th className="px-2 py-2 font-medium">Internal</th>
+                        <th className="px-2 py-2 font-medium">Other</th>
+                        <th className="px-2 py-2 font-medium">Total Hours</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthlyTimeReporting.map((row) => (
+                        <tr key={row.month} className="border-b last:border-0">
+                          <td className="px-2 py-2">{row.label}</td>
+                          <td className="px-2 py-2">{hoursFormatter.format(row.customerHours)}</td>
+                          <td className="px-2 py-2">{hoursFormatter.format(row.absenceHours)}</td>
+                          <td className="px-2 py-2">{hoursFormatter.format(row.internalHours)}</td>
+                          <td className="px-2 py-2">{hoursFormatter.format(row.otherHours)}</td>
+                          <td className="px-2 py-2">{hoursFormatter.format(row.totalHours)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {selectedCustomerId ? (
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Customer Accruals</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedCustomer?.name ?? "Selected customer"}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {accrualsLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading accruals...</p>
+                  ) : customerAccruals.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No contract accruals found for this customer.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[900px] text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-muted-foreground">
+                            <th className="px-2 py-2 font-medium">Contract</th>
+                            <th className="px-2 py-2 font-medium">Description</th>
+                            <th className="px-2 py-2 font-medium">Period</th>
+                            <th className="px-2 py-2 font-medium">Start</th>
+                            <th className="px-2 py-2 font-medium">End</th>
+                            <th className="px-2 py-2 font-medium">Total</th>
+                            <th className="px-2 py-2 font-medium">Annualized</th>
+                            <th className="px-2 py-2 font-medium">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {customerAccruals.map((accrual) => (
+                            <tr key={accrual.id} className="border-b last:border-0">
+                              <td className="px-2 py-2">{accrual.contract_number}</td>
+                              <td className="px-2 py-2">{accrual.description ?? "-"}</td>
+                              <td className="px-2 py-2">{accrual.period ?? "-"}</td>
+                              <td className="px-2 py-2">{accrual.start_date ?? "-"}</td>
+                              <td className="px-2 py-2">{accrual.end_date ?? "-"}</td>
+                              <td className="px-2 py-2">{sekFormatter.format(Number(accrual.total ?? 0))}</td>
+                              <td className="px-2 py-2">
+                                {sekFormatter.format(annualizeContractTotal(accrual.total, accrual.period))}
+                              </td>
+                              <td className="px-2 py-2">{accrual.is_active ? "Active" : "Inactive"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Invoices</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedCustomer?.name ?? "Selected customer"} · {selectedYear}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {invoicesLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading invoices...</p>
+                  ) : customerInvoices.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No invoices found for this customer in the selected range.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[760px] text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-muted-foreground">
+                            <th className="px-2 py-2 font-medium">Invoice #</th>
+                            <th className="px-2 py-2 font-medium">Date</th>
+                            <th className="px-2 py-2 font-medium">Customer</th>
+                            <th className="px-2 py-2 font-medium">Total</th>
+                            <th className="px-2 py-2 font-medium">Balance</th>
+                            <th className="px-2 py-2 font-medium">Currency</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {customerInvoices.map((invoice) => (
+                            <tr key={invoice.id} className="border-b last:border-0">
+                              <td className="px-2 py-2">{invoice.document_number}</td>
+                              <td className="px-2 py-2">{invoice.invoice_date ?? "-"}</td>
+                              <td className="px-2 py-2">{invoice.customer_name ?? selectedCustomer?.name ?? "-"}</td>
+                              <td className="px-2 py-2">{sekFormatter.format(Number(invoice.total ?? 0))}</td>
+                              <td className="px-2 py-2">{sekFormatter.format(Number(invoice.balance ?? 0))}</td>
+                              <td className="px-2 py-2">{invoice.currency_code}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

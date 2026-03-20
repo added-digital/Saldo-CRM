@@ -1,3 +1,5 @@
-import ContactsPage from "@/app/(dashboard)/settings/contacts/page"
+import { redirect } from "next/navigation"
 
-export default ContactsPage
+export default function CustomersContactsPage() {
+  redirect("/contacts")
+}

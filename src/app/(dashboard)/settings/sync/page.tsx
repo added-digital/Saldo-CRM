@@ -12,6 +12,7 @@ import {
   FileText,
   Clock,
   FileSignature,
+  Sigma,
   Trash2,
 } from "lucide-react"
 
@@ -37,6 +38,7 @@ const STEP_ICONS: Record<SyncStep, React.ElementType> = {
   invoices: FileText,
   "time-reports": Clock,
   contracts: FileSignature,
+  "generate-kpis": Sigma,
 }
 
 const STEP_DESCRIPTIONS: Record<SyncStep, string> = {
@@ -45,6 +47,7 @@ const STEP_DESCRIPTIONS: Record<SyncStep, string> = {
   invoices: "Sync invoices and compute turnover KPIs per customer",
   "time-reports": "Sync attendance transactions and compute reported hours",
   contracts: "Sync contracts and compute contract value per customer",
+  "generate-kpis": "Recompute all customer KPI fields from existing invoices, time reports, and contracts",
 }
 
 export default function SyncPage() {

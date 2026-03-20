@@ -1,8 +1,49 @@
 import { createAdminClient } from "../_shared/supabase.ts"
 import { getFortnoxClient, updateSyncJob, delay, corsHeaders } from "../_shared/sync-helpers.ts"
 
+declare const Deno: {
+  serve: (handler: (req: Request) => Response | Promise<Response>) => void
+}
+
 const RATE_LIMIT_DELAY_MS = 350
 const BATCH_SIZE = 100
+const KPI_BATCH_SIZE = 1000
+
+function isContractActive(input: {
+  status: string | null
+  startDate: string | null
+  endDate: string | null
+}): boolean {
+  const today = new Date().toISOString().slice(0, 10)
+  const normalizedStatus = (input.status ?? "").trim().toLowerCase()
+
+  if (["cancelled", "canceled", "ended", "inactive", "closed", "terminated"].includes(normalizedStatus)) {
+    return false
+  }
+
+  if (input.startDate && input.startDate > today) {
+    return false
+  }
+
+  if (input.endDate && input.endDate < today) {
+    return false
+  }
+
+  if (["active", "ongoing", "running", "current", "open"].includes(normalizedStatus)) {
+    return true
+  }
+
+  return Boolean(input.startDate || input.endDate || normalizedStatus)
+}
+
+function annualizeContractTotal(total: number | null, period: string | null): number {
+  const base = Number(total ?? 0)
+  const periodNumber = Number(period ?? "")
+
+  if (periodNumber === 1) return base * 12
+  if (periodNumber === 3) return base * 4
+  return base
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -50,11 +91,11 @@ Deno.serve(async (req) => {
 
       if (jobId) {
         await updateSyncJob(supabase, jobId, {
-          current_step: "Fetching contract details...",
+          current_step: total === 0 ? "No contracts found. Finalizing..." : "Fetching contract details...",
           total_items: total,
           processed_items: 0,
           payload: { step_name: "contracts", step_label: "Contracts", contract_numbers: allContractNumbers, synced: 0, errors: 0 },
-          batch_phase: "process",
+          batch_phase: total === 0 ? "finalize" : "process",
           batch_offset: 0,
           dispatch_lock: false,
         })
@@ -94,17 +135,21 @@ Deno.serve(async (req) => {
         try {
           const detail = await client.getContract(contractNumber)
           const c = detail.Contract as Record<string, unknown>
+          const startDate = (c.PeriodStart as string) ?? null
+          const endDate = (c.PeriodEnd as string) ?? null
+          const status = (c.Status as string) ?? null
 
           const mapped = {
             fortnox_customer_number: (c.CustomerNumber as string) ?? "",
             contract_number: contractNumber,
             customer_name: (c.CustomerName as string) ?? null,
             description: (c.Remarks as string) ?? null,
-            start_date: (c.PeriodStart as string) ?? null,
-            end_date: (c.PeriodEnd as string) ?? null,
-            status: (c.Status as string) ?? null,
+            start_date: startDate,
+            end_date: endDate,
+            status,
             accrual_type: (c.ContractLength as string) ?? null,
             period: (c.InvoiceInterval as string) ?? null,
+            is_active: isContractActive({ status, startDate, endDate }),
             total: c.Total != null ? Number(c.Total) : null,
             currency_code: (c.Currency as string) ?? "SEK",
             raw_data: c,
@@ -159,25 +204,50 @@ Deno.serve(async (req) => {
         })
       }
 
-      const { data: contractRows } = await supabase
-        .from("contract_accruals")
-        .select("fortnox_customer_number, total")
+      const valueByCustomer = new Map<string, number>()
+      let offset = 0
 
-      if (contractRows) {
-        const valueByCustomer = new Map<string, number>()
+      while (true) {
+        const { data: contractRows, error: contractError } = await supabase
+          .from("contract_accruals")
+          .select("fortnox_customer_number, total, period")
+          .order("id", { ascending: true })
+          .range(offset, offset + KPI_BATCH_SIZE - 1)
 
-        for (const row of contractRows as Array<{ fortnox_customer_number: string; total: number | null }>) {
+        if (contractError) {
+          throw new Error(`Failed to fetch contract KPIs: ${contractError.message}`)
+        }
+
+        const rows = (contractRows ?? []) as Array<{
+          fortnox_customer_number: string | null
+          total: number | null
+          period: string | null
+        }>
+        if (rows.length === 0) break
+
+        for (const row of rows) {
           if (!row.fortnox_customer_number) continue
           const existing = valueByCustomer.get(row.fortnox_customer_number) ?? 0
-          valueByCustomer.set(row.fortnox_customer_number, existing + Number(row.total ?? 0))
+          valueByCustomer.set(
+            row.fortnox_customer_number,
+            existing + annualizeContractTotal(row.total, row.period)
+          )
         }
 
-        for (const [customerNumber, contractValue] of valueByCustomer) {
-          await supabase
-            .from("customers")
-            .update({ contract_value: contractValue } as never)
-            .eq("fortnox_customer_number", customerNumber as never)
-        }
+        if (rows.length < KPI_BATCH_SIZE) break
+        offset += KPI_BATCH_SIZE
+      }
+
+      await supabase
+        .from("customers")
+        .update({ contract_value: 0 } as never)
+        .neq("id", "00000000-0000-0000-0000-000000000000" as never)
+
+      for (const [customerNumber, contractValue] of valueByCustomer) {
+        await supabase
+          .from("customers")
+          .update({ contract_value: contractValue } as never)
+          .eq("fortnox_customer_number", customerNumber as never)
       }
 
       let finalSynced = 0

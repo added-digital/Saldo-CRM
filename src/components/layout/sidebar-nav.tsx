@@ -19,6 +19,10 @@ function isItemVisible(
   userRole: string | undefined,
   scopes: string[],
 ): boolean {
+  if (item.href === "/reports" || item.href === "/settings") {
+    return true
+  }
+
   if (item.minRole) {
     const roleLevel: Record<string, number> = {
       user: 1,

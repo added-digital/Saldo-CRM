@@ -11,7 +11,7 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
-type SyncStep = "customers" | "employees" | "invoices" | "time-reports" | "contracts"
+type SyncStep = "customers" | "employees" | "invoices" | "time-reports" | "contracts" | "generate-kpis"
 
 const SYNC_STEPS: SyncStep[] = [
   "customers",
@@ -19,6 +19,7 @@ const SYNC_STEPS: SyncStep[] = [
   "invoices",
   "time-reports",
   "contracts",
+  "generate-kpis",
 ]
 
 const STEP_LABELS: Record<SyncStep, string> = {
@@ -27,6 +28,7 @@ const STEP_LABELS: Record<SyncStep, string> = {
   invoices: "Invoices",
   "time-reports": "Time Reports",
   contracts: "Contracts",
+  "generate-kpis": "Generate KPIs",
 }
 
 const STALE_JOB_TIMEOUT_MS = 5 * 60 * 1000

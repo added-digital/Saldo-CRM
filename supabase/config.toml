@@ -36,3 +36,6 @@ verify_jwt = false
 
 [functions.sync-contracts]
 verify_jwt = false
+
+[functions.sync-generate-kpis]
+verify_jwt = false
