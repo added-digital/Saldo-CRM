@@ -4,6 +4,7 @@ import { getFortnoxClient, updateSyncJob, delay, corsHeaders } from "../_shared/
 const RATE_LIMIT_DELAY_MS = 350
 const PAGES_PER_BATCH = 10
 const INVOICE_FROM_DATE = "2025-01-01"
+const KPI_BATCH_SIZE = 1000
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -175,14 +176,23 @@ Deno.serve(async (req) => {
         })
       }
 
-      const { data: kpiRows } = await supabase
-        .from("invoices")
-        .select("fortnox_customer_number, total")
+      const turnoverByCustomer = new Map<string, { turnover: number; count: number }>()
+      let offset = 0
 
-      if (kpiRows) {
-        const turnoverByCustomer = new Map<string, { turnover: number; count: number }>()
+      while (true) {
+        const { data: kpiRows, error: kpiError } = await supabase
+          .from("invoices")
+          .select("fortnox_customer_number, total")
+          .range(offset, offset + KPI_BATCH_SIZE - 1)
 
-        for (const row of kpiRows as Array<{ fortnox_customer_number: string | null; total: number | null }>) {
+        if (kpiError) {
+          throw new Error(`Failed to fetch invoice KPIs: ${kpiError.message}`)
+        }
+
+        const rows = (kpiRows ?? []) as Array<{ fortnox_customer_number: string | null; total: number | null }>
+        if (rows.length === 0) break
+
+        for (const row of rows) {
           if (!row.fortnox_customer_number) continue
           const existing = turnoverByCustomer.get(row.fortnox_customer_number) ?? { turnover: 0, count: 0 }
           existing.turnover += Number(row.total ?? 0)
@@ -190,15 +200,18 @@ Deno.serve(async (req) => {
           turnoverByCustomer.set(row.fortnox_customer_number, existing)
         }
 
-        for (const [customerNumber, kpi] of turnoverByCustomer) {
-          await supabase
-            .from("customers")
-            .update({
-              total_turnover: kpi.turnover,
-              invoice_count: kpi.count,
-            } as never)
-            .eq("fortnox_customer_number", customerNumber as never)
-        }
+        if (rows.length < KPI_BATCH_SIZE) break
+        offset += KPI_BATCH_SIZE
+      }
+
+      for (const [customerNumber, kpi] of turnoverByCustomer) {
+        await supabase
+          .from("customers")
+          .update({
+            total_turnover: kpi.turnover,
+            invoice_count: kpi.count,
+          } as never)
+          .eq("fortnox_customer_number", customerNumber as never)
       }
 
       let finalSynced = 0

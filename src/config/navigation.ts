@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Users,
+  UserRound,
   Shield,
   Settings,
   BarChart3,
@@ -32,6 +33,7 @@ export const navigation: NavSection[] = [
     title: "Management",
     items: [
       { label: "Customers", href: "/customers", icon: Users, scope: "customers" },
+      { label: "Contacts", href: "/customers/contacts", icon: UserRound, scope: "customers" },
     ],
   },
   {
@@ -43,7 +45,6 @@ export const navigation: NavSection[] = [
   {
     title: "Administration",
     items: [
-      { label: "Users", href: "/users", icon: Shield, minRole: "admin" },
       { label: "Settings", href: "/settings", icon: Settings, minRole: "admin" },
     ],
   },

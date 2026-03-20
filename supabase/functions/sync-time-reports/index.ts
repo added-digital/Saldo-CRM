@@ -3,6 +3,7 @@ import { corsHeaders, getFortnoxClient, updateSyncJob } from "../_shared/sync-he
 
 const TIME_REPORT_FROM_DATE = "2025-01-01"
 const SOURCE_ENDPOINT = "/api/time/registrations-v2"
+const KPI_BATCH_SIZE = 1000
 
 interface DateWindow {
   fromDate: string
@@ -321,23 +322,45 @@ Deno.serve(async (req) => {
         })
       }
 
-      const { data: hoursRows } = await supabase
-        .from("time_reports")
-        .select("customer_id, fortnox_customer_number, hours")
-        .eq("entry_type", "time")
-
       const hoursByCustomerId = new Map<string, number>()
       const hoursByCustomerNumber = new Map<string, number>()
+      let offset = 0
 
-      for (const row of (hoursRows ?? []) as Array<{ customer_id: string | null; fortnox_customer_number: string | null; hours: number | null }>) {
-        if (row.customer_id) {
-          hoursByCustomerId.set(row.customer_id, (hoursByCustomerId.get(row.customer_id) ?? 0) + Number(row.hours ?? 0))
-        } else if (row.fortnox_customer_number) {
-          hoursByCustomerNumber.set(
-            row.fortnox_customer_number,
-            (hoursByCustomerNumber.get(row.fortnox_customer_number) ?? 0) + Number(row.hours ?? 0)
-          )
+      while (true) {
+        const { data: hoursRows, error: hoursError } = await supabase
+          .from("time_reports")
+          .select("customer_id, fortnox_customer_number, hours")
+          .eq("entry_type", "time")
+          .range(offset, offset + KPI_BATCH_SIZE - 1)
+
+        if (hoursError) {
+          throw new Error(`Failed to fetch time report KPIs: ${hoursError.message}`)
         }
+
+        const rows = (hoursRows ?? []) as Array<{
+          customer_id: string | null
+          fortnox_customer_number: string | null
+          hours: number | null
+        }>
+
+        if (rows.length === 0) break
+
+        for (const row of rows) {
+          if (row.customer_id) {
+            hoursByCustomerId.set(
+              row.customer_id,
+              (hoursByCustomerId.get(row.customer_id) ?? 0) + Number(row.hours ?? 0)
+            )
+          } else if (row.fortnox_customer_number) {
+            hoursByCustomerNumber.set(
+              row.fortnox_customer_number,
+              (hoursByCustomerNumber.get(row.fortnox_customer_number) ?? 0) + Number(row.hours ?? 0)
+            )
+          }
+        }
+
+        if (rows.length < KPI_BATCH_SIZE) break
+        offset += KPI_BATCH_SIZE
       }
 
       for (const [customerId, totalHours] of hoursByCustomerId) {

@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { User, Users, UserCog, Link2, Tags, RefreshCw } from "lucide-react"
+import { User, Shield, UserCog, Link2, Tags, RefreshCw } from "lucide-react"
 import { type LucideIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -18,7 +18,7 @@ interface SettingsTab {
 
 const settingsTabs: SettingsTab[] = [
   { label: "Profile", href: "/settings/profile", icon: User },
-  { label: "Contacts", href: "/settings/contacts", icon: Users },
+  { label: "Users", href: "/settings/users", icon: Shield },
   { label: "Teams", href: "/settings/teams", icon: UserCog },
   { label: "Segments", href: "/settings/segments", icon: Tags },
   { label: "Integrations", href: "/settings/integrations", icon: Link2 },
