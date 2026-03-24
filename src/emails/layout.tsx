@@ -1,6 +1,7 @@
 import {
   Html,
   Head,
+  Preview,
   Body,
   Container,
   Section,
@@ -8,36 +9,54 @@ import {
   Img,
   Hr,
 } from "@react-email/components";
+import { system } from "@/config/system";
 
 interface EmailLayoutProps {
   children: React.ReactNode;
   previewText?: string;
+  appUrl?: string;
+  brandName?: string;
 }
 
-export function EmailLayout({ children, previewText }: EmailLayoutProps) {
+function normalizeBaseUrl(appUrl?: string): string {
+  const fallback = process.env.NEXT_PUBLIC_APP_URL || system.url;
+  const candidate = (appUrl || fallback || "").trim();
+  if (!candidate) return "";
+  return candidate.endsWith("/") ? candidate.slice(0, -1) : candidate;
+}
+
+function toAbsoluteAssetUrl(baseUrl: string, assetPath: string): string {
+  if (/^https?:\/\//.test(assetPath)) return assetPath;
+  if (!baseUrl) return assetPath;
+  return `${baseUrl}${assetPath.startsWith("/") ? assetPath : `/${assetPath}`}`;
+}
+
+export function EmailLayout({
+  children,
+  previewText,
+  appUrl,
+  brandName = system.companyName,
+}: EmailLayoutProps) {
+  const baseUrl = normalizeBaseUrl(appUrl);
+  const logoUrl = toAbsoluteAssetUrl(baseUrl, system.logo);
+
   return (
     <Html>
       <Head>
-        {previewText && <meta name="preview" content={previewText} />}
+        {previewText ? <Preview>{previewText}</Preview> : null}
       </Head>
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
-            <Img
-              src="/brand/company_logo.png"
-              width="150"
-              height="50"
-              alt="Company Logo"
-              style={logo}
-            />
-            <Text style={systemName}>Saldo CRM</Text>
+            <Img src={logoUrl} width="150" height="50" alt={`${brandName} Logo`} style={logo} />
+            <Text style={systemName}>{brandName}</Text>
           </Section>
           <Hr style={hr} />
           <Section style={content}>{children}</Section>
           <Hr style={hr} />
           <Section style={footer}>
             <Text style={footerText}>
-              © 2026 Saldo CRM. All rights reserved.
+              © 2026 {brandName}. All rights reserved.
             </Text>
           </Section>
         </Container>

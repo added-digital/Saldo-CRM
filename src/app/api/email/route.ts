@@ -1,16 +1,103 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { getResend } from "@/lib/resend/client"
 import { system } from "@/config/system"
-import { WelcomeEmail } from "@/emails/welcome"
-import { TeamInviteEmail } from "@/emails/team-invite"
+import { ContentTemplateEmail } from "@/emails/content-template"
 import { render } from "@react-email/components"
 import type { Profile } from "@/types/database"
 
 interface EmailRequest {
   to: string
-  template: "welcome" | "team-invite"
-  data: Record<string, string>
+  template: "content"
+  data: Record<string, unknown>
+}
+
+function asString(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  return fallback
+}
+
+function asStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => asString(item).trim())
+      .filter((item) => item.length > 0)
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+  }
+
+  return []
+}
+
+type EmailRenderResult = {
+  subject: string
+  html: string
+}
+
+type TemplateRenderer = (data: Record<string, unknown>) => Promise<EmailRenderResult>
+
+const templateRenderers: Record<EmailRequest["template"], TemplateRenderer> = {
+  content: async (data) => {
+    const title = asString(data.title, "Information from Saldo")
+    const subject = asString(data.subject, title)
+    const paragraphs = asStringArray(data.paragraphs)
+    const html = await render(
+      ContentTemplateEmail({
+        title,
+        previewText: asString(data.previewText, title),
+        greeting: asString(data.greeting, ""),
+        paragraphs,
+        ctaLabel: asString(data.ctaLabel, ""),
+        ctaUrl: asString(data.ctaUrl, ""),
+        footnote: asString(data.footnote, ""),
+        appUrl: asString(data.appUrl, process.env.NEXT_PUBLIC_APP_URL || system.url),
+        brandName: asString(data.brandName, system.companyName),
+      })
+    )
+    return { subject, html }
+  },
+}
+
+async function sendMicrosoftGraphMail(
+  providerToken: string,
+  to: string,
+  subject: string,
+  html: string,
+) {
+  const response = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${providerToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message: {
+        subject,
+        body: {
+          contentType: "HTML",
+          content: html,
+        },
+        toRecipients: [
+          {
+            emailAddress: {
+              address: to,
+            },
+          },
+        ],
+      },
+      saveToSentItems: true,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Microsoft Graph sendMail failed (${response.status}): ${errorText}`)
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -42,44 +129,31 @@ export async function POST(request: NextRequest) {
     const body: EmailRequest = await request.json()
     const { to, template, data } = body
 
-    let emailHtml: string
-    let subject: string
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
 
-    if (template === "welcome") {
-      subject = `Welcome to ${data.systemName || system.name}`
-      emailHtml = await render(
-        WelcomeEmail({
-          userName: data.userName || "there",
-          systemName: data.systemName || system.name,
-          dashboardUrl:
-            data.dashboardUrl ||
-            `${process.env.NEXT_PUBLIC_APP_URL}/`,
-        })
+    const providerToken = session?.provider_token
+    if (!providerToken) {
+      return NextResponse.json(
+        {
+          error: "Microsoft token missing",
+          message: "Please sign in again with Microsoft to enable sending mail.",
+        },
+        { status: 412 }
       )
-    } else if (template === "team-invite") {
-      subject = `You've been added to ${data.teamName}`
-      emailHtml = await render(
-        TeamInviteEmail({
-          userName: data.userName || "there",
-          teamName: data.teamName || "a team",
-          invitedBy: data.invitedBy || "An administrator",
-          dashboardUrl:
-            data.dashboardUrl ||
-            `${process.env.NEXT_PUBLIC_APP_URL}/`,
-        })
-      )
-    } else {
+    }
+
+    const renderTemplate = templateRenderers[template]
+    if (!renderTemplate) {
       return NextResponse.json({ error: "Invalid template" }, { status: 400 })
     }
 
-    const result = await getResend().emails.send({
-      from: `${system.name} <${system.supportEmail}>`,
-      to,
-      subject,
-      html: emailHtml,
-    })
+    const { subject, html } = await renderTemplate(data ?? {})
 
-    return NextResponse.json({ success: true, result })
+    await sendMicrosoftGraphMail(providerToken, to, subject, html)
+
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Email send error:", error)
     return NextResponse.json(

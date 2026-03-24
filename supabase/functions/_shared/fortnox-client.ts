@@ -104,6 +104,12 @@ export class FortnoxClient {
     )
   }
 
+  async getTimeArticles(page = 1, limit = 100) {
+    return this.request<Record<string, unknown>>(
+      `/api/time/articles-v1?limit=${limit}&page=${page}`
+    )
+  }
+
   async getAttendanceTransactions(page = 1, limit = 100) {
     return this.request<{
       AttendanceTransactions: Array<Record<string, unknown>>

@@ -2,9 +2,44 @@ import { createAdminClient } from "../_shared/supabase.ts"
 import { getFortnoxClient, updateSyncJob, delay, corsHeaders } from "../_shared/sync-helpers.ts"
 
 const RATE_LIMIT_DELAY_MS = 350
+const INVOICE_DETAIL_DELAY_MS = 120
 const PAGES_PER_BATCH = 10
 const INVOICE_FROM_DATE = "2025-01-01"
 const KPI_BATCH_SIZE = 1000
+
+type InvoiceRowInsert = {
+  invoice_number: string
+  article_number: string | null
+  article_name: string | null
+  description: string | null
+  quantity: number | null
+  unit_price: number | null
+  total: number | null
+}
+
+function toInvoiceRows(
+  invoiceNumber: string,
+  invoicePayload: Record<string, unknown> | null | undefined
+): InvoiceRowInsert[] {
+  const rawRows = (invoicePayload?.InvoiceRows ?? invoicePayload?.Rows ?? []) as unknown[]
+  if (!Array.isArray(rawRows)) return []
+
+  return rawRows
+    .filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object"))
+    .map((row) => ({
+      invoice_number: invoiceNumber,
+      article_number: row.ArticleNumber != null ? String(row.ArticleNumber) : (row.ArticleNo != null ? String(row.ArticleNo) : null),
+      article_name: row.ArticleName != null ? String(row.ArticleName) : null,
+      description: row.Description != null ? String(row.Description) : null,
+      quantity: row.DeliveredQuantity != null
+        ? Number(row.DeliveredQuantity)
+        : (row.Quantity != null ? Number(row.Quantity) : null),
+      unit_price: row.Price != null
+        ? Number(row.Price)
+        : (row.UnitPrice != null ? Number(row.UnitPrice) : null),
+      total: row.Total != null ? Number(row.Total) : null,
+    }))
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -111,6 +146,45 @@ Deno.serve(async (req) => {
             errors += invoices.length
           } else {
             synced += mapped.length
+
+            const invoiceNumbers = mapped.map((invoice) => invoice.document_number)
+            const invoiceRows: InvoiceRowInsert[] = []
+
+            for (const [index, invoiceNumber] of invoiceNumbers.entries()) {
+              try {
+                const invoiceResponse = await client.getInvoice(invoiceNumber)
+                invoiceRows.push(...toInvoiceRows(invoiceNumber, invoiceResponse.Invoice))
+              } catch (detailError) {
+                const detailMessage = detailError instanceof Error ? detailError.message : "Unknown invoice detail error"
+                if (!firstError) firstError = detailMessage
+                errors += 1
+              }
+
+              if (index < invoiceNumbers.length - 1) {
+                await delay(INVOICE_DETAIL_DELAY_MS)
+              }
+            }
+
+            const { error: deleteRowsError } = await supabase
+              .from("invoice_rows")
+              .delete()
+              .in("invoice_number", invoiceNumbers)
+
+            if (deleteRowsError) {
+              console.error("Invoice row delete error:", deleteRowsError.message, deleteRowsError.details)
+              if (!firstError) firstError = deleteRowsError.message
+              errors += invoiceNumbers.length
+            } else if (invoiceRows.length > 0) {
+              const { error: insertRowsError } = await supabase
+                .from("invoice_rows")
+                .insert(invoiceRows as never)
+
+              if (insertRowsError) {
+                console.error("Invoice row insert error:", insertRowsError.message, insertRowsError.details)
+                if (!firstError) firstError = insertRowsError.message
+                errors += invoiceRows.length
+              }
+            }
           }
         }
 

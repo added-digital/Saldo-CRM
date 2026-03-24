@@ -53,7 +53,7 @@ function LoginHandler() {
       provider: "azure",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        scopes: "openid profile email User.Read Mail.Read",
+        scopes: "openid profile email User.Read Mail.Read Mail.Send",
       },
     });
 

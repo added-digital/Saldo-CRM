@@ -11,12 +11,13 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
-type SyncStep = "customers" | "employees" | "invoices" | "time-reports" | "contracts" | "generate-kpis"
+type SyncStep = "customers" | "employees" | "invoices" | "articles" | "time-reports" | "contracts" | "generate-kpis"
 
 const SYNC_STEPS: SyncStep[] = [
   "customers",
   "employees",
   "invoices",
+  "articles",
   "time-reports",
   "contracts",
   "generate-kpis",
@@ -26,6 +27,7 @@ const STEP_LABELS: Record<SyncStep, string> = {
   customers: "Customers",
   employees: "Employees",
   invoices: "Invoices",
+  articles: "Articles",
   "time-reports": "Time Reports",
   contracts: "Contracts",
   "generate-kpis": "Generate KPIs",
@@ -43,11 +45,7 @@ const SyncContext = createContext<SyncContextValue | null>(null)
 function SyncProvider({ children }: { children: ReactNode }) {
   const [syncing, setSyncing] = useState(false)
 
-  useEffect(() => {
-    cleanUpStaleJobs()
-  }, [])
-
-  async function cleanUpStaleJobs() {
+  const cleanUpStaleJobs = useCallback(async () => {
     const supabase = createClient()
     const cutoff = new Date(Date.now() - STALE_JOB_TIMEOUT_MS).toISOString()
 
@@ -61,7 +59,11 @@ function SyncProvider({ children }: { children: ReactNode }) {
       } as never)
       .in("status", ["pending", "processing"] as never)
       .lt("updated_at", cutoff as never)
-  }
+  }, [])
+
+  useEffect(() => {
+    cleanUpStaleJobs()
+  }, [cleanUpStaleJobs])
 
   const startSync = useCallback(
     async (steps: SyncStep[]) => {
