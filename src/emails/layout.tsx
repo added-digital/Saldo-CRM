@@ -8,6 +8,7 @@ import {
   Text,
   Img,
   Hr,
+  Link,
 } from "@react-email/components";
 import { system } from "@/config/system";
 
@@ -38,7 +39,9 @@ export function EmailLayout({
   brandName = system.companyName,
 }: EmailLayoutProps) {
   const baseUrl = normalizeBaseUrl(appUrl);
-  const logoUrl = toAbsoluteAssetUrl(baseUrl, system.logo);
+  const headerImageUrl = toAbsoluteAssetUrl(baseUrl, "/emails/saldo.png");
+  const footerMarkUrl = toAbsoluteAssetUrl(baseUrl, system.logoMark);
+  const homeUrl = baseUrl || system.url;
 
   return (
     <Html>
@@ -46,18 +49,27 @@ export function EmailLayout({
         {previewText ? <Preview>{previewText}</Preview> : null}
       </Head>
       <Body style={main}>
-        <Container style={container}>
-          <Section style={header}>
-            <Img src={logoUrl} width="150" height="50" alt={`${brandName} Logo`} style={logo} />
-            <Text style={systemName}>{brandName}</Text>
-          </Section>
-          <Hr style={hr} />
-          <Section style={content}>{children}</Section>
-          <Hr style={hr} />
-          <Section style={footer}>
-            <Text style={footerText}>
-              © 2026 {brandName}. All rights reserved.
-            </Text>
+        <Container style={outerContainer}>
+          <Section style={shell}>
+            <Section style={header}>
+              <Img src={headerImageUrl} width="600" alt={`${brandName} Header`} style={headerImage} />
+            </Section>
+
+            <Section style={content}>{children}</Section>
+
+            <Hr style={hr} />
+
+            <Section style={footer}>
+              <Img src={footerMarkUrl} width="54" height="54" alt={`${brandName} mark`} style={footerLogo} />
+              <Text style={footerBrand}>{brandName}</Text>
+              <Text style={footerDomain}>saldoredo.se</Text>
+              <Text style={footerText}>
+                Trouble seeing this email?{" "}
+                <Link href={homeUrl} style={footerLink}>
+                  Open it in browser.
+                </Link>
+              </Text>
+            </Section>
           </Section>
         </Container>
       </Body>
@@ -66,53 +78,85 @@ export function EmailLayout({
 }
 
 const main = {
-  backgroundColor: "#f6f9fc",
+  backgroundColor: "#1f2024",
   fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+    'Inter,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
 };
 
-const container = {
-  backgroundColor: "#ffffff",
+const outerContainer = {
   margin: "0 auto",
-  padding: "20px 0 48px",
-  marginBottom: "64px",
+  width: "100%",
+  padding: "24px 0 30px",
   maxWidth: "600px",
 };
 
+const shell = {
+  borderRadius: "28px",
+  backgroundColor: "#121214",
+  border: "1px solid #2e2f34",
+  boxShadow: "0 16px 44px rgba(0, 0, 0, 0.42)",
+  overflow: "hidden",
+};
+
 const header = {
-  padding: "32px 32px 0",
-  textAlign: "center" as const,
+  margin: "0",
+  padding: "0",
 };
 
-const logo = {
-  margin: "0 auto",
-};
-
-const systemName = {
-  fontSize: "24px",
-  fontWeight: "600",
-  color: "#1f2937",
-  marginTop: "16px",
-  marginBottom: "0",
+const headerImage = {
+  display: "block",
+  width: "100%",
+  maxWidth: "600px",
+  margin: "0",
 };
 
 const content = {
-  padding: "0 32px",
+  padding: "58px 48px 28px",
+  backgroundColor: "#121214",
 };
 
 const hr = {
-  borderColor: "#e5e7eb",
-  margin: "32px 0",
+  borderColor: "#2f2f33",
+  margin: "0",
 };
 
 const footer = {
-  padding: "0 32px",
+  padding: "34px 48px 38px",
   textAlign: "center" as const,
+  backgroundColor: "#121214",
+};
+
+const footerLogo = {
+  margin: "0 auto 22px",
+  display: "block",
+};
+
+const footerBrand = {
+  fontSize: "42px",
+  lineHeight: "1.08",
+  letterSpacing: "-0.02em",
+  fontWeight: "700",
+  color: "#f4f4f5",
+  margin: "0 0 6px",
+};
+
+const footerDomain = {
+  fontSize: "34px",
+  lineHeight: "1.1",
+  fontWeight: "400",
+  color: "#8f8f99",
+  margin: "0 0 34px",
 };
 
 const footerText = {
-  fontSize: "12px",
-  color: "#6b7280",
-  lineHeight: "16px",
+  fontSize: "16px",
+  fontWeight: "400",
+  color: "#8f8f99",
+  lineHeight: "24px",
   margin: "0",
+};
+
+const footerLink = {
+  color: "#7793e4",
+  textDecoration: "none",
 };

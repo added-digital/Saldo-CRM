@@ -1,4 +1,4 @@
-import { Text, Button } from "@react-email/components";
+import { Text, Button, Section } from "@react-email/components";
 import { EmailLayout } from "./layout";
 
 interface ContentTemplateEmailProps {
@@ -24,69 +24,102 @@ export function ContentTemplateEmail({
   appUrl,
   brandName,
 }: ContentTemplateEmailProps) {
+  const hasCta = Boolean(ctaLabel && ctaUrl);
+
   return (
     <EmailLayout previewText={previewText ?? title} appUrl={appUrl} brandName={brandName}>
-      <Text style={heading}>{title}</Text>
-      {greeting ? <Text style={greetingStyle}>{greeting}</Text> : null}
+      <Section style={frame}>
+        <Text style={heading}>{title}</Text>
 
-      {paragraphs.map((paragraph, index) => (
-        <Text key={`${index}-${paragraph.slice(0, 16)}`} style={paragraphStyle}>
-          {paragraph}
-        </Text>
-      ))}
+        {greeting ? <Text style={greetingStyle}>{greeting}</Text> : null}
 
-      {ctaLabel && ctaUrl ? (
-        <Button href={ctaUrl} style={button}>
-          {ctaLabel}
-        </Button>
-      ) : null}
+        <Section style={paragraphGroup}>
+          {paragraphs.map((paragraph, index) => (
+            <Text key={`${index}-${paragraph.slice(0, 16)}`} style={paragraphStyle}>
+              {paragraph}
+            </Text>
+          ))}
+        </Section>
 
-      {footnote ? <Text style={note}>{footnote}</Text> : null}
+        {hasCta ? (
+          <Button href={ctaUrl} style={button}>
+            {ctaLabel}
+          </Button>
+        ) : null}
+
+        {footnote ? <Text style={note}>{footnote}</Text> : null}
+      </Section>
     </EmailLayout>
   );
 }
 
-const heading = {
-  fontSize: "24px",
-  fontWeight: "700",
-  color: "#1f2937",
-  marginBottom: "24px",
+const frame = {
+  padding: "52px 64px",
   textAlign: "center" as const,
+};
+
+const heading = {
+  fontSize: "40px",
+  fontWeight: "500",
+  fontFamily: 'Satoshi, Inter, "Segoe UI", sans-serif',
+  color: "#f4f4f5",
+  marginTop: "0",
+  marginBottom: "0",
+  textAlign: "center" as const,
+  lineHeight: "1.2",
+  letterSpacing: "-0.4px",
 };
 
 const greetingStyle = {
   fontSize: "16px",
-  fontWeight: "600",
-  color: "#1f2937",
-  marginBottom: "16px",
+  fontWeight: "400",
+  color: "#ffffff",
+  marginTop: "0",
+  marginBottom: "10px",
+  textAlign: "center" as const,
+};
+
+const paragraphGroup = {
+  width: "100%",
+  marginTop: "32px",
 };
 
 const paragraphStyle = {
-  fontSize: "14px",
-  color: "#374151",
-  lineHeight: "24px",
-  marginBottom: "16px",
+  fontSize: "16px",
+  fontFamily: '"Open Sans", Inter, "Segoe UI", sans-serif',
+  color: "#ffffff",
+  lineHeight: "1.4",
+  marginTop: "0",
+  marginBottom: "0",
+  textAlign: "center" as const,
 };
 
 const button = {
-  backgroundColor: "#4F46E5",
-  borderRadius: "6px",
-  color: "#ffffff",
-  fontSize: "16px",
-  fontWeight: "600",
+  backgroundColor: "#eabf89",
+  borderRadius: "999px",
+  color: "#151518",
+  fontSize: "14px",
+  fontWeight: "500",
+  fontFamily: 'Satoshi, Inter, "Segoe UI", sans-serif',
   textDecoration: "none",
   textAlign: "center" as const,
   display: "block",
-  padding: "12px 24px",
-  marginTop: "24px",
-  marginBottom: "24px",
+  width: "fit-content",
+  padding: "10px 16px",
+  marginTop: "32px",
+  marginBottom: "0",
+  marginLeft: "auto",
+  marginRight: "auto",
+  boxShadow: "0px 1px 2px rgba(82, 88, 102, 0.06)",
 };
 
 const note = {
-  fontSize: "13px",
-  color: "#6b7280",
-  lineHeight: "20px",
-  marginTop: "16px",
+  fontSize: "14px",
+  color: "#a1a1aa",
+  lineHeight: "22px",
+  marginTop: "18px",
+  marginBottom: "0",
+  textAlign: "center" as const,
 };
 
 export type { ContentTemplateEmailProps };

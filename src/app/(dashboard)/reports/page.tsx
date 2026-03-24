@@ -5,7 +5,7 @@ import { Check, ChevronDown, Filter } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
-import type { ContractAccrual, Customer, CustomerWithRelations, Invoice, Profile, Team } from "@/types/database"
+import type { ContractAccrual, Customer, CustomerWithRelations, Profile, Team } from "@/types/database"
 import { EmptyState } from "@/components/app/empty-state"
 import { KpiCards } from "@/components/app/kpi-cards"
 import { PageHeader } from "@/components/app/page-header"
@@ -206,6 +206,14 @@ type CustomerTimeReportingRow = {
   workloadPercentage: number
 }
 
+type CustomerMonthlyEconomicsRow = {
+  monthKey: string
+  monthLabel: string
+  turnover: number
+  hours: number
+  turnoverPerHour: number
+}
+
 type TimeDetailMetric = "customerHours" | "absenceHours" | "internalHours" | "otherHours" | "totalHours"
 
 type TimeDetailRow = {
@@ -218,6 +226,15 @@ type TimeDetailRow = {
   activity: string | null
   description: string | null
   hours: number
+}
+
+type InvoiceDetailRow = {
+  id: string
+  documentNumber: string
+  invoiceDate: string | null
+  dueDate: string | null
+  turnover: number
+  currencyCode: string
 }
 
 function metricLabel(metric: TimeDetailMetric): string {
@@ -336,8 +353,8 @@ export default function ReportsPage() {
   })
   const [accrualsLoading, setAccrualsLoading] = React.useState(false)
   const [customerAccruals, setCustomerAccruals] = React.useState<ContractAccrual[]>([])
-  const [invoicesLoading, setInvoicesLoading] = React.useState(false)
-  const [customerInvoices, setCustomerInvoices] = React.useState<Invoice[]>([])
+  const [customerMonthlyEconomicsLoading, setCustomerMonthlyEconomicsLoading] = React.useState(false)
+  const [customerMonthlyEconomicsRows, setCustomerMonthlyEconomicsRows] = React.useState<CustomerMonthlyEconomicsRow[]>([])
   const [monthlyTimeReportingLoading, setMonthlyTimeReportingLoading] = React.useState(false)
   const [monthlyTimeReportingRows, setMonthlyTimeReportingRows] = React.useState<MonthlyTimeReportingRow[]>([])
   const [customerTimeReportingLoading, setCustomerTimeReportingLoading] = React.useState(false)
@@ -346,6 +363,10 @@ export default function ReportsPage() {
   const [timeDetailsLoading, setTimeDetailsLoading] = React.useState(false)
   const [timeDetailsTitle, setTimeDetailsTitle] = React.useState("")
   const [timeDetailsRows, setTimeDetailsRows] = React.useState<TimeDetailRow[]>([])
+  const [invoiceDetailsOpen, setInvoiceDetailsOpen] = React.useState(false)
+  const [invoiceDetailsLoading, setInvoiceDetailsLoading] = React.useState(false)
+  const [invoiceDetailsTitle, setInvoiceDetailsTitle] = React.useState("")
+  const [invoiceDetailsRows, setInvoiceDetailsRows] = React.useState<InvoiceDetailRow[]>([])
 
   const showTeamFilter = isAdmin || user.role === "team_lead"
   const teamFilterDisabled = user.role === "team_lead" && !isAdmin
@@ -521,6 +542,22 @@ export default function ReportsPage() {
         className="font-medium underline underline-offset-2 hover:text-foreground"
       >
         {hoursFormatter.format(value)}
+      </button>
+    )
+  }
+
+  function renderTurnoverCell(value: number, onClick?: () => void) {
+    if (value === 0 || !onClick) {
+      return <span>{sekFormatter.format(value)}</span>
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="font-medium underline underline-offset-2 hover:text-foreground"
+      >
+        {sekFormatter.format(value)}
       </button>
     )
   }
@@ -704,6 +741,112 @@ export default function ReportsPage() {
     const detailRows = formatTimeDetailRows(allRows, metric)
     setTimeDetailsRows(detailRows)
     setTimeDetailsLoading(false)
+  }
+
+  async function openMonthlyInvoiceDetails(row: CustomerMonthlyEconomicsRow) {
+    if (!selectedCustomerId) return
+
+    const { from, to } = getMonthDateRange(row.monthKey)
+
+    setInvoiceDetailsOpen(true)
+    setInvoiceDetailsLoading(true)
+    setInvoiceDetailsRows([])
+    setInvoiceDetailsTitle(`${selectedCustomer?.name ?? "Selected customer"} · ${row.monthLabel} · Turnover`)
+
+    const supabase = createClient()
+    const withCustomerScope = (
+      query: ReturnType<typeof supabase.from>
+    ) => {
+      let scoped = query.gte("invoice_date", from).lte("invoice_date", to)
+      if (selectedCustomer?.fortnox_customer_number) {
+        scoped = scoped.or(
+          `customer_id.eq.${selectedCustomerId},fortnox_customer_number.eq.${selectedCustomer.fortnox_customer_number}`,
+        )
+      } else {
+        scoped = scoped.eq("customer_id", selectedCustomerId)
+      }
+      return scoped.order("invoice_date", { ascending: false })
+    }
+
+    let dueDateAvailable = true
+    let dueDateRows: Array<{
+      id: string
+      document_number: string
+      invoice_date: string | null
+      due_date: string | null
+      total: number | null
+      currency_code: string | null
+    }> = []
+
+    const withDueDate = await withCustomerScope(
+      supabase
+        .from("invoices")
+        .select("id, document_number, invoice_date, due_date, total, currency_code")
+    )
+
+    if (withDueDate.error && withDueDate.error.message.includes("due_date")) {
+      dueDateAvailable = false
+    } else if (withDueDate.error) {
+      setInvoiceDetailsRows([])
+      setInvoiceDetailsLoading(false)
+      return
+    } else {
+      dueDateRows = (withDueDate.data ?? []) as Array<{
+        id: string
+        document_number: string
+        invoice_date: string | null
+        due_date: string | null
+        total: number | null
+        currency_code: string | null
+      }>
+    }
+
+    if (!dueDateAvailable) {
+      const withoutDueDate = await withCustomerScope(
+        supabase
+          .from("invoices")
+          .select("id, document_number, invoice_date, total, currency_code")
+      )
+
+      if (withoutDueDate.error) {
+        setInvoiceDetailsRows([])
+        setInvoiceDetailsLoading(false)
+        return
+      }
+
+      const rows = (withoutDueDate.data ?? []) as Array<{
+        id: string
+        document_number: string
+        invoice_date: string | null
+        total: number | null
+        currency_code: string | null
+      }>
+
+      setInvoiceDetailsRows(
+        rows.map((invoice) => ({
+          id: invoice.id,
+          documentNumber: invoice.document_number,
+          invoiceDate: invoice.invoice_date,
+          dueDate: null,
+          turnover: Number(invoice.total ?? 0),
+          currencyCode: invoice.currency_code ?? "SEK",
+        })),
+      )
+      setInvoiceDetailsLoading(false)
+      return
+    }
+
+    setInvoiceDetailsRows(
+      dueDateRows.map((invoice) => ({
+        id: invoice.id,
+        documentNumber: invoice.document_number,
+        invoiceDate: invoice.invoice_date,
+        dueDate: invoice.due_date,
+        turnover: Number(invoice.total ?? 0),
+        currencyCode: invoice.currency_code ?? "SEK",
+      })),
+    )
+    setInvoiceDetailsLoading(false)
   }
 
   React.useEffect(() => {
@@ -1268,46 +1411,117 @@ export default function ReportsPage() {
   React.useEffect(() => {
     let cancelled = false
 
-    async function fetchCustomerInvoices() {
+    async function fetchCustomerMonthlyEconomics() {
       if (!selectedCustomerId) {
-        setCustomerInvoices([])
-        setInvoicesLoading(false)
+        setCustomerMonthlyEconomicsRows([])
+        setCustomerMonthlyEconomicsLoading(false)
         return
       }
 
-      setInvoicesLoading(true)
+      setCustomerMonthlyEconomicsLoading(true)
       const supabase = createClient()
-      const { data, error } = await supabase
+      const rowsByMonth = new Map<string, CustomerMonthlyEconomicsRow>()
+      for (const month of rollingWindow.months) {
+        rowsByMonth.set(month.key, {
+          monthKey: month.key,
+          monthLabel: month.label,
+          turnover: 0,
+          hours: 0,
+          turnoverPerHour: 0,
+        })
+      }
+
+      let invoiceQuery = supabase
         .from("invoices")
-        .select("*")
-        .eq("customer_id", selectedCustomerId)
+        .select("invoice_date, total")
         .gte("invoice_date", rollingWindow.from)
         .lte("invoice_date", rollingWindow.to)
-        .order("invoice_date", { ascending: false })
 
+      if (selectedCustomer?.fortnox_customer_number) {
+        invoiceQuery = invoiceQuery.or(
+          `customer_id.eq.${selectedCustomerId},fortnox_customer_number.eq.${selectedCustomer.fortnox_customer_number}`,
+        )
+      } else {
+        invoiceQuery = invoiceQuery.eq("customer_id", selectedCustomerId)
+      }
+
+      const { data: invoiceRows, error: invoiceError } = await invoiceQuery
       if (cancelled) return
 
-      if (error) {
-        setCustomerInvoices([])
-        setInvoicesLoading(false)
+      if (invoiceError) {
+        setCustomerMonthlyEconomicsRows([])
+        setCustomerMonthlyEconomicsLoading(false)
         return
       }
 
-      setCustomerInvoices((data ?? []) as Invoice[])
-      setInvoicesLoading(false)
+      for (const row of (invoiceRows ?? []) as Array<{ invoice_date: string | null; total: number | null }>) {
+        const monthKey = (row.invoice_date ?? "").slice(0, 7)
+        const target = rowsByMonth.get(monthKey)
+        if (!target) continue
+        target.turnover += Number(row.total ?? 0)
+      }
+
+      let hoursQuery = supabase
+        .from("time_reports")
+        .select("report_date, hours")
+        .eq("entry_type", "time")
+        .gte("report_date", rollingWindow.from)
+        .lte("report_date", rollingWindow.to)
+
+      if (selectedCustomer?.fortnox_customer_number) {
+        hoursQuery = hoursQuery.or(
+          `customer_id.eq.${selectedCustomerId},fortnox_customer_number.eq.${selectedCustomer.fortnox_customer_number}`,
+        )
+      } else {
+        hoursQuery = hoursQuery.eq("customer_id", selectedCustomerId)
+      }
+
+      const { data: hourRows, error: hourError } = await hoursQuery
+      if (cancelled) return
+
+      if (hourError) {
+        setCustomerMonthlyEconomicsRows([])
+        setCustomerMonthlyEconomicsLoading(false)
+        return
+      }
+
+      for (const row of (hourRows ?? []) as Array<{ report_date: string | null; hours: number | null }>) {
+        const monthKey = (row.report_date ?? "").slice(0, 7)
+        const target = rowsByMonth.get(monthKey)
+        if (!target) continue
+        target.hours += Number(row.hours ?? 0)
+      }
+
+      const orderedRows = rollingWindow.months.map((month) => {
+        const row = rowsByMonth.get(month.key) ?? {
+          monthKey: month.key,
+          monthLabel: month.label,
+          turnover: 0,
+          hours: 0,
+          turnoverPerHour: 0,
+        }
+
+        return {
+          ...row,
+          turnoverPerHour: row.hours > 0 ? row.turnover / row.hours : 0,
+        }
+      })
+
+      setCustomerMonthlyEconomicsRows(orderedRows)
+      setCustomerMonthlyEconomicsLoading(false)
     }
 
-    fetchCustomerInvoices().catch(() => {
+    fetchCustomerMonthlyEconomics().catch(() => {
       if (!cancelled) {
-        setCustomerInvoices([])
-        setInvoicesLoading(false)
+        setCustomerMonthlyEconomicsRows([])
+        setCustomerMonthlyEconomicsLoading(false)
       }
     })
 
     return () => {
       cancelled = true
     }
-  }, [selectedCustomerId, rollingWindow])
+  }, [selectedCustomerId, selectedCustomer, rollingWindow])
 
   return (
     <div className="space-y-6">
@@ -1548,38 +1762,47 @@ export default function ReportsPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Invoices</CardTitle>
+                  <CardTitle className="text-base">Monthly turnover and hours</CardTitle>
                   <p className="text-sm text-muted-foreground">
                     {selectedCustomer?.name ?? "Selected customer"} · {rollingWindow.title}
                   </p>
                 </CardHeader>
                 <CardContent>
-                  {invoicesLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading invoices...</p>
-                  ) : customerInvoices.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No invoices found for this customer in the selected range.</p>
+                  {customerMonthlyEconomicsLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading monthly economics...</p>
+                  ) : customerMonthlyEconomicsRows.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No turnover or hour data found for this customer in the selected range.</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-[760px] text-sm">
                         <thead>
                           <tr className="border-b text-left text-muted-foreground">
-                            <th className="px-2 py-2 font-medium">Invoice #</th>
-                            <th className="px-2 py-2 font-medium">Date</th>
-                            <th className="px-2 py-2 font-medium">Customer</th>
-                            <th className="px-2 py-2 font-medium">Total</th>
-                            <th className="px-2 py-2 font-medium">Balance</th>
-                            <th className="px-2 py-2 font-medium">Currency</th>
+                            <th className="px-2 py-2 font-medium">Month</th>
+                            <th className="px-2 py-2 font-medium">Turnover</th>
+                            <th className="px-2 py-2 font-medium">Hours</th>
+                            <th className="px-2 py-2 font-medium">Turnover / Hours</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {customerInvoices.map((invoice) => (
-                            <tr key={invoice.id} className="border-b last:border-0">
-                              <td className="px-2 py-2">{invoice.document_number}</td>
-                              <td className="px-2 py-2">{invoice.invoice_date ?? "-"}</td>
-                              <td className="px-2 py-2">{invoice.customer_name ?? selectedCustomer?.name ?? "-"}</td>
-                              <td className="px-2 py-2">{sekFormatter.format(Number(invoice.total ?? 0))}</td>
-                              <td className="px-2 py-2">{sekFormatter.format(Number(invoice.balance ?? 0))}</td>
-                              <td className="px-2 py-2">{invoice.currency_code}</td>
+                          {customerMonthlyEconomicsRows.map((row) => (
+                            <tr key={row.monthKey} className="border-b last:border-0">
+                              <td className="px-2 py-2">{row.monthLabel}</td>
+                              <td className="px-2 py-2">
+                                {renderTurnoverCell(row.turnover, () => openMonthlyInvoiceDetails(row))}
+                              </td>
+                              <td className="px-2 py-2">
+                                {renderHourCell(row.hours, () => openMonthlyTimeDetails({
+                                  monthKey: row.monthKey,
+                                  monthLabel: row.monthLabel,
+                                  customerHours: row.hours,
+                                  absenceHours: 0,
+                                  internalHours: 0,
+                                  totalHours: row.hours,
+                                }, "customerHours"))}
+                              </td>
+                              <td className="px-2 py-2">
+                                {row.hours > 0 ? `${sekFormatter.format(row.turnoverPerHour)} / h` : "-"}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1629,6 +1852,45 @@ export default function ReportsPage() {
                       <td className="px-2 py-2">{row.projectName ?? "-"}</td>
                       <td className="px-2 py-2">{row.activity ?? "-"}</td>
                       <td className="px-2 py-2">{row.description ?? "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={invoiceDetailsOpen} onOpenChange={setInvoiceDetailsOpen}>
+        <DialogContent className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] w-[calc(100vw-4rem)] max-w-none flex-col sm:max-w-none">
+          <DialogHeader>
+            <DialogTitle>{invoiceDetailsTitle}</DialogTitle>
+          </DialogHeader>
+
+          {invoiceDetailsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading invoices...</p>
+          ) : invoiceDetailsRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No matching invoices found for this month.</p>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-auto">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="px-2 py-2 font-medium">Invoice #</th>
+                    <th className="px-2 py-2 font-medium">Date</th>
+                    <th className="px-2 py-2 font-medium">Due date</th>
+                    <th className="px-2 py-2 font-medium">Turnover</th>
+                    <th className="px-2 py-2 font-medium">Currency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoiceDetailsRows.map((row) => (
+                    <tr key={row.id} className="border-b last:border-0">
+                      <td className="px-2 py-2">{row.documentNumber}</td>
+                      <td className="px-2 py-2">{row.invoiceDate ?? "-"}</td>
+                      <td className="px-2 py-2">{row.dueDate ?? "-"}</td>
+                      <td className="px-2 py-2">{sekFormatter.format(row.turnover)}</td>
+                      <td className="px-2 py-2">{row.currencyCode}</td>
                     </tr>
                   ))}
                 </tbody>

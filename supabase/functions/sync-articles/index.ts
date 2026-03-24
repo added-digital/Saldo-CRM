@@ -2,8 +2,17 @@ import { createAdminClient } from "../_shared/supabase.ts"
 import { getFortnoxClient, updateSyncJob, delay, corsHeaders } from "../_shared/sync-helpers.ts"
 
 const RATE_LIMIT_DELAY_MS = 220
+const RETRY_BASE_DELAY_MS = 700
 const PAGES_PER_BATCH = 10
 const PAGE_LIMIT = 500
+const MAX_PAGES = 200
+
+type EndpointName = "time-articles-v1" | "articles-v3"
+
+const ARTICLE_ENDPOINTS: Array<{ name: EndpointName; path: string }> = [
+  { name: "time-articles-v1", path: "/api/time/articles-v1" },
+  { name: "articles-v3", path: "/3/articles" },
+]
 
 type ArticleRow = {
   article_number: string
@@ -16,6 +25,19 @@ type ArticleRow = {
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object") return null
   return value as Record<string, unknown>
+}
+
+function hasErrorInformation(response: Record<string, unknown>): boolean {
+  return Boolean(asRecord(response.ErrorInformation) ?? asRecord(response.error))
+}
+
+function extractErrorMessage(response: Record<string, unknown>): string | null {
+  const errorInfo = asRecord(response.ErrorInformation) ?? asRecord(response.error)
+  if (!errorInfo) return null
+
+  const message = errorInfo.Message ?? errorInfo.message ?? errorInfo.Details ?? errorInfo.details
+  if (message == null) return null
+  return String(message)
 }
 
 function extractArticles(response: Record<string, unknown>): Array<Record<string, unknown>> {
@@ -59,8 +81,72 @@ function extractTotalPages(response: Record<string, unknown>, fallback: number):
   return fallback
 }
 
+function hasMetaInformation(response: Record<string, unknown>): boolean {
+  return Boolean(asRecord(response.MetaInformation) ?? asRecord(response.meta) ?? asRecord(response.Pagination))
+}
+
+async function withRetry<T>(operation: () => Promise<T>, retries = 4): Promise<T> {
+  let attempt = 0
+
+  while (attempt < retries) {
+    attempt += 1
+    try {
+      return await operation()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      const isRateLimit = message.includes("Rate limited") || message.includes("429")
+      const isRetriable = isRateLimit || message.includes("Fortnox API error (5") || message.includes("fetch failed")
+
+      if (!isRetriable || attempt >= retries) {
+        throw error
+      }
+
+      const delayMs = isRateLimit
+        ? RATE_LIMIT_DELAY_MS * 4 + RETRY_BASE_DELAY_MS
+        : RETRY_BASE_DELAY_MS * attempt
+
+      await delay(delayMs)
+    }
+  }
+
+  throw new Error("Failed to fetch Fortnox articles after retries")
+}
+
+async function fetchArticlesPage(
+  client: { requestPath: <T>(path: string) => Promise<T> },
+  page: number,
+  limit: number,
+): Promise<{ endpoint: EndpointName; response: Record<string, unknown>; articles: Array<Record<string, unknown>> }> {
+  let lastErrorMessage: string | null = null
+
+  for (const endpoint of ARTICLE_ENDPOINTS) {
+    const response = await withRetry(() => client.requestPath<Record<string, unknown>>(`${endpoint.path}?limit=${limit}&page=${page}`))
+
+    if (hasErrorInformation(response)) {
+      lastErrorMessage = extractErrorMessage(response)
+      continue
+    }
+
+    const articles = extractArticles(response)
+    const hasMeta = hasMetaInformation(response)
+
+    if (articles.length === 0 && !hasMeta && endpoint.name === "time-articles-v1") {
+      continue
+    }
+
+    return { endpoint: endpoint.name, response, articles }
+  }
+
+  throw new Error(lastErrorMessage ?? "No usable response from Fortnox article endpoints")
+}
+
 function mapArticle(article: Record<string, unknown>): ArticleRow | null {
-  const articleNumber = article.ArticleNumber ?? article.articleNumber ?? article.article_number ?? article.Number
+  const articleNumber = article.ArticleNumber
+    ?? article.articleNumber
+    ?? article.article_number
+    ?? article.Number
+    ?? article.ArticleNo
+    ?? article.ArticleId
   if (!articleNumber) return null
 
   const activeRaw = article.Active ?? article.active ?? article.IsActive
@@ -89,7 +175,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     jobId = body.job_id ?? null
     const phase: string = body.phase ?? "list"
-    const offset: number = body.offset ?? 0
+    const offset: number = Number(body.offset ?? 0)
+    const maxPages = Math.max(1, Math.min(MAX_PAGES, Number(body.maxPages ?? MAX_PAGES)))
 
     if (phase !== "list") {
       return new Response(
@@ -128,6 +215,7 @@ Deno.serve(async (req) => {
     let errors = prevErrors
     let totalFetched = prevTotal
     let firstError: string | null = null
+    let activeEndpoint: EndpointName | null = null
 
     const startPage = offset + 1
     let currentPage = startPage
@@ -135,9 +223,10 @@ Deno.serve(async (req) => {
     let pagesThisBatch = 0
 
     do {
-      const response = await client.getTimeArticles(currentPage, PAGE_LIMIT)
-      const articles = extractArticles(response)
+      const { endpoint, response, articles } = await fetchArticlesPage(client, currentPage, PAGE_LIMIT)
+      activeEndpoint = endpoint
       totalPages = extractTotalPages(response, articles.length === PAGE_LIMIT ? currentPage + 1 : currentPage)
+      totalPages = Math.min(totalPages, maxPages)
 
       const mapped = articles
         .map((article) => mapArticle(article))
@@ -161,12 +250,12 @@ Deno.serve(async (req) => {
       pagesThisBatch += 1
       currentPage += 1
 
-      if (currentPage <= totalPages && pagesThisBatch < PAGES_PER_BATCH) {
+      if (currentPage <= totalPages && currentPage <= maxPages && pagesThisBatch < PAGES_PER_BATCH) {
         await delay(RATE_LIMIT_DELAY_MS)
       }
-    } while (currentPage <= totalPages && pagesThisBatch < PAGES_PER_BATCH)
+    } while (currentPage <= totalPages && currentPage <= maxPages && pagesThisBatch < PAGES_PER_BATCH)
 
-    const morePages = currentPage <= totalPages
+    const morePages = currentPage <= totalPages && currentPage <= maxPages
 
     if (jobId) {
       const updatePayload: Record<string, unknown> = {
@@ -181,8 +270,8 @@ Deno.serve(async (req) => {
       await updateSyncJob(supabase, jobId, {
         status: morePages ? "processing" : "completed",
         current_step: morePages
-          ? `Syncing articles (page ${currentPage - 1}/${totalPages}, ${synced} saved)...`
-          : `Article registry synced (${synced} saved).`,
+          ? `Syncing articles via ${activeEndpoint ?? "fallback"} (page ${currentPage - 1}/${totalPages}, ${synced} saved)...`
+          : `Article registry synced via ${activeEndpoint ?? "fallback"} (${synced} saved).`,
         total_items: totalPages * PAGE_LIMIT,
         processed_items: totalFetched,
         progress: morePages ? Math.min(95, Math.round(((currentPage - 1) / totalPages) * 100)) : 100,

@@ -9,6 +9,7 @@ interface EmailRequest {
   to: string
   template: "content"
   data: Record<string, unknown>
+  mode?: "send" | "preview"
 }
 
 function asString(value: unknown, fallback = ""): string {
@@ -127,7 +128,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body: EmailRequest = await request.json()
-    const { to, template, data } = body
+    const { to, template, data, mode = "send" } = body
+
+    const renderTemplate = templateRenderers[template]
+    if (!renderTemplate) {
+      return NextResponse.json({ error: "Invalid template" }, { status: 400 })
+    }
+
+    const { subject, html } = await renderTemplate(data ?? {})
+
+    if (mode === "preview") {
+      return NextResponse.json({ success: true, subject, html })
+    }
 
     const {
       data: { session },
@@ -144,16 +156,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const renderTemplate = templateRenderers[template]
-    if (!renderTemplate) {
-      return NextResponse.json({ error: "Invalid template" }, { status: 400 })
-    }
-
-    const { subject, html } = await renderTemplate(data ?? {})
-
     await sendMicrosoftGraphMail(providerToken, to, subject, html)
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, subject })
   } catch (error) {
     console.error("Email send error:", error)
     return NextResponse.json(
