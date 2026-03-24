@@ -587,8 +587,11 @@ export default function ReportsPage() {
     if (filteredCustomers.length === 0) return
 
     const { from, to } = getMonthDateRange(row.monthKey)
-    const customerIds = filteredCustomers.map((customer) => customer.id)
-    const customerIdChunks = chunkArray(customerIds, 200)
+    const customerScope = filteredCustomers.map((customer) => ({
+      id: customer.id,
+      fortnoxCustomerNumber: customer.fortnox_customer_number,
+    }))
+    const customerScopeChunks = chunkArray(customerScope, 200)
 
     setTimeDetailsOpen(true)
     setTimeDetailsLoading(true)
@@ -608,36 +611,94 @@ export default function ReportsPage() {
       description: string | null
       hours: number | null
     }> = []
+    const seenRowIds = new Set<string>()
 
-    for (const idChunk of customerIdChunks) {
-      const query = supabase
-        .from("time_reports")
-        .select("id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours")
-        .in("customer_id", idChunk)
-        .gte("report_date", from)
-        .lte("report_date", to)
-      const { data, error } = await query
+    function addRows(
+      rows: Array<{
+        id: string
+        report_date: string | null
+        customer_name: string | null
+        employee_id: string | null
+        employee_name: string | null
+        entry_type: string | null
+        project_name: string | null
+        activity: string | null
+        description: string | null
+        hours: number | null
+      }>,
+    ) {
+      for (const reportRow of rows) {
+        if (seenRowIds.has(reportRow.id)) continue
+        seenRowIds.add(reportRow.id)
+        allRows.push(reportRow)
+      }
+    }
 
-      if (error) {
-        setTimeDetailsRows([])
-        setTimeDetailsLoading(false)
-        return
+    for (const scopeChunk of customerScopeChunks) {
+      const customerIds = scopeChunk.map((customer) => customer.id)
+      const customerNumbers = scopeChunk
+        .map((customer) => customer.fortnoxCustomerNumber)
+        .filter((value): value is string => Boolean(value))
+
+      if (customerIds.length > 0) {
+        const { data, error } = await supabase
+          .from("time_reports")
+          .select("id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours")
+          .in("customer_id", customerIds)
+          .gte("report_date", from)
+          .lte("report_date", to)
+
+        if (error) {
+          setTimeDetailsRows([])
+          setTimeDetailsLoading(false)
+          return
+        }
+
+        addRows(
+          (data ?? []) as Array<{
+            id: string
+            report_date: string | null
+            customer_name: string | null
+            employee_id: string | null
+            employee_name: string | null
+            entry_type: string | null
+            project_name: string | null
+            activity: string | null
+            description: string | null
+            hours: number | null
+          }>,
+        )
       }
 
-      allRows.push(
-        ...((data ?? []) as Array<{
-      id: string
-      report_date: string | null
-      customer_name: string | null
-      employee_id: string | null
-      employee_name: string | null
-      entry_type: string | null
-      project_name: string | null
-          activity: string | null
-          description: string | null
-          hours: number | null
-        }>),
-      )
+      if (customerNumbers.length > 0) {
+        const { data, error } = await supabase
+          .from("time_reports")
+          .select("id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours")
+          .in("fortnox_customer_number", customerNumbers)
+          .gte("report_date", from)
+          .lte("report_date", to)
+
+        if (error) {
+          setTimeDetailsRows([])
+          setTimeDetailsLoading(false)
+          return
+        }
+
+        addRows(
+          (data ?? []) as Array<{
+            id: string
+            report_date: string | null
+            customer_name: string | null
+            employee_id: string | null
+            employee_name: string | null
+            entry_type: string | null
+            project_name: string | null
+            activity: string | null
+            description: string | null
+            hours: number | null
+          }>,
+        )
+      }
     }
 
     const detailRows = formatTimeDetailRows(allRows, metric)
