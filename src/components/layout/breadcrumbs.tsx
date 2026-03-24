@@ -1,11 +1,12 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight, House } from "lucide-react"
 
+import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
-import { system } from "@/config/system"
 
 interface BreadcrumbsProps {
   className?: string
@@ -13,19 +14,62 @@ interface BreadcrumbsProps {
 
 function Breadcrumbs({ className }: BreadcrumbsProps) {
   const pathname = usePathname()
+  const [dynamicLabels, setDynamicLabels] = React.useState<Record<string, string>>({})
 
-  const segments = pathname
-    .split("/")
-    .filter(Boolean)
+  const segments = React.useMemo(
+    () => pathname.split("/").filter(Boolean),
+    [pathname],
+  )
+
+  React.useEffect(() => {
+    const isCustomerDetailsRoute = segments[0] === "customers" && Boolean(segments[1]) && segments[1] !== "contacts"
+    if (!isCustomerDetailsRoute) {
+      setDynamicLabels((current) => (Object.keys(current).length === 0 ? current : {}))
+      return
+    }
+
+    const customerId = segments[1]
+    let cancelled = false
+
+    async function loadCustomerName() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from("customers")
+        .select("name")
+        .eq("id", customerId)
+        .maybeSingle()
+
+      if (cancelled) return
+      const customerRow = data as { name: string | null } | null
+      const customerName = customerRow?.name?.trim()
+      if (!customerName) return
+
+      setDynamicLabels((current) => ({
+        ...current,
+        [`/customers/${customerId}`]: customerName,
+      }))
+    }
+
+    void loadCustomerName()
+
+    return () => {
+      cancelled = true
+    }
+  }, [pathname, segments])
 
   const breadcrumbs = [
-    { label: system.shortName, href: "/" },
-    ...segments.map((segment, index) => ({
-      label: segment
+    { label: "Home", href: "/" },
+    ...segments.map((segment, index) => {
+      const href = "/" + segments.slice(0, index + 1).join("/")
+      const fallbackLabel = segment
         .replace(/[-_]/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase()),
-      href: "/" + segments.slice(0, index + 1).join("/"),
-    })),
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+
+      return {
+        label: dynamicLabels[href] ?? fallbackLabel,
+        href,
+      }
+    }),
   ]
 
   return (
@@ -33,6 +77,7 @@ function Breadcrumbs({ className }: BreadcrumbsProps) {
       <ol className="flex items-center gap-1 text-sm">
         {breadcrumbs.map((crumb, index) => {
           const isLast = index === breadcrumbs.length - 1
+          const isRoot = index === 0
 
           return (
             <li key={crumb.href} className="flex items-center gap-1">
@@ -40,13 +85,19 @@ function Breadcrumbs({ className }: BreadcrumbsProps) {
                 <ChevronRight className="size-3.5 text-muted-foreground" aria-hidden="true" />
               )}
               {isLast ? (
-                <span className="font-medium text-foreground">{crumb.label}</span>
+                isRoot ? (
+                  <span className="inline-flex items-center text-foreground" aria-label="Home">
+                    <House className="size-4" aria-hidden="true" />
+                  </span>
+                ) : (
+                  <span className="font-medium text-foreground">{crumb.label}</span>
+                )
               ) : (
                 <Link
                   href={crumb.href}
                   className="text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  {crumb.label}
+                  {isRoot ? <House className="size-4" aria-hidden="true" /> : crumb.label}
                 </Link>
               )}
             </li>

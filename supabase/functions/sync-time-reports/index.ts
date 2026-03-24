@@ -1,6 +1,10 @@
 import { createAdminClient } from "../_shared/supabase.ts"
 import { corsHeaders, getFortnoxClient, updateSyncJob } from "../_shared/sync-helpers.ts"
 
+declare const Deno: {
+  serve: (handler: (req: Request) => Response | Promise<Response>) => void
+}
+
 const TIME_REPORT_FROM_DATE = "2025-01-01"
 const SOURCE_ENDPOINT = "/api/time/registrations-v2"
 const KPI_BATCH_SIZE = 1000
@@ -106,7 +110,8 @@ function mapRow(
   row: Record<string, unknown>,
   index: number,
   customerByNumber: Map<string, { id: string; name: string; fortnox_customer_number: string | null }>,
-  customerByCostCenter: Map<string, { id: string; name: string; fortnox_customer_number: string | null }>
+  customerByCostCenter: Map<string, { id: string; name: string; fortnox_customer_number: string | null }>,
+  userIdByEmployeeId: Map<string, string>
 ): Record<string, unknown> | null {
   const registrationCodeField = (row.registrationCode ?? row.RegistrationCode) as Record<string, unknown> | undefined
   const customerField = row.customer as Record<string, unknown> | undefined
@@ -156,6 +161,8 @@ function mapRow(
     reportId || `${entryType}|${reportDate}|${employeeId}|${customerNumber}|${projectNumber}|${articleNumber}|${hours}|${description}|${index}`
   )
 
+  const mappedUserId = employeeId ? (userIdByEmployeeId.get(employeeId) ?? employeeId) : ""
+
   if (!uniqueKey) return null
 
   return {
@@ -167,7 +174,7 @@ function mapRow(
     source_endpoint: SOURCE_ENDPOINT,
     report_id: reportId || null,
     report_date: reportDate,
-    employee_id: employeeId || null,
+    employee_id: mappedUserId || null,
     employee_name: employeeName || null,
     fortnox_customer_number: (matchedCustomer?.fortnox_customer_number ?? customerNumber) || null,
     customer_name: (matchedCustomer?.name ?? customerName) || null,
@@ -207,8 +214,15 @@ Deno.serve(async (req) => {
         .from("customers")
         .select("id, name, fortnox_customer_number, fortnox_cost_center")
 
+      const { data: profileRows } = await supabase
+        .from("profiles")
+        .select("fortnox_employee_id, fortnox_user_id")
+        .not("fortnox_employee_id", "is", null)
+        .not("fortnox_user_id", "is", null)
+
       const customerByNumber = new Map<string, { id: string; name: string; fortnox_customer_number: string | null }>()
       const customerByCostCenter = new Map<string, { id: string; name: string; fortnox_customer_number: string | null }>()
+      const userIdByEmployeeId = new Map<string, string>()
 
       for (const customer of (customers ?? []) as Array<{
         id: string
@@ -230,6 +244,17 @@ Deno.serve(async (req) => {
             fortnox_customer_number: customer.fortnox_customer_number,
           })
         }
+      }
+
+      for (const profileRow of (profileRows ?? []) as Array<{
+        fortnox_employee_id: string | null
+        fortnox_user_id: string | null
+      }>) {
+        const employeeId = normalizeText(profileRow.fortnox_employee_id)
+        const userId = normalizeText(profileRow.fortnox_user_id)
+
+        if (!employeeId || !userId) continue
+        userIdByEmployeeId.set(employeeId, userId)
       }
 
       const windowIndex = Number(body.offset ?? 0)
@@ -260,7 +285,7 @@ Deno.serve(async (req) => {
 
       const rows = await fetchRows(client, window)
       const mapped = rows
-        .map((row, index) => mapRow(row, index, customerByNumber, customerByCostCenter))
+        .map((row, index) => mapRow(row, index, customerByNumber, customerByCostCenter, userIdByEmployeeId))
         .filter((row): row is Record<string, unknown> => row !== null)
 
       const skipped = previousSkipped + (rows.length - mapped.length)

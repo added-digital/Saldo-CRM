@@ -1,8 +1,7 @@
 import {
-  LayoutDashboard,
+  House,
   Users,
   UserRound,
-  Shield,
   Settings,
   BarChart3,
   type LucideIcon,
@@ -26,7 +25,7 @@ export interface NavSection {
 export const navigation: NavSection[] = [
   {
     items: [
-      { label: "Dashboard", href: "/", icon: LayoutDashboard },
+      { label: "Home", href: "/", icon: House },
     ],
   },
   {

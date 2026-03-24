@@ -488,11 +488,11 @@ Deno.serve(async (req) => {
         const customer = customerByNumber.get(row.fortnox_customer_number)
         if (!customer) continue
 
+        if (!row.is_active) continue
+
         const annualizedValue = annualizeContractTotal(row.total, row.period)
-        if (row.is_active) {
-          const totals = getCustomerTotals(customerTotals, customer.id)
-          totals.contractValue += annualizedValue
-        }
+        const totals = getCustomerTotals(customerTotals, customer.id)
+        totals.contractValue += annualizedValue
 
         addContractKpiValues(periodKpis, customer, {
           startDate: row.start_date,

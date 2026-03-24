@@ -3,7 +3,41 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { FortnoxClient } from "@/lib/fortnox/client"
 import { requestAccessToken } from "@/lib/fortnox/auth"
+import { fetchRegistrationsV2 } from "@/lib/fortnox/time-registrations"
 import type { Profile, FortnoxConnection } from "@/types/database"
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+function asText(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function readTextField(record: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = asText(record[key])
+    if (value) return value
+  }
+
+  return null
+}
+
+function readCollection(payload: Record<string, unknown>, keys: string[]): Record<string, unknown>[] {
+  for (const key of keys) {
+    const value = payload[key]
+    if (!Array.isArray(value)) continue
+
+    return value
+      .map((item) => asRecord(item))
+      .filter((item): item is Record<string, unknown> => Boolean(item))
+  }
+
+  return []
+}
 
 async function getFortnoxClient(adminClient: ReturnType<typeof createAdminClient>): Promise<FortnoxClient> {
   const { data: connData } = await adminClient
@@ -111,6 +145,250 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         customer_number: customerNumber,
         raw: result.Customer,
+      })
+    }
+
+    const fortnoxUsersDump = request.nextUrl.searchParams.get("fortnoxusersdump")
+    if (fortnoxUsersDump === "1") {
+      const fortnox = await getFortnoxClient(adminClient)
+      const endpointCandidates = [
+        "/3/users?limit=500",
+        "/api/users?limit=500",
+        "/api/users",
+      ]
+
+      const attempts: Array<{ endpoint: string; ok: boolean; error?: string }> = []
+
+      for (const endpoint of endpointCandidates) {
+        try {
+          const result = await fortnox.requestPath<Record<string, unknown>>(endpoint)
+
+          return NextResponse.json({
+            debug: "fortnoxusersdump",
+            endpoint,
+            raw: result,
+            attempts: [...attempts, { endpoint, ok: true }],
+          })
+        } catch (error) {
+          attempts.push({
+            endpoint,
+            ok: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          })
+        }
+      }
+
+      return NextResponse.json(
+        {
+          error: "Could not fetch Fortnox users from available endpoints",
+          attempts,
+        },
+        { status: 404 }
+      )
+    }
+
+    const fortnoxEmployeesDump = request.nextUrl.searchParams.get("fortnoxemployeesdump")
+    if (fortnoxEmployeesDump === "1") {
+      const fortnox = await getFortnoxClient(adminClient)
+      const result = await fortnox.requestPath<Record<string, unknown>>("/3/employees")
+
+      return NextResponse.json({
+        debug: "fortnoxemployeesdump",
+        endpoint: "/3/employees",
+        raw: result,
+      })
+    }
+
+    const fortnoxUserDump = request.nextUrl.searchParams.get("fortnoxuserdump")
+    if (fortnoxUserDump === "1") {
+      const fortnox = await getFortnoxClient(adminClient)
+      const userId = request.nextUrl.searchParams.get("userId")?.trim() ?? ""
+
+      if (!userId) {
+        return NextResponse.json(
+          { error: "userId is required for fortnoxuserdump=1" },
+          { status: 400 }
+        )
+      }
+
+      const endpointCandidates = [
+        `/3/employees/${encodeURIComponent(userId)}`,
+        `/3/users/${encodeURIComponent(userId)}`,
+        `/api/time/users/${encodeURIComponent(userId)}`,
+      ]
+
+      const attempts: Array<{ endpoint: string; ok: boolean; error?: string }> = []
+      let employeeRaw: Record<string, unknown> | null = null
+      let directUserRaw: Record<string, unknown> | null = null
+
+      for (const endpoint of endpointCandidates) {
+        try {
+          const result = await fortnox.requestPath<Record<string, unknown>>(endpoint)
+          const rawResult = asRecord(result) ?? {}
+          const employeeFromResult = asRecord(rawResult.Employee)
+          const userFromResult = asRecord(rawResult.User)
+
+          if (employeeFromResult) {
+            employeeRaw = employeeFromResult
+          }
+
+          if (userFromResult) {
+            directUserRaw = userFromResult
+          }
+
+          attempts.push({ endpoint, ok: true })
+        } catch (error) {
+          attempts.push({
+            endpoint,
+            ok: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          })
+        }
+      }
+
+      const employeesResponse = await fortnox.getEmployees()
+
+      const userListEndpoints = [
+        "/3/users?limit=500",
+        "/api/users?limit=500",
+        "/api/users",
+      ]
+
+      let usersListPayload: Record<string, unknown> | null = null
+
+      for (const endpoint of userListEndpoints) {
+        try {
+          const result = await fortnox.requestPath<Record<string, unknown>>(endpoint)
+          usersListPayload = asRecord(result)
+          attempts.push({ endpoint, ok: true })
+          if (usersListPayload) break
+        } catch (error) {
+          attempts.push({
+            endpoint,
+            ok: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          })
+        }
+      }
+
+      const employeeFromList = (employeesResponse.Employees ?? []).find((employee) => {
+        const employeeId = String(employee.EmployeeId ?? "").trim()
+        return employeeId === userId
+      })
+
+      if (!employeeRaw && employeeFromList) {
+        const fallbackEmployeeRecord = asRecord(employeeFromList)
+        if (fallbackEmployeeRecord) {
+          employeeRaw = fallbackEmployeeRecord
+        }
+      }
+
+      const usersPayload = usersListPayload ?? {}
+      const users = readCollection(usersPayload, ["Users", "users", "Data", "data"])
+
+      const employeeEmail = employeeRaw ? readTextField(employeeRaw, ["Email", "email"]) : null
+      const employeeId = employeeRaw ? readTextField(employeeRaw, ["EmployeeId", "employeeId", "Id", "id"]) : null
+
+      const matchingUsers = users.filter((userRecord) => {
+        const userEmail = readTextField(userRecord, ["Email", "email", "UserEmail", "userEmail"])
+        const linkedEmployeeId = readTextField(userRecord, ["EmployeeId", "employeeId", "LinkedEmployeeId", "linkedEmployeeId"])
+        const directUserId = readTextField(userRecord, ["UserId", "userId", "Id", "id"])
+
+        const matchesEmail = employeeEmail && userEmail && employeeEmail.toLowerCase() === userEmail.toLowerCase()
+        const matchesEmployeeId = employeeId && linkedEmployeeId && employeeId === linkedEmployeeId
+        const matchesDirectId = directUserId && directUserId === userId
+
+        return Boolean(matchesEmail || matchesEmployeeId || matchesDirectId)
+      })
+
+      const likelyUserId = matchingUsers.length > 0
+        ? readTextField(matchingUsers[0], ["UserId", "userId", "Id", "id"])
+        : null
+
+      if (!directUserRaw && matchingUsers.length > 0) {
+        directUserRaw = matchingUsers[0]
+      }
+
+      return NextResponse.json({
+        debug: "fortnoxuserdump",
+        lookup_id: userId,
+        likely_user_id: likelyUserId,
+        endpoint: directUserRaw ? "resolved:/3/users" : employeeRaw ? "resolved:/3/employees" : null,
+        raw: {
+          user: directUserRaw,
+          employee: employeeRaw,
+        },
+        users_match_count: matchingUsers.length,
+        users_matches: matchingUsers,
+        attempts,
+      })
+    }
+
+    const fortnoxDump = request.nextUrl.searchParams.get("fortnoxdump")
+    if (fortnoxDump === "1") {
+      const fortnox = await getFortnoxClient(adminClient)
+      const fromDate = request.nextUrl.searchParams.get("fromDate") ?? "2025-01-01"
+
+      const [timeRows, employeesResponse] = await Promise.all([
+        fetchRegistrationsV2(fortnox, fromDate),
+        fortnox.getEmployees(),
+      ])
+
+      const timeReports = timeRows.slice(0, 10).map((row) => ({
+        report_date: row.report_date,
+        employee_id: row.employee_id,
+        employee_name: row.employee_name,
+        customer_name: row.customer_name,
+        entry_type: row.entry_type,
+        hours: row.hours,
+        project_name: row.project_name,
+        activity: row.activity,
+      }))
+
+      const employees = (employeesResponse.Employees ?? []).slice(0, 10).map((employee) => ({
+        employee_id: employee.EmployeeId ?? null,
+        full_name: employee.FullName ?? null,
+        first_name: employee.FirstName ?? null,
+        last_name: employee.LastName ?? null,
+        email: employee.Email ?? null,
+        inactive: Boolean(employee.Inactive),
+      }))
+
+      return NextResponse.json({
+        debug: "fortnoxdump",
+        fromDate,
+        limits: {
+          time_reports: 10,
+          employees: 10,
+        },
+        time_reports: timeReports,
+        employees,
+      })
+    }
+
+    const dbDump = request.nextUrl.searchParams.get("dbdump")
+    if (dbDump === "1") {
+      const [timeReportsRes, usersRes] = await Promise.all([
+        adminClient
+          .from("time_reports")
+          .select("id, report_date, employee_id, employee_name, customer_name, entry_type, hours, project_name, activity, description, created_at")
+          .order("created_at", { ascending: false })
+          .limit(10),
+        adminClient
+          .from("profiles")
+          .select("id, email, full_name, fortnox_employee_id, team_id, role, is_active, created_at")
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ])
+
+      return NextResponse.json({
+        debug: "dbdump",
+        limits: {
+          time_reports: 10,
+          users: 10,
+        },
+        time_reports: timeReportsRes.data ?? [],
+        users: usersRes.data ?? [],
       })
     }
 

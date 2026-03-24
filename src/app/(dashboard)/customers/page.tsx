@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
-import { Users, Tags, LayoutGrid } from "lucide-react"
+import { Users, Tags, ChevronLeft, ChevronRight } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import type { CustomerWithRelations, Profile, Segment } from "@/types/database"
@@ -188,6 +188,25 @@ const customerListColumnDefinitions: Omit<CustomerListColumnOption, "visible">[]
 ]
 
 const CUSTOMER_FILTERS_STORAGE_KEY = "saldo-crm:customers:filters"
+const CUSTOMER_LIST_COLUMNS_STORAGE_KEY = "saldo-crm:customers:list-columns"
+const CUSTOMER_TABLE_PAGE_SIZE = 15
+const DEFAULT_VISIBLE_LIST_COLUMN_IDS = new Set<string>([
+  "name",
+  "fortnox_customer_number",
+  "account_manager",
+  "total_turnover",
+  "total_hours",
+  "segments",
+])
+
+function getDefaultVisibleListColumns(): Record<string, boolean> {
+  return Object.fromEntries(
+    customerListColumnDefinitions.map((column) => [
+      column.id,
+      column.alwaysVisible || DEFAULT_VISIBLE_LIST_COLUMN_IDS.has(column.id),
+    ])
+  )
+}
 
 function isCustomerFilterState(value: unknown): value is CustomerFilterState {
   if (!value || typeof value !== "object") return false
@@ -214,15 +233,10 @@ export default function CustomersPage() {
   const [checkedSegmentIds, setCheckedSegmentIds] = React.useState<Set<string>>(new Set())
   const [assigning, setAssigning] = React.useState(false)
   const clearSelectionRef = React.useRef<(() => void) | null>(null)
-  const [showKpiCards, setShowKpiCards] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [pageIndex, setPageIndex] = React.useState(0)
   const [filters, setFilters] = React.useState<CustomerFilterState>(EMPTY_FILTERS)
-  const [visibleListColumns, setVisibleListColumns] = React.useState<Record<string, boolean>>(
-    () =>
-      Object.fromEntries(
-        customerListColumnDefinitions.map((column) => [column.id, true])
-      )
-  )
+  const [visibleListColumns, setVisibleListColumns] = React.useState<Record<string, boolean>>(() => getDefaultVisibleListColumns())
 
   const listColumns = React.useMemo<CustomerListColumnOption[]>(
     () =>
@@ -255,6 +269,25 @@ export default function CustomersPage() {
 
     return applyFilters(result, filters)
   }, [customers, searchQuery, filters])
+
+  const pageCount = React.useMemo(
+    () => Math.max(1, Math.ceil(filteredCustomers.length / CUSTOMER_TABLE_PAGE_SIZE)),
+    [filteredCustomers.length]
+  )
+
+  React.useEffect(() => {
+    setPageIndex((current) => {
+      if (current < 0) return 0
+      if (current >= pageCount) return pageCount - 1
+      return current
+    })
+  }, [pageCount])
+
+  const paginatedCustomers = React.useMemo(() => {
+    const from = pageIndex * CUSTOMER_TABLE_PAGE_SIZE
+    const to = from + CUSTOMER_TABLE_PAGE_SIZE
+    return filteredCustomers.slice(from, to)
+  }, [filteredCustomers, pageIndex])
 
   async function fetchCustomers() {
     const supabase = createClient()
@@ -324,6 +357,27 @@ export default function CustomersPage() {
 
   React.useEffect(() => {
     fetchCustomers()
+  }, [])
+
+  React.useEffect(() => {
+    try {
+      const storedColumns = window.localStorage.getItem(CUSTOMER_LIST_COLUMNS_STORAGE_KEY)
+      if (!storedColumns) return
+
+      const parsedColumns = JSON.parse(storedColumns) as unknown
+      if (!parsedColumns || typeof parsedColumns !== "object") return
+
+      const candidate = parsedColumns as Record<string, unknown>
+      const next = getDefaultVisibleListColumns()
+      for (const column of customerListColumnDefinitions) {
+        if (typeof candidate[column.id] === "boolean") {
+          next[column.id] = column.alwaysVisible ? true : candidate[column.id] as boolean
+        }
+      }
+      setVisibleListColumns(next)
+    } catch {
+      window.localStorage.removeItem(CUSTOMER_LIST_COLUMNS_STORAGE_KEY)
+    }
   }, [])
 
   React.useEffect(() => {
@@ -410,29 +464,39 @@ export default function CustomersPage() {
   }
 
   function resetListColumns() {
-    setVisibleListColumns(
-      Object.fromEntries(
-        customerListColumnDefinitions.map((column) => [column.id, true])
-      )
-    )
+    setVisibleListColumns(getDefaultVisibleListColumns())
   }
 
   function handleSaveFilter() {
     window.localStorage.setItem(CUSTOMER_FILTERS_STORAGE_KEY, JSON.stringify(filters))
-    toast.success("Filter saved")
+    window.localStorage.setItem(CUSTOMER_LIST_COLUMNS_STORAGE_KEY, JSON.stringify(visibleListColumns))
+    toast.success("Filters and list fields saved")
   }
 
-  const kpiToggle = (
-    <Button
-      variant={showKpiCards ? "default" : "outline"}
-      size="sm"
-      className="h-8"
-      onClick={() => setShowKpiCards((current) => !current)}
-      aria-pressed={showKpiCards}
-    >
-      <LayoutGrid className="size-3.5" />
-      KPI cards
-    </Button>
+  const paginationControl = (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground">
+        {pageIndex + 1} of {pageCount}
+      </span>
+      <Button
+        variant="outline"
+        size="icon"
+        className="size-8"
+        onClick={() => setPageIndex((current) => Math.max(current - 1, 0))}
+        disabled={pageIndex === 0}
+      >
+        <ChevronLeft className="size-4" />
+      </Button>
+      <Button
+        variant="outline"
+        size="icon"
+        className="size-8"
+        onClick={() => setPageIndex((current) => Math.min(current + 1, pageCount - 1))}
+        disabled={pageIndex >= pageCount - 1}
+      >
+        <ChevronRight className="size-4" />
+      </Button>
+    </div>
   )
 
   const toolbar = (
@@ -444,7 +508,7 @@ export default function CustomersPage() {
         className="w-full lg:max-w-sm"
       />
       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-        {kpiToggle}
+        {paginationControl}
         <CustomerFilters
           customers={customers}
           filters={filters}
@@ -467,13 +531,13 @@ export default function CustomersPage() {
 
       {toolbar}
 
-      {showKpiCards ? <CustomerKpiCards customers={filteredCustomers} /> : null}
+      <CustomerKpiCards customers={filteredCustomers} compact />
 
       <DataTable
         columns={visibleColumns}
-        data={filteredCustomers}
+        data={paginatedCustomers}
         loading={loading}
-        pageSize={15}
+        pageSize={CUSTOMER_TABLE_PAGE_SIZE}
         selectable
         onSelectionChange={setSelectedCustomers}
         clearSelectionRef={clearSelectionRef}

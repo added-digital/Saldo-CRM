@@ -1,60 +1,65 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Loader2 } from "lucide-react"
-import { useSearchParams } from "next/navigation"
+import * as React from "react";
+import { Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { createClient } from "@/lib/supabase/client"
-import { system } from "@/config/system"
+} from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/client";
+import { system } from "@/config/system";
 
 function MicrosoftIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      className={className}
+      viewBox="0 0 21 21"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <rect x="1" y="1" width="9" height="9" fill="#F25022" />
       <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
       <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
       <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
     </svg>
-  )
+  );
 }
 
 function LoginHandler() {
-  const searchParams = useSearchParams()
-  const [loading, setLoading] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const searchParams = useSearchParams();
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    const urlError = searchParams.get("error")
+    const urlError = searchParams.get("error");
     if (urlError === "auth_failed" || urlError === "confirmation_failed") {
-      setError("Authentication failed. Please try again.")
+      setError("Authentication failed. Please try again.");
     }
-  }, [searchParams])
+  }, [searchParams]);
 
   async function handleMicrosoftLogin() {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
-    const supabase = createClient()
+    const supabase = createClient();
 
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: "azure",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        scopes: "openid profile email",
+        scopes: "openid profile email ",
       },
-    })
+    });
 
     if (signInError) {
-      setError(signInError.message)
-      setLoading(false)
+      setError(signInError.message);
+      setLoading(false);
     }
   }
 
@@ -88,7 +93,7 @@ function LoginHandler() {
         </Button>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 export default function LoginPage() {
@@ -107,5 +112,5 @@ export default function LoginPage() {
     >
       <LoginHandler />
     </React.Suspense>
-  )
+  );
 }

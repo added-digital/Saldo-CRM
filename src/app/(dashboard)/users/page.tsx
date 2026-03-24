@@ -81,6 +81,7 @@ export default function UsersPage() {
   const [deactivateTarget, setDeactivateTarget] =
     React.useState<Profile | null>(null);
   const [actionLoading, setActionLoading] = React.useState(false);
+  const [fortnoxUserIdDraft, setFortnoxUserIdDraft] = React.useState("");
 
   const inviteForm = useForm<InviteUserInput>({
     resolver: zodResolver(inviteUserSchema),
@@ -109,6 +110,7 @@ export default function UsersPage() {
 
   async function openUserDetail(user: Profile) {
     setSelectedUser(user);
+    setFortnoxUserIdDraft(user.fortnox_user_id ?? "");
     const supabase = createClient();
     const { data: scopeRows } = await supabase
       .from("user_scopes")
@@ -159,6 +161,39 @@ export default function UsersPage() {
         );
       }
     }
+    setActionLoading(false);
+  }
+
+  async function handleFortnoxUserIdSave() {
+    if (!selectedUser) return;
+
+    setActionLoading(true);
+    const supabase = createClient();
+    const trimmed = fortnoxUserIdDraft.trim();
+    const value = trimmed.length > 0 ? trimmed : null;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ fortnox_user_id: value } as never)
+      .eq("id", selectedUser.id);
+
+    if (error) {
+      toast.error("Failed to update Fortnox user ID");
+      setActionLoading(false);
+      return;
+    }
+
+    toast.success("Fortnox user ID updated");
+    setSelectedUser((prev) =>
+      prev ? { ...prev, fortnox_user_id: value } : prev,
+    );
+    setUsers((prev) =>
+      prev.map((profile) =>
+        profile.id === selectedUser.id
+          ? { ...profile, fortnox_user_id: value }
+          : profile,
+      ),
+    );
     setActionLoading(false);
   }
 
@@ -433,6 +468,27 @@ export default function UsersPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="fortnox-user-id">Fortnox user ID</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="fortnox-user-id"
+                    value={fortnoxUserIdDraft}
+                    onChange={(event) => setFortnoxUserIdDraft(event.target.value)}
+                    placeholder="Enter Fortnox user ID"
+                    disabled={actionLoading}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleFortnoxUserIdSave}
+                    disabled={actionLoading}
+                  >
+                    Save
+                  </Button>
+                </div>
               </div>
 
               <Separator />

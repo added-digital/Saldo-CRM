@@ -3,26 +3,14 @@
 import * as React from "react"
 
 import type { CustomerWithRelations } from "@/types/database"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-
-const sekFormatter = new Intl.NumberFormat("sv-SE", {
-  style: "currency",
-  currency: "SEK",
-  maximumFractionDigits: 0,
-})
-
-const numberFormatter = new Intl.NumberFormat("sv-SE")
-
-const hoursFormatter = new Intl.NumberFormat("sv-SE", {
-  maximumFractionDigits: 1,
-  minimumFractionDigits: 1,
-})
+import { KpiCards } from "@/components/app/kpi-cards"
 
 interface CustomerKpiCardsProps {
   customers: CustomerWithRelations[]
+  compact?: boolean
 }
 
-function CustomerKpiCards({ customers }: CustomerKpiCardsProps) {
+function CustomerKpiCards({ customers, compact = false }: CustomerKpiCardsProps) {
   const totals = React.useMemo(() => {
     let turnover = 0
     let invoices = 0
@@ -40,53 +28,7 @@ function CustomerKpiCards({ customers }: CustomerKpiCardsProps) {
   }, [customers])
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Turnover
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">{sekFormatter.format(totals.turnover)}</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Invoices
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">{numberFormatter.format(totals.invoices)}</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Hours
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">{hoursFormatter.format(totals.hours)}</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Contract Value
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-2xl font-semibold">
-            {sekFormatter.format(totals.contractValue)}
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <KpiCards values={totals} compact={compact} />
   )
 }
 

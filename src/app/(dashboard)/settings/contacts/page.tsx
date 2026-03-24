@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { Copy, Mail, Pencil, Phone, Search, User, Users, Trash2 } from "lucide-react"
+import { Mail, Pencil, Phone, Search, Users, Trash2, Filter } from "lucide-react"
 import { toast } from "sonner"
 
 import { createClient } from "@/lib/supabase/client"
@@ -14,6 +14,7 @@ import {
 import { EmptyState } from "@/components/app/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
@@ -23,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useUser } from "@/hooks/use-user"
 
 type CustomerOptionWithStatus = Pick<
@@ -35,16 +37,29 @@ type ContactWithCustomers = CustomerContact & {
   customers: CustomerOptionWithStatus[]
 }
 
+type ContactAdvancedFilters = {
+  showDuplicates: boolean
+  showArchivedCustomerContacts: boolean
+  showMissingMail: boolean
+  showMissingPhone: boolean
+}
+
+const DEFAULT_CONTACT_ADVANCED_FILTERS: ContactAdvancedFilters = {
+  showDuplicates: false,
+  showArchivedCustomerContacts: false,
+  showMissingMail: false,
+  showMissingPhone: false,
+}
+
 export default function ContactsPage() {
   const { isAdmin } = useUser()
   const [contacts, setContacts] = React.useState<ContactWithCustomers[]>([])
   const [allCustomers, setAllCustomers] = React.useState<CustomerOptionWithStatus[]>([])
   const [loading, setLoading] = React.useState(true)
   const [search, setSearch] = React.useState("")
-  const [showDuplicates, setShowDuplicates] = React.useState(false)
-  const [showArchivedCustomerContacts, setShowArchivedCustomerContacts] = React.useState(false)
-  const [showMissingMail, setShowMissingMail] = React.useState(false)
-  const [showMissingPhone, setShowMissingPhone] = React.useState(false)
+  const [advancedFilters, setAdvancedFilters] = React.useState<ContactAdvancedFilters>(
+    DEFAULT_CONTACT_ADVANCED_FILTERS,
+  )
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editingContact, setEditingContact] = React.useState<ContactWithCustomers | null>(null)
 
@@ -81,10 +96,10 @@ export default function ContactsPage() {
 
   const getVisibleRelatedCustomers = React.useCallback(
     (relatedCustomers: CustomerOptionWithStatus[]) => {
-      if (showArchivedCustomerContacts) return relatedCustomers
+      if (advancedFilters.showArchivedCustomerContacts) return relatedCustomers
       return relatedCustomers.filter((customer) => customer.status !== "archived")
     },
-    [showArchivedCustomerContacts],
+    [advancedFilters.showArchivedCustomerContacts],
   )
 
   const getVisibleRelations = React.useCallback(
@@ -97,7 +112,7 @@ export default function ContactsPage() {
   )
 
   const contactsByArchivedToggle = React.useMemo(() => {
-    if (showArchivedCustomerContacts) return contacts
+    if (advancedFilters.showArchivedCustomerContacts) return contacts
 
     return contacts.filter((contact) => {
       const totalRelations = contact.primaryCustomers.length + contact.customers.length
@@ -109,7 +124,7 @@ export default function ContactsPage() {
 
       return visibleRelations > 0
     })
-  }, [contacts, showArchivedCustomerContacts, getVisibleRelatedCustomers])
+  }, [contacts, advancedFilters.showArchivedCustomerContacts, getVisibleRelatedCustomers])
 
   const duplicateEmails = React.useMemo(() => {
     const counts = new Map<string, number>()
@@ -135,18 +150,18 @@ export default function ContactsPage() {
   const filteredContacts = React.useMemo(() => {
     let result = contactsByArchivedToggle
 
-    if (showDuplicates) {
+    if (advancedFilters.showDuplicates) {
       result = result.filter((contact) => {
         const email = contact.email?.trim().toLowerCase()
         return email && duplicateEmails.has(email)
       })
     }
 
-    if (showMissingMail) {
+    if (advancedFilters.showMissingMail) {
       result = result.filter((contact) => !contact.email?.trim())
     }
 
-    if (showMissingPhone) {
+    if (advancedFilters.showMissingPhone) {
       result = result.filter((contact) => !contact.phone?.trim())
     }
 
@@ -167,12 +182,28 @@ export default function ContactsPage() {
   }, [
     contactsByArchivedToggle,
     search,
-    showDuplicates,
-    showMissingMail,
-    showMissingPhone,
+    advancedFilters,
     duplicateEmails,
     getVisibleRelatedCustomers,
   ])
+
+  const activeFilterCount = React.useMemo(
+    () =>
+      [
+        advancedFilters.showDuplicates,
+        advancedFilters.showArchivedCustomerContacts,
+        advancedFilters.showMissingMail,
+        advancedFilters.showMissingPhone,
+      ].filter(Boolean).length,
+    [advancedFilters],
+  )
+
+  function toggleAdvancedFilter(key: keyof ContactAdvancedFilters) {
+    setAdvancedFilters((previous) => ({
+      ...previous,
+      [key]: !previous[key],
+    }))
+  }
 
   const existingPrimaryByCustomerId = React.useMemo(() => {
     const map: Record<
@@ -462,7 +493,7 @@ export default function ContactsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <div className="relative max-w-md flex-1">
+        <div className="relative w-full max-w-md">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
@@ -471,39 +502,66 @@ export default function ContactsPage() {
             className="pl-9"
           />
         </div>
-        {duplicateCount > 0 && (
-          <Button
-            variant={showDuplicates ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowDuplicates((prev) => !prev)}
-          >
-            <Copy className="size-4" />
-            Duplicates ({duplicateCount})
-          </Button>
-        )}
-        <Button
-          variant={showMissingMail ? "default" : "outline"}
-          size="sm"
-          onClick={() => setShowMissingMail((previous) => !previous)}
-        >
-          Missing Mail
-        </Button>
-        <Button
-          variant={showMissingPhone ? "default" : "outline"}
-          size="sm"
-          onClick={() => setShowMissingPhone((previous) => !previous)}
-        >
-          Missing Phone
-        </Button>
-        <Button
-          variant={showArchivedCustomerContacts ? "default" : "outline"}
-          size="sm"
-          onClick={() =>
-            setShowArchivedCustomerContacts((previous) => !previous)
-          }
-        >
-          Show contacts for archived customers
-        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="ml-auto h-9 gap-1.5">
+              <Filter className="size-3.5" />
+              Filters
+              {activeFilterCount > 0 ? (
+                <Badge variant="secondary" className="ml-0.5 h-5 min-w-5 px-1 text-xs">
+                  {activeFilterCount}
+                </Badge>
+              ) : null}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 space-y-3">
+            <div>
+              <p className="text-sm font-medium">Advanced filtering</p>
+              <p className="text-xs text-muted-foreground">
+                Refine contacts with checkbox-based filters.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {[
+                {
+                  key: "showDuplicates" as const,
+                  label: `Duplicates${duplicateCount > 0 ? ` (${duplicateCount})` : ""}`,
+                },
+                { key: "showMissingMail" as const, label: "Missing Mail" },
+                { key: "showMissingPhone" as const, label: "Missing Phone" },
+                {
+                  key: "showArchivedCustomerContacts" as const,
+                  label: "Show contacts for archived customers",
+                },
+              ].map((item) => {
+                const id = `contact-advanced-filter-${item.key}`
+                return (
+                  <label key={item.key} htmlFor={id} className="flex cursor-pointer items-center gap-3 text-sm">
+                    <Checkbox
+                      id={id}
+                      checked={advancedFilters[item.key]}
+                      onCheckedChange={() => toggleAdvancedFilter(item.key)}
+                    />
+                    <span>{item.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-0 text-xs text-muted-foreground"
+                onClick={() => setAdvancedFilters(DEFAULT_CONTACT_ADVANCED_FILTERS)}
+                disabled={activeFilterCount === 0}
+              >
+                Clear filters
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <p className="text-sm text-muted-foreground">
@@ -511,7 +569,7 @@ export default function ContactsPage() {
       </p>
 
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="h-48 animate-pulse rounded-lg border bg-muted" />
           ))}
@@ -523,7 +581,7 @@ export default function ContactsPage() {
           description="Contacts linked to customers will appear here."
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {filteredContacts.map((contact) => {
             const visibleRelations = getVisibleRelations(contact)
             const email = contact.email?.trim() || null
@@ -532,20 +590,15 @@ export default function ContactsPage() {
             <Card key={contact.id}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between gap-3">
-                  <CardTitle className="flex items-center gap-3 text-base">
-                    <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-                      <User className="size-4 text-muted-foreground" />
-                    </div>
-                    <div className="min-w-0 space-y-1">
-                      <div className="truncate">{contact.name}</div>
-                      {contact.role && (
-                        <p className="text-sm font-normal text-muted-foreground">
-                          {contact.role}
-                        </p>
-                      )}
-                    </div>
+                  <CardTitle className="min-w-0 space-y-1 text-base">
+                    <div className="truncate">{contact.name}</div>
+                    {contact.role && (
+                      <p className="text-sm font-normal text-muted-foreground">
+                        {contact.role}
+                      </p>
+                    )}
                   </CardTitle>
-                  <div className="flex gap-1">
+                  <div className="flex gap-0.5">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -600,8 +653,8 @@ export default function ContactsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Primary contact for
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Primary contact for:
                   </p>
                   {visibleRelations.primary.length === 0 ? (
                     <p className="text-sm text-muted-foreground">–</p>
@@ -609,8 +662,8 @@ export default function ContactsPage() {
                     <div className="flex flex-wrap gap-1.5">
                       {visibleRelations.primary.map((customer) => (
                         <Link key={customer.id} href={`/customers/${customer.id}`}>
-                          <Badge variant="outline" className="cursor-pointer font-normal hover:bg-muted">
-                            {customer.name}
+                          <Badge variant="outline" className="max-w-[180px] cursor-pointer font-normal hover:bg-muted">
+                            <span className="block truncate">{customer.name}</span>
                           </Badge>
                         </Link>
                       ))}
@@ -619,8 +672,8 @@ export default function ContactsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Contact for
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Contact for:
                   </p>
                   {visibleRelations.regular.length === 0 ? (
                     <p className="text-sm text-muted-foreground">–</p>
@@ -628,8 +681,8 @@ export default function ContactsPage() {
                     <div className="flex flex-wrap gap-1.5">
                       {visibleRelations.regular.map((customer) => (
                         <Link key={customer.id} href={`/customers/${customer.id}`}>
-                          <Badge variant="outline" className="cursor-pointer font-normal hover:bg-muted">
-                            {customer.name}
+                          <Badge variant="outline" className="max-w-[180px] cursor-pointer font-normal hover:bg-muted">
+                            <span className="block truncate">{customer.name}</span>
                           </Badge>
                         </Link>
                       ))}

@@ -15,6 +15,7 @@ export interface Profile {
   is_active: boolean
   team_id: string | null
   fortnox_employee_id: string | null
+  fortnox_user_id: string | null
   fortnox_group_name: string | null
   fortnox_cost_center: string | null
   created_at: string
