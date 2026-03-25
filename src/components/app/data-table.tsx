@@ -54,6 +54,7 @@ interface DataTableProps<TData, TValue> {
   selectable?: boolean
   onSelectionChange?: (rows: TData[]) => void
   clearSelectionRef?: React.RefObject<(() => void) | null>
+  hideRowCount?: boolean
 }
 
 function getColumnWidthPercent<TData, TValue>(
@@ -125,6 +126,7 @@ function DataTable<TData, TValue>({
   selectable = false,
   onSelectionChange,
   clearSelectionRef,
+  hideRowCount = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -383,13 +385,15 @@ function DataTable<TData, TValue>({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between px-2">
-        <p className="text-sm text-muted-foreground">
-          {selectable && Object.keys(rowSelection).length > 0
-            ? `${Object.keys(rowSelection).length} of ${table.getFilteredRowModel().rows.length} row(s) selected`
-            : `${table.getFilteredRowModel().rows.length} row(s)`}
-        </p>
-      </div>
+      {!hideRowCount ? (
+        <div className="flex items-center justify-between px-2">
+          <p className="text-sm text-muted-foreground">
+            {selectable && Object.keys(rowSelection).length > 0
+              ? `${Object.keys(rowSelection).length} of ${table.getFilteredRowModel().rows.length} row(s) selected`
+              : `${table.getFilteredRowModel().rows.length} row(s)`}
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }

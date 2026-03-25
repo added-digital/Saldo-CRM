@@ -2248,6 +2248,7 @@ export default function ReportsPage() {
                 columns={monthlyTimeReportingColumns}
                 data={monthlyTimeReportingRows}
                 loading={monthlyTimeReportingLoading}
+                hideRowCount
                 pageSize={12}
                 emptyState={{
                   icon: Filter,
@@ -2260,6 +2261,7 @@ export default function ReportsPage() {
                 columns={customerTimeReportingColumns}
                 data={customerTimeReportingRows}
                 loading={customerTimeReportingLoading}
+                hideRowCount
                 pageSize={12}
                 emptyState={{
                   icon: Filter,
@@ -2284,6 +2286,7 @@ export default function ReportsPage() {
                   columns={customerAccrualColumns}
                   data={customerAccruals}
                   loading={accrualsLoading}
+                  hideRowCount
                   pageSize={12}
                   emptyState={{
                     icon: Filter,
@@ -2318,6 +2321,7 @@ export default function ReportsPage() {
                     columns={customerMonthlyEconomicsColumns}
                     data={customerMonthlyEconomicsRows}
                     loading={customerMonthlyEconomicsLoading}
+                    hideRowCount
                     pageSize={12}
                     emptyState={{
                       icon: Filter,
