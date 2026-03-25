@@ -28,8 +28,8 @@ const hoursFormatter = new Intl.NumberFormat("sv-SE", {
 
 function KpiCards({ values, compact = false }: KpiCardsProps) {
   const valueClassName = compact
-    ? "text-base font-semibold leading-tight"
-    : "text-2xl font-semibold";
+    ? "text-2xl font-semibold leading-tight"
+    : "text-4xl font-semibold leading-tight";
   const cardHeaderClassName = compact ? "p-6 pb-1 pt-0" : "p-6 pb-0";
   const cardContentClassName = compact ? "p-6 pt-0 pb-0" : "p-6 pt-0";
   const gridClassName = compact
@@ -41,56 +41,44 @@ function KpiCards({ values, compact = false }: KpiCardsProps) {
       <Card className={compact ? "gap-2" : ""}>
         <CardHeader className={cardHeaderClassName}>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Turnover
+            Total Turnover (kr)
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
-          <p className={valueClassName}>
-            {sekFormatter.format(values.turnover)}
-            <span className="ml-1">kr</span>
-          </p>
+          <p className={valueClassName}>{sekFormatter.format(values.turnover)}</p>
         </CardContent>
       </Card>
 
       <Card className={compact ? "gap-2" : ""}>
         <CardHeader className={cardHeaderClassName}>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Invoices
+            Total Invoices (pcs)
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
-          <p className={valueClassName}>
-            {numberFormatter.format(values.invoices)}
-            <span className="ml-1">pcs</span>
-          </p>
+          <p className={valueClassName}>{numberFormatter.format(values.invoices)}</p>
         </CardContent>
       </Card>
 
       <Card className={compact ? "gap-2" : ""}>
         <CardHeader className={cardHeaderClassName}>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Hours
+            Total Hours (h)
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
-          <p className={valueClassName}>
-            {hoursFormatter.format(values.hours)}
-            <span className="ml-1">h</span>
-          </p>
+          <p className={valueClassName}>{hoursFormatter.format(values.hours)}</p>
         </CardContent>
       </Card>
 
       <Card className={compact ? "gap-2" : ""}>
         <CardHeader className={cardHeaderClassName}>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Contract Value
+            Total Contract Value (kr)
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
-          <p className={valueClassName}>
-            {sekFormatter.format(values.contractValue)}
-            <span className="ml-1">kr</span>
-          </p>
+          <p className={valueClassName}>{sekFormatter.format(values.contractValue)}</p>
         </CardContent>
       </Card>
     </div>

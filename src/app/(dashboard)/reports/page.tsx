@@ -1835,6 +1835,130 @@ export default function ReportsPage() {
     },
   ];
 
+  const customerMonthlyEconomicsColumns: ColumnDef<
+    CustomerMonthlyEconomicsRow,
+    unknown
+  >[] = [
+    {
+      id: "monthLabel",
+      accessorKey: "monthLabel",
+      header: "Month",
+      size: 180,
+      enableSorting: false,
+    },
+    {
+      id: "turnover",
+      accessorKey: "turnover",
+      header: "Turnover",
+      size: 180,
+      enableSorting: false,
+      cell: ({ row }) =>
+        renderTurnoverCell(row.original.turnover, () =>
+          openMonthlyInvoiceDetails(row.original),
+        ),
+    },
+    {
+      id: "hours",
+      accessorKey: "hours",
+      header: "Hours",
+      size: 140,
+      enableSorting: false,
+      cell: ({ row }) =>
+        renderHourCell(row.original.hours, () =>
+          openMonthlyTimeDetails(
+            {
+              monthKey: row.original.monthKey,
+              monthLabel: row.original.monthLabel,
+              customerHours: row.original.hours,
+              absenceHours: 0,
+              internalHours: 0,
+              totalHours: row.original.hours,
+            },
+            "customerHours",
+          ),
+        ),
+    },
+    {
+      id: "turnoverPerHour",
+      accessorKey: "turnoverPerHour",
+      header: "Turnover / Hours",
+      size: 220,
+      enableSorting: false,
+      cell: ({ row }) =>
+        row.original.hours > 0
+          ? `${sekFormatter.format(row.original.turnoverPerHour)} / h`
+          : "-",
+    },
+  ];
+
+  const customerAccrualColumns: ColumnDef<ContractAccrual, unknown>[] = [
+    {
+      id: "contract_number",
+      accessorKey: "contract_number",
+      header: "Contract",
+      size: 140,
+      enableSorting: false,
+    },
+    {
+      id: "description",
+      accessorKey: "description",
+      header: "Description",
+      size: 220,
+      enableSorting: false,
+      cell: ({ row }) => row.original.description ?? "-",
+    },
+    {
+      id: "period",
+      accessorKey: "period",
+      header: "Period",
+      size: 100,
+      enableSorting: false,
+      cell: ({ row }) => row.original.period ?? "-",
+    },
+    {
+      id: "start_date",
+      accessorKey: "start_date",
+      header: "Start",
+      size: 120,
+      enableSorting: false,
+      cell: ({ row }) => row.original.start_date ?? "-",
+    },
+    {
+      id: "end_date",
+      accessorKey: "end_date",
+      header: "End",
+      size: 120,
+      enableSorting: false,
+      cell: ({ row }) => row.original.end_date ?? "-",
+    },
+    {
+      id: "total",
+      accessorKey: "total",
+      header: "Total",
+      size: 140,
+      enableSorting: false,
+      cell: ({ row }) => sekFormatter.format(Number(row.original.total ?? 0)),
+    },
+    {
+      id: "annualized",
+      header: "Annualized",
+      size: 160,
+      enableSorting: false,
+      cell: ({ row }) =>
+        sekFormatter.format(
+          annualizeContractTotal(row.original.total, row.original.period),
+        ),
+    },
+    {
+      id: "is_active",
+      accessorKey: "is_active",
+      header: "Status",
+      size: 120,
+      enableSorting: false,
+      cell: ({ row }) => (row.original.is_active ? "Active" : "Inactive"),
+    },
+  ];
+
   const latestTurnover = turnoverByMonthRows.at(-1)?.turnover ?? 0;
 
   return (
@@ -1972,7 +2096,9 @@ export default function ReportsPage() {
                           tickFormatter={(value) => String(value).slice(0, 3)}
                         />
                         <YAxis
-                          hide
+                          tick={false}
+                          tickLine={false}
+                          axisLine={false}
                           domain={[
                             0,
                             (dataMax: number) =>
@@ -2077,76 +2203,18 @@ export default function ReportsPage() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  {accrualsLoading ? (
-                    <p className="text-sm text-muted-foreground">
-                      Loading accruals...
-                    </p>
-                  ) : customerAccruals.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No contract accruals found for this customer.
-                    </p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full min-w-[900px] text-sm">
-                        <thead>
-                          <tr className="border-b text-left text-muted-foreground">
-                            <th className="px-2 py-2 font-medium">Contract</th>
-                            <th className="px-2 py-2 font-medium">
-                              Description
-                            </th>
-                            <th className="px-2 py-2 font-medium">Period</th>
-                            <th className="px-2 py-2 font-medium">Start</th>
-                            <th className="px-2 py-2 font-medium">End</th>
-                            <th className="px-2 py-2 font-medium">Total</th>
-                            <th className="px-2 py-2 font-medium">
-                              Annualized
-                            </th>
-                            <th className="px-2 py-2 font-medium">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {customerAccruals.map((accrual) => (
-                            <tr
-                              key={accrual.id}
-                              className="border-b last:border-0"
-                            >
-                              <td className="px-2 py-2">
-                                {accrual.contract_number}
-                              </td>
-                              <td className="px-2 py-2">
-                                {accrual.description ?? "-"}
-                              </td>
-                              <td className="px-2 py-2">
-                                {accrual.period ?? "-"}
-                              </td>
-                              <td className="px-2 py-2">
-                                {accrual.start_date ?? "-"}
-                              </td>
-                              <td className="px-2 py-2">
-                                {accrual.end_date ?? "-"}
-                              </td>
-                              <td className="px-2 py-2">
-                                {sekFormatter.format(
-                                  Number(accrual.total ?? 0),
-                                )}
-                              </td>
-                              <td className="px-2 py-2">
-                                {sekFormatter.format(
-                                  annualizeContractTotal(
-                                    accrual.total,
-                                    accrual.period,
-                                  ),
-                                )}
-                              </td>
-                              <td className="px-2 py-2">
-                                {accrual.is_active ? "Active" : "Inactive"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                  <DataTable
+                    columns={customerAccrualColumns}
+                    data={customerAccruals}
+                    loading={accrualsLoading}
+                    pageSize={12}
+                    emptyState={{
+                      icon: Filter,
+                      title: "No contract accruals",
+                      description:
+                        "No contract accruals found for this customer.",
+                    }}
+                  />
                 </CardContent>
               </Card>
 
@@ -2171,55 +2239,18 @@ export default function ReportsPage() {
                       selected range.
                     </p>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full min-w-[760px] text-sm">
-                        <thead>
-                          <tr className="border-b text-left text-muted-foreground">
-                            <th className="px-2 py-2 font-medium">Month</th>
-                            <th className="px-2 py-2 font-medium">Turnover</th>
-                            <th className="px-2 py-2 font-medium">Hours</th>
-                            <th className="px-2 py-2 font-medium">
-                              Turnover / Hours
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {customerMonthlyEconomicsRows.map((row) => (
-                            <tr
-                              key={row.monthKey}
-                              className="border-b last:border-0"
-                            >
-                              <td className="px-2 py-2">{row.monthLabel}</td>
-                              <td className="px-2 py-2">
-                                {renderTurnoverCell(row.turnover, () =>
-                                  openMonthlyInvoiceDetails(row),
-                                )}
-                              </td>
-                              <td className="px-2 py-2">
-                                {renderHourCell(row.hours, () =>
-                                  openMonthlyTimeDetails(
-                                    {
-                                      monthKey: row.monthKey,
-                                      monthLabel: row.monthLabel,
-                                      customerHours: row.hours,
-                                      absenceHours: 0,
-                                      internalHours: 0,
-                                      totalHours: row.hours,
-                                    },
-                                    "customerHours",
-                                  ),
-                                )}
-                              </td>
-                              <td className="px-2 py-2">
-                                {row.hours > 0
-                                  ? `${sekFormatter.format(row.turnoverPerHour)} / h`
-                                  : "-"}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    <DataTable
+                      columns={customerMonthlyEconomicsColumns}
+                      data={customerMonthlyEconomicsRows}
+                      loading={customerMonthlyEconomicsLoading}
+                      pageSize={12}
+                      emptyState={{
+                        icon: Filter,
+                        title: "No monthly economics",
+                        description:
+                          "No turnover or hour data found for this customer in the selected range.",
+                      }}
+                    />
                   )}
                 </CardContent>
               </Card>
