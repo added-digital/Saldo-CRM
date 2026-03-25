@@ -1,0 +1,5 @@
+ALTER TABLE invoices
+ADD COLUMN IF NOT EXISTS total_ex_vat NUMERIC(12, 2);
+
+ALTER TABLE invoice_rows
+ADD COLUMN IF NOT EXISTS total_ex_vat NUMERIC(10, 2);

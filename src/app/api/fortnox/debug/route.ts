@@ -148,6 +148,19 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    const contractNumber = request.nextUrl.searchParams.get("contract")?.trim() ?? ""
+    if (contractNumber) {
+      const fortnox = await getFortnoxClient(adminClient)
+      const endpoint = `/3/contracts/${encodeURIComponent(contractNumber)}`
+      const result = await fortnox.requestPath<Record<string, unknown>>(endpoint)
+
+      return NextResponse.json({
+        contract_number: contractNumber,
+        endpoint,
+        raw: result,
+      })
+    }
+
     const fortnoxUsersDump = request.nextUrl.searchParams.get("fortnoxusersdump")
     if (fortnoxUsersDump === "1") {
       const fortnox = await getFortnoxClient(adminClient)

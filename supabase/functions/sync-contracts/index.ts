@@ -9,31 +9,45 @@ const RATE_LIMIT_DELAY_MS = 350
 const BATCH_SIZE = 100
 const KPI_BATCH_SIZE = 1000
 
-function isContractActive(input: {
-  status: string | null
-  startDate: string | null
-  endDate: string | null
-}): boolean {
-  const today = new Date().toISOString().slice(0, 10)
-  const normalizedStatus = (input.status ?? "").trim().toLowerCase()
-
-  if (["cancelled", "canceled", "ended", "inactive", "closed", "terminated"].includes(normalizedStatus)) {
-    return false
+function readNumberField(
+  record: Record<string, unknown>,
+  keys: string[],
+): number | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (value == null) continue
+    const numeric = Number(value)
+    if (!Number.isNaN(numeric)) {
+      return numeric
+    }
   }
 
-  if (input.startDate && input.startDate > today) {
-    return false
+  return null
+}
+
+function resolveExVatTotal(record: Record<string, unknown>): number | null {
+  return readNumberField(record, [
+    "TotalExcludingVAT",
+    "TotalExcludingVat",
+    "TotalExVAT",
+    "TotalExVat",
+    "Net",
+    "NetAmount",
+    "TotalNet",
+  ])
+}
+
+function isFortnoxActive(value: unknown): boolean {
+  if (value === true) return true
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase()
+    return normalized === "true" || normalized === "1"
+  }
+  if (typeof value === "number") {
+    return value === 1
   }
 
-  if (input.endDate && input.endDate < today) {
-    return false
-  }
-
-  if (["active", "ongoing", "running", "current", "open"].includes(normalizedStatus)) {
-    return true
-  }
-
-  return Boolean(input.startDate || input.endDate || normalizedStatus)
+  return false
 }
 
 function annualizeContractTotal(total: number | null, period: string | null): number {
@@ -137,7 +151,22 @@ Deno.serve(async (req) => {
           const c = detail.Contract as Record<string, unknown>
           const startDate = (c.PeriodStart as string) ?? null
           const endDate = (c.PeriodEnd as string) ?? null
-          const status = (c.Status as string) ?? null
+          const isActive = isFortnoxActive(c.Active)
+
+          if (!isActive) {
+            const { error: deleteError } = await supabase
+              .from("contract_accruals")
+              .delete()
+              .eq("fortnox_customer_number", ((c.CustomerNumber as string) ?? "") as never)
+              .eq("contract_number", contractNumber as never)
+
+            if (deleteError) {
+              console.error("Contract delete error:", deleteError.message, deleteError.details)
+              errors++
+            }
+
+            continue
+          }
 
           const mapped = {
             fortnox_customer_number: (c.CustomerNumber as string) ?? "",
@@ -146,10 +175,11 @@ Deno.serve(async (req) => {
             description: (c.Remarks as string) ?? null,
             start_date: startDate,
             end_date: endDate,
-            status,
+            status: "Active",
             accrual_type: (c.ContractLength as string) ?? null,
             period: (c.InvoiceInterval as string) ?? null,
-            is_active: isContractActive({ status, startDate, endDate }),
+            is_active: true,
+            total_ex_vat: resolveExVatTotal(c) ?? (c.Total != null ? Number(c.Total) : null),
             total: c.Total != null ? Number(c.Total) : null,
             currency_code: (c.Currency as string) ?? "SEK",
             raw_data: c,
@@ -210,7 +240,7 @@ Deno.serve(async (req) => {
       while (true) {
         const { data: contractRows, error: contractError } = await supabase
           .from("contract_accruals")
-          .select("fortnox_customer_number, total, period")
+          .select("fortnox_customer_number, total_ex_vat, total, period, is_active")
           .order("id", { ascending: true })
           .range(offset, offset + KPI_BATCH_SIZE - 1)
 
@@ -220,17 +250,20 @@ Deno.serve(async (req) => {
 
         const rows = (contractRows ?? []) as Array<{
           fortnox_customer_number: string | null
+          total_ex_vat: number | null
           total: number | null
           period: string | null
+          is_active: boolean
         }>
         if (rows.length === 0) break
 
         for (const row of rows) {
           if (!row.fortnox_customer_number) continue
+          if (!row.is_active) continue
           const existing = valueByCustomer.get(row.fortnox_customer_number) ?? 0
           valueByCustomer.set(
             row.fortnox_customer_number,
-            existing + annualizeContractTotal(row.total, row.period)
+            existing + annualizeContractTotal(row.total_ex_vat ?? row.total, row.period)
           )
         }
 

@@ -41,7 +41,7 @@ function KpiCards({ values, compact = false }: KpiCardsProps) {
       <Card className={compact ? "gap-2" : ""}>
         <CardHeader className={cardHeaderClassName}>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Turnover (kr)
+            Total Turnover - ex. VAT (kr)
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
@@ -74,7 +74,7 @@ function KpiCards({ values, compact = false }: KpiCardsProps) {
       <Card className={compact ? "gap-2" : ""}>
         <CardHeader className={cardHeaderClassName}>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total Contract Value (kr)
+            Total Contract Value - ex. VAT (kr)
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>

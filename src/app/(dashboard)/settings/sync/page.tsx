@@ -10,6 +10,7 @@ import {
   Users,
   Building2,
   FileText,
+  ReceiptText,
   Boxes,
   Clock,
   FileSignature,
@@ -37,6 +38,7 @@ const STEP_ICONS: Record<SyncStep, React.ElementType> = {
   customers: Building2,
   employees: Users,
   invoices: FileText,
+  "invoice-rows": ReceiptText,
   articles: Boxes,
   "time-reports": Clock,
   contracts: FileSignature,
@@ -46,7 +48,8 @@ const STEP_ICONS: Record<SyncStep, React.ElementType> = {
 const STEP_DESCRIPTIONS: Record<SyncStep, string> = {
   customers: "Sync customer data, cost centers, and link account managers",
   employees: "Sync employees, create user accounts, and link cost centers",
-  invoices: "Sync invoices and compute turnover KPIs per customer",
+  invoices: "Sync invoice headers and compute turnover KPIs per customer",
+  "invoice-rows": "Sync detailed invoice rows as a separate throttled step",
   articles: "Sync Fortnox time articles into the article registry",
   "time-reports": "Sync attendance transactions and compute reported hours",
   contracts: "Sync contracts and compute contract value per customer",
@@ -109,7 +112,7 @@ export default function SyncPage() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {SYNC_STEPS.map((step) => {
           const Icon = STEP_ICONS[step]
           const runningJobs = recentJobs.filter(

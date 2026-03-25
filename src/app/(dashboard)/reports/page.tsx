@@ -2,8 +2,15 @@
 
 import * as React from "react";
 import { type ColumnDef } from "@tanstack/react-table";
-import { Check, ChevronDown, Filter, TrendingUp } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts";
+import { Check, ChevronDown, Filter } from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  LabelList,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/use-user";
@@ -32,17 +39,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -73,6 +71,13 @@ const hoursFormatter = new Intl.NumberFormat("sv-SE", {
   maximumFractionDigits: 1,
   minimumFractionDigits: 1,
 });
+
+function invoiceTurnoverExVat(input: {
+  total_ex_vat: number | null;
+  total: number | null;
+}): number {
+  return Number(input.total_ex_vat ?? input.total ?? 0);
+}
 
 function toMonthKey(date: Date): string {
   const year = date.getFullYear();
@@ -325,7 +330,7 @@ function createEmptyTurnoverRows(months: RollingMonth[]): TurnoverMonthRow[] {
 
 const turnoverChartConfig = {
   turnover: {
-    label: "Turnover",
+    label: "Turnover - ex. VAT",
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
@@ -889,7 +894,7 @@ export default function ReportsPage() {
     setInvoiceDetailsLoading(true);
     setInvoiceDetailsRows([]);
     setInvoiceDetailsTitle(
-      `${selectedCustomer?.name ?? "Selected customer"} · ${row.monthLabel} · Turnover`,
+      `${selectedCustomer?.name ?? "Selected customer"} · ${row.monthLabel} · Turnover - ex. VAT`,
     );
 
     const supabase = createClient();
@@ -911,6 +916,7 @@ export default function ReportsPage() {
       document_number: string;
       invoice_date: string | null;
       due_date: string | null;
+      total_ex_vat: number | null;
       total: number | null;
       currency_code: string | null;
     }> = [];
@@ -919,7 +925,7 @@ export default function ReportsPage() {
       supabase
         .from("invoices")
         .select(
-          "id, document_number, invoice_date, due_date, total, currency_code",
+          "id, document_number, invoice_date, due_date, total_ex_vat, total, currency_code",
         ),
     );
 
@@ -935,6 +941,7 @@ export default function ReportsPage() {
         document_number: string;
         invoice_date: string | null;
         due_date: string | null;
+        total_ex_vat: number | null;
         total: number | null;
         currency_code: string | null;
       }>;
@@ -944,7 +951,9 @@ export default function ReportsPage() {
       const withoutDueDate = await withCustomerScope(
         supabase
           .from("invoices")
-          .select("id, document_number, invoice_date, total, currency_code"),
+          .select(
+            "id, document_number, invoice_date, total_ex_vat, total, currency_code",
+          ),
       );
 
       if (withoutDueDate.error) {
@@ -957,6 +966,7 @@ export default function ReportsPage() {
         id: string;
         document_number: string;
         invoice_date: string | null;
+        total_ex_vat: number | null;
         total: number | null;
         currency_code: string | null;
       }>;
@@ -967,7 +977,7 @@ export default function ReportsPage() {
           documentNumber: invoice.document_number,
           invoiceDate: invoice.invoice_date,
           dueDate: null,
-          turnover: Number(invoice.total ?? 0),
+          turnover: invoiceTurnoverExVat(invoice),
           currencyCode: invoice.currency_code ?? "SEK",
         })),
       );
@@ -981,7 +991,7 @@ export default function ReportsPage() {
         documentNumber: invoice.document_number,
         invoiceDate: invoice.invoice_date,
         dueDate: invoice.due_date,
-        turnover: Number(invoice.total ?? 0),
+        turnover: invoiceTurnoverExVat(invoice),
         currencyCode: invoice.currency_code ?? "SEK",
       })),
     );
@@ -1638,7 +1648,7 @@ export default function ReportsPage() {
 
       let invoiceQuery = supabase
         .from("invoices")
-        .select("invoice_date, total")
+        .select("invoice_date, total_ex_vat, total")
         .gte("invoice_date", rollingWindow.from)
         .lte("invoice_date", rollingWindow.to);
 
@@ -1661,12 +1671,13 @@ export default function ReportsPage() {
 
       for (const row of (invoiceRows ?? []) as Array<{
         invoice_date: string | null;
+        total_ex_vat: number | null;
         total: number | null;
       }>) {
         const monthKey = (row.invoice_date ?? "").slice(0, 7);
         const target = rowsByMonth.get(monthKey);
         if (!target) continue;
-        target.turnover += Number(row.total ?? 0);
+        target.turnover += invoiceTurnoverExVat(row);
       }
 
       let hoursQuery = supabase
@@ -1849,7 +1860,7 @@ export default function ReportsPage() {
     {
       id: "turnover",
       accessorKey: "turnover",
-      header: "Turnover",
+      header: "Turnover - ex. VAT",
       size: 180,
       enableSorting: false,
       cell: ({ row }) =>
@@ -1881,7 +1892,7 @@ export default function ReportsPage() {
     {
       id: "turnoverPerHour",
       accessorKey: "turnoverPerHour",
-      header: "Turnover / Hours",
+      header: "Turnover (ex. VAT) / Hours",
       size: 220,
       enableSorting: false,
       cell: ({ row }) =>
@@ -1959,8 +1970,6 @@ export default function ReportsPage() {
     },
   ];
 
-  const latestTurnover = turnoverByMonthRows.at(-1)?.turnover ?? 0;
-
   return (
     <div className="space-y-6">
       <div className="w-full max-w-6xl">
@@ -2032,7 +2041,7 @@ export default function ReportsPage() {
           description="Adjust team, customer manager, or customer selection to view KPIs."
         />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-10">
           <p className="text-sm text-muted-foreground">
             Showing KPI totals for {filteredCustomers.length} customer
             {filteredCustomers.length === 1 ? "" : "s"}
@@ -2052,208 +2061,166 @@ export default function ReportsPage() {
             <KpiCards values={kpis} compact />
           )}
 
-          <Collapsible defaultOpen={false}>
-            <Card>
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer">
-                  <CardTitle className="flex items-center justify-between text-base">
-                    <span>Turnover per month</span>
-                    <ChevronDown className="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-                  </CardTitle>
-                  <CardDescription>
-                    Based on current filters and rolling 12-month window.
-                  </CardDescription>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="pb-6">
-                  {kpiLoading ? (
-                    <p className="text-sm text-muted-foreground">
-                      Loading turnover chart...
-                    </p>
-                  ) : (
-                    <ChartContainer
-                      config={turnoverChartConfig}
-                      className="h-[280px]"
-                    >
-                      <BarChart
-                        accessibilityLayer
-                        data={turnoverByMonthRows.map((row) => ({
-                          month: row.monthLabel,
-                          turnover: row.turnover,
-                        }))}
-                        margin={{
-                          top: 20,
-                          bottom: 12,
-                        }}
-                      >
-                        <CartesianGrid className="stroke-muted-foreground/20" />
-                        <XAxis
-                          dataKey="month"
-                          tickLine={false}
-                          tickMargin={10}
-                          axisLine={false}
-                          tickFormatter={(value) => String(value).slice(0, 3)}
-                        />
-                        <YAxis
-                          tick={false}
-                          tickLine={false}
-                          axisLine={false}
-                          domain={[
-                            0,
-                            (dataMax: number) =>
-                              Math.max(1, Math.ceil(dataMax * 1.25)),
-                          ]}
-                        />
-                        <ChartTooltip
-                          cursor={false}
-                          content={<ChartTooltipContent hideLabel />}
-                        />
-                        <Bar
-                          dataKey="turnover"
-                          fill="var(--color-turnover)"
-                          barSize={16}
-                          radius={0}
-                        >
-                          <LabelList
-                            dataKey="turnover"
-                            position="top"
-                            offset={10}
-                            className="fill-foreground"
-                            fontSize={11}
-                            formatter={(value) => {
-                              const numericValue = Number(value ?? 0);
-                              return numericValue === 0
-                                ? ""
-                                : sekFormatter.format(numericValue);
-                            }}
-                          />
-                        </Bar>
-                      </BarChart>
-                    </ChartContainer>
-                  )}
-                </CardContent>
-                <CardFooter className="flex-col items-start gap-2 text-sm">
-                  <div className="flex gap-2 font-medium leading-none">
-                    Latest month turnover {sekFormatter.format(latestTurnover)}{" "}
-                    <TrendingUp className="h-4 w-4" />
-                  </div>
-                  <div className="leading-none text-muted-foreground">
-                    Showing turnover trend for the last 12 months
-                  </div>
-                </CardFooter>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold">Turnover per month - ex. VAT</h3>
+              <p className="text-sm text-muted-foreground">
+                Based on current filters and rolling 12-month window.
+              </p>
+            </div>
+            {kpiLoading ? (
+              <p className="text-sm text-muted-foreground">
+                Loading turnover chart...
+              </p>
+            ) : (
+              <ChartContainer config={turnoverChartConfig} className="h-[280px]">
+                <BarChart
+                  accessibilityLayer
+                  data={turnoverByMonthRows.map((row) => ({
+                    month: row.monthLabel,
+                    turnover: row.turnover,
+                  }))}
+                  margin={{
+                    top: 20,
+                    bottom: 12,
+                  }}
+                >
+                  <CartesianGrid className="stroke-muted-foreground/20" />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={false}
+                    tickFormatter={(value) => String(value).slice(0, 3)}
+                  />
+                  <YAxis
+                    hide
+                    domain={[
+                      0,
+                      (dataMax: number) => Math.max(1, Math.ceil(dataMax * 1.25)),
+                    ]}
+                  />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent hideLabel />}
+                  />
+                  <Bar
+                    dataKey="turnover"
+                    fill="var(--color-turnover)"
+                    barSize={16}
+                    radius={0}
+                  >
+                    <LabelList
+                      dataKey="turnover"
+                      position="top"
+                      offset={10}
+                      className="fill-foreground"
+                      fontSize={11}
+                      formatter={(value) => {
+                        const numericValue = Number(value ?? 0);
+                        return numericValue === 0
+                          ? ""
+                          : sekFormatter.format(numericValue);
+                      }}
+                    />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            )}
+          </section>
 
-          <Collapsible defaultOpen={false}>
-            <Card>
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer">
-                  <CardTitle className="flex items-center justify-between text-base">
-                    <span>Time reporting</span>
-                    <ChevronDown className="size-4 text-muted-foreground transition-transform [[data-state=open]_&]:rotate-180" />
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Rolling 12-month view based on the selected month.
-                  </p>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent>
-                  {!selectedCustomerId ? (
-                    <DataTable
-                      columns={monthlyTimeReportingColumns}
-                      data={monthlyTimeReportingRows}
-                      loading={monthlyTimeReportingLoading}
-                      pageSize={12}
-                      emptyState={{
-                        icon: Filter,
-                        title: "No time reporting data",
-                        description:
-                          "No time reporting data found for this scope.",
-                      }}
-                    />
-                  ) : (
-                    <DataTable
-                      columns={customerTimeReportingColumns}
-                      data={customerTimeReportingRows}
-                      loading={customerTimeReportingLoading}
-                      pageSize={12}
-                      emptyState={{
-                        icon: Filter,
-                        title: "No customer-hour entries",
-                        description:
-                          "No customer-hour entries found for this customer in the selected rolling window.",
-                      }}
-                    />
-                  )}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+          <section className="space-y-3">
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold">Time reporting</h3>
+              <p className="text-sm text-muted-foreground">
+                Rolling 12-month view based on the selected month.
+              </p>
+            </div>
+            {!selectedCustomerId ? (
+              <DataTable
+                columns={monthlyTimeReportingColumns}
+                data={monthlyTimeReportingRows}
+                loading={monthlyTimeReportingLoading}
+                pageSize={12}
+                emptyState={{
+                  icon: Filter,
+                  title: "No time reporting data",
+                  description: "No time reporting data found for this scope.",
+                }}
+              />
+            ) : (
+              <DataTable
+                columns={customerTimeReportingColumns}
+                data={customerTimeReportingRows}
+                loading={customerTimeReportingLoading}
+                pageSize={12}
+                emptyState={{
+                  icon: Filter,
+                  title: "No customer-hour entries",
+                  description:
+                    "No customer-hour entries found for this customer in the selected rolling window.",
+                }}
+              />
+            )}
+          </section>
 
           {selectedCustomerId ? (
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Customer Accruals</CardTitle>
+            <div className="space-y-10">
+              <section className="space-y-3">
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold">Customer Accruals</h3>
                   <p className="text-sm text-muted-foreground">
                     {selectedCustomer?.name ?? "Selected customer"}
                   </p>
-                </CardHeader>
-                <CardContent>
-                  <DataTable
-                    columns={customerAccrualColumns}
-                    data={customerAccruals}
-                    loading={accrualsLoading}
-                    pageSize={12}
-                    emptyState={{
-                      icon: Filter,
-                      title: "No contract accruals",
-                      description:
-                        "No contract accruals found for this customer.",
-                    }}
-                  />
-                </CardContent>
-              </Card>
+                </div>
+                <DataTable
+                  columns={customerAccrualColumns}
+                  data={customerAccruals}
+                  loading={accrualsLoading}
+                  pageSize={12}
+                  emptyState={{
+                    icon: Filter,
+                    title: "No contract accruals",
+                    description:
+                      "No contract accruals found for this customer.",
+                  }}
+                />
+              </section>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    Monthly turnover and hours
-                  </CardTitle>
+              <section className="space-y-3">
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold">
+                    Monthly turnover (ex. VAT) and hours
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     {selectedCustomer?.name ?? "Selected customer"} ·{" "}
                     {rollingWindow.title}
                   </p>
-                </CardHeader>
-                <CardContent>
-                  {customerMonthlyEconomicsLoading ? (
-                    <p className="text-sm text-muted-foreground">
-                      Loading monthly economics...
-                    </p>
-                  ) : customerMonthlyEconomicsRows.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No turnover or hour data found for this customer in the
-                      selected range.
-                    </p>
-                  ) : (
-                    <DataTable
-                      columns={customerMonthlyEconomicsColumns}
-                      data={customerMonthlyEconomicsRows}
-                      loading={customerMonthlyEconomicsLoading}
-                      pageSize={12}
-                      emptyState={{
-                        icon: Filter,
-                        title: "No monthly economics",
-                        description:
-                          "No turnover or hour data found for this customer in the selected range.",
-                      }}
-                    />
-                  )}
-                </CardContent>
-              </Card>
+                </div>
+                {customerMonthlyEconomicsLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading monthly economics...
+                  </p>
+                ) : customerMonthlyEconomicsRows.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No turnover or hour data found for this customer in the
+                    selected range.
+                  </p>
+                ) : (
+                  <DataTable
+                    columns={customerMonthlyEconomicsColumns}
+                    data={customerMonthlyEconomicsRows}
+                    loading={customerMonthlyEconomicsLoading}
+                    pageSize={12}
+                    emptyState={{
+                      icon: Filter,
+                      title: "No monthly economics",
+                      description:
+                        "No turnover or hour data found for this customer in the selected range.",
+                    }}
+                  />
+                )}
+              </section>
             </div>
           ) : null}
         </div>
@@ -2328,7 +2295,9 @@ export default function ReportsPage() {
                     <th className="px-2 py-2 font-medium">Invoice #</th>
                     <th className="px-2 py-2 font-medium">Date</th>
                     <th className="px-2 py-2 font-medium">Due date</th>
-                    <th className="px-2 py-2 font-medium">Turnover</th>
+                    <th className="px-2 py-2 font-medium">
+                      Turnover - ex. VAT
+                    </th>
                     <th className="px-2 py-2 font-medium">Currency</th>
                   </tr>
                 </thead>

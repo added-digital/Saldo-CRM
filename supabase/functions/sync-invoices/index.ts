@@ -1,44 +1,41 @@
 import { createAdminClient } from "../_shared/supabase.ts"
 import { getFortnoxClient, updateSyncJob, delay, corsHeaders } from "../_shared/sync-helpers.ts"
 
+declare const Deno: {
+  serve: (handler: (req: Request) => Response | Promise<Response>) => void
+}
+
 const RATE_LIMIT_DELAY_MS = 350
-const INVOICE_DETAIL_DELAY_MS = 120
 const PAGES_PER_BATCH = 10
 const INVOICE_FROM_DATE = "2025-01-01"
 const KPI_BATCH_SIZE = 1000
 
-type InvoiceRowInsert = {
-  invoice_number: string
-  article_number: string | null
-  article_name: string | null
-  description: string | null
-  quantity: number | null
-  unit_price: number | null
-  total: number | null
+function readNumberField(
+  record: Record<string, unknown>,
+  keys: string[],
+): number | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (value == null) continue
+    const numeric = Number(value)
+    if (!Number.isNaN(numeric)) {
+      return numeric
+    }
+  }
+
+  return null
 }
 
-function toInvoiceRows(
-  invoiceNumber: string,
-  invoicePayload: Record<string, unknown> | null | undefined
-): InvoiceRowInsert[] {
-  const rawRows = (invoicePayload?.InvoiceRows ?? invoicePayload?.Rows ?? []) as unknown[]
-  if (!Array.isArray(rawRows)) return []
-
-  return rawRows
-    .filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object"))
-    .map((row) => ({
-      invoice_number: invoiceNumber,
-      article_number: row.ArticleNumber != null ? String(row.ArticleNumber) : (row.ArticleNo != null ? String(row.ArticleNo) : null),
-      article_name: row.ArticleName != null ? String(row.ArticleName) : null,
-      description: row.Description != null ? String(row.Description) : null,
-      quantity: row.DeliveredQuantity != null
-        ? Number(row.DeliveredQuantity)
-        : (row.Quantity != null ? Number(row.Quantity) : null),
-      unit_price: row.Price != null
-        ? Number(row.Price)
-        : (row.UnitPrice != null ? Number(row.UnitPrice) : null),
-      total: row.Total != null ? Number(row.Total) : null,
-    }))
+function resolveExVatTotal(record: Record<string, unknown>): number | null {
+  return readNumberField(record, [
+    "TotalExcludingVAT",
+    "TotalExcludingVat",
+    "TotalExVAT",
+    "TotalExVat",
+    "Net",
+    "NetAmount",
+    "TotalNet",
+  ])
 }
 
 Deno.serve(async (req) => {
@@ -98,6 +95,7 @@ Deno.serve(async (req) => {
       let synced = prevSynced
       let errors = prevErrors
       let totalFetched = prevTotal
+      let totalResources = 0
       let skipped = 0
       let firstError: string | null = null
 
@@ -109,6 +107,7 @@ Deno.serve(async (req) => {
       do {
         const response = await client.getInvoices(currentPage, 100, INVOICE_FROM_DATE)
         totalPages = response.MetaInformation["@TotalPages"]
+        totalResources = response.MetaInformation["@TotalResources"] ?? totalResources
         const invoices = response.Invoices ?? []
 
         const mapped = invoices
@@ -131,6 +130,7 @@ Deno.serve(async (req) => {
               invoice_date: (inv.InvoiceDate as string) ?? null,
               due_date: (inv.DueDate as string) ?? null,
               booked: inv.Booked != null ? Boolean(inv.Booked) : false,
+              total_ex_vat: resolveExVatTotal(inv) ?? (inv.Total != null ? Number(inv.Total) : null),
               total: inv.Total != null ? Number(inv.Total) : null,
               balance: inv.Balance != null ? Number(inv.Balance) : null,
               currency_code: inv.Currency != null ? String(inv.Currency) : "SEK",
@@ -148,45 +148,6 @@ Deno.serve(async (req) => {
             errors += invoices.length
           } else {
             synced += mapped.length
-
-            const invoiceNumbers = mapped.map((invoice) => invoice.document_number)
-            const invoiceRows: InvoiceRowInsert[] = []
-
-            for (const [index, invoiceNumber] of invoiceNumbers.entries()) {
-              try {
-                const invoiceResponse = await client.getInvoice(invoiceNumber)
-                invoiceRows.push(...toInvoiceRows(invoiceNumber, invoiceResponse.Invoice))
-              } catch (detailError) {
-                const detailMessage = detailError instanceof Error ? detailError.message : "Unknown invoice detail error"
-                if (!firstError) firstError = detailMessage
-                errors += 1
-              }
-
-              if (index < invoiceNumbers.length - 1) {
-                await delay(INVOICE_DETAIL_DELAY_MS)
-              }
-            }
-
-            const { error: deleteRowsError } = await supabase
-              .from("invoice_rows")
-              .delete()
-              .in("invoice_number", invoiceNumbers)
-
-            if (deleteRowsError) {
-              console.error("Invoice row delete error:", deleteRowsError.message, deleteRowsError.details)
-              if (!firstError) firstError = deleteRowsError.message
-              errors += invoiceNumbers.length
-            } else if (invoiceRows.length > 0) {
-              const { error: insertRowsError } = await supabase
-                .from("invoice_rows")
-                .insert(invoiceRows as never)
-
-              if (insertRowsError) {
-                console.error("Invoice row insert error:", insertRowsError.message, insertRowsError.details)
-                if (!firstError) firstError = insertRowsError.message
-                errors += invoiceRows.length
-              }
-            }
           }
         }
 
@@ -216,9 +177,12 @@ Deno.serve(async (req) => {
         if (morePages) {
           await updateSyncJob(supabase, jobId, {
             current_step: `Syncing invoices (page ${currentPage - 1}/${totalPages}, ${synced} saved, ${skipped} skipped)...`,
-            total_items: totalPages * 100,
+            total_items: totalResources,
             processed_items: totalFetched,
-            progress: Math.round(((currentPage - 1) / totalPages) * 80),
+            progress:
+              totalResources > 0
+                ? Math.round((totalFetched / totalResources) * 80)
+                : Math.round(((currentPage - 1) / totalPages) * 80),
             payload: updatePayload,
             batch_phase: "list",
             batch_offset: currentPage - 1,
@@ -258,20 +222,24 @@ Deno.serve(async (req) => {
       while (true) {
         const { data: kpiRows, error: kpiError } = await supabase
           .from("invoices")
-          .select("fortnox_customer_number, total")
+          .select("fortnox_customer_number, total_ex_vat, total")
           .range(offset, offset + KPI_BATCH_SIZE - 1)
 
         if (kpiError) {
           throw new Error(`Failed to fetch invoice KPIs: ${kpiError.message}`)
         }
 
-        const rows = (kpiRows ?? []) as Array<{ fortnox_customer_number: string | null; total: number | null }>
+        const rows = (kpiRows ?? []) as Array<{
+          fortnox_customer_number: string | null
+          total_ex_vat: number | null
+          total: number | null
+        }>
         if (rows.length === 0) break
 
         for (const row of rows) {
           if (!row.fortnox_customer_number) continue
           const existing = turnoverByCustomer.get(row.fortnox_customer_number) ?? { turnover: 0, count: 0 }
-          existing.turnover += Number(row.total ?? 0)
+          existing.turnover += Number(row.total_ex_vat ?? row.total ?? 0)
           existing.count += 1
           turnoverByCustomer.set(row.fortnox_customer_number, existing)
         }

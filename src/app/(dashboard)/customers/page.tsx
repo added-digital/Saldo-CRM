@@ -87,7 +87,7 @@ const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
     accessorKey: "total_turnover",
     size: 160,
     minSize: 120,
-    header: "Turnover",
+    header: "Turnover - ex. VAT",
     cell: ({ row }) => formatSek(row.getValue("total_turnover") as number | null),
   },
   {
@@ -111,7 +111,7 @@ const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
     accessorKey: "contract_value",
     size: 170,
     minSize: 120,
-    header: "Contract Value",
+    header: "Contract Value - ex. VAT",
     cell: ({ row }) => formatSek(row.getValue("contract_value") as number | null),
   },
   {
@@ -180,10 +180,10 @@ const customerListColumnDefinitions: Omit<CustomerListColumnOption, "visible">[]
   { id: "contact_name", label: "Primary Contact" },
   { id: "email", label: "Email" },
   { id: "account_manager", label: "Customer Manager" },
-  { id: "total_turnover", label: "Turnover" },
+  { id: "total_turnover", label: "Turnover - ex. VAT" },
   { id: "invoice_count", label: "Invoices" },
   { id: "total_hours", label: "Hours" },
-  { id: "contract_value", label: "Contract Value" },
+  { id: "contract_value", label: "Contract Value - ex. VAT" },
   { id: "segments", label: "Segments" },
 ]
 

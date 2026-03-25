@@ -338,7 +338,7 @@ Deno.serve(async (req) => {
 
       const { data: invoiceRows, error: invoiceError } = await supabase
         .from("invoices")
-        .select("customer_id, fortnox_customer_number, invoice_date, total")
+        .select("customer_id, fortnox_customer_number, invoice_date, total_ex_vat, total")
         .order("id", { ascending: true })
         .range(invoiceOffset, invoiceOffset + KPI_BATCH_SIZE - 1)
 
@@ -350,6 +350,7 @@ Deno.serve(async (req) => {
         customer_id: string | null
         fortnox_customer_number: string | null
         invoice_date: string | null
+        total_ex_vat: number | null
         total: number | null
       }>
 
@@ -367,7 +368,7 @@ Deno.serve(async (req) => {
 
         if (!customer) continue
 
-        const amount = Number(row.total ?? 0)
+        const amount = Number(row.total_ex_vat ?? row.total ?? 0)
         const totals = getCustomerTotals(customerTotals, customer.id)
         totals.turnover += amount
         totals.invoiceCount += 1
@@ -463,7 +464,7 @@ Deno.serve(async (req) => {
 
       const { data: contractRows, error: contractError } = await supabase
         .from("contract_accruals")
-        .select("fortnox_customer_number, start_date, end_date, total, period, is_active")
+        .select("fortnox_customer_number, start_date, end_date, total_ex_vat, total, period, is_active")
         .order("id", { ascending: true })
         .range(contractOffset, contractOffset + KPI_BATCH_SIZE - 1)
 
@@ -475,6 +476,7 @@ Deno.serve(async (req) => {
         fortnox_customer_number: string | null
         start_date: string | null
         end_date: string | null
+        total_ex_vat: number | null
         total: number | null
         period: string | null
         is_active: boolean
@@ -490,7 +492,7 @@ Deno.serve(async (req) => {
 
         if (!row.is_active) continue
 
-        const annualizedValue = annualizeContractTotal(row.total, row.period)
+        const annualizedValue = annualizeContractTotal(row.total_ex_vat ?? row.total, row.period)
         const totals = getCustomerTotals(customerTotals, customer.id)
         totals.contractValue += annualizedValue
 

@@ -177,6 +177,7 @@ export interface Invoice {
   fortnox_customer_number: string | null
   customer_name: string | null
   invoice_date: string | null
+  total_ex_vat: number | null
   total: number | null
   balance: number | null
   currency_code: string
@@ -192,6 +193,7 @@ export interface InvoiceRow {
   description: string | null
   quantity: number | null
   unit_price: number | null
+  total_ex_vat: number | null
   total: number | null
   created_at: string
 }
@@ -262,6 +264,7 @@ export interface ContractAccrual {
   accrual_type: string | null
   period: string | null
   is_active: boolean
+  total_ex_vat: number | null
   total: number | null
   currency_code: string
   raw_data: Record<string, unknown> | null
