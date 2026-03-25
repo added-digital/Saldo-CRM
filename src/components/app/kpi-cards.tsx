@@ -1,5 +1,6 @@
 "use client";
 
+import NumberFlow from "@number-flow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type KpiValues = {
@@ -13,18 +14,6 @@ interface KpiCardsProps {
   values: KpiValues;
   compact?: boolean;
 }
-
-const sekFormatter = new Intl.NumberFormat("sv-SE", {
-  style: "decimal",
-  maximumFractionDigits: 0,
-});
-
-const numberFormatter = new Intl.NumberFormat("sv-SE");
-
-const hoursFormatter = new Intl.NumberFormat("sv-SE", {
-  maximumFractionDigits: 1,
-  minimumFractionDigits: 1,
-});
 
 function KpiCards({ values, compact = false }: KpiCardsProps) {
   const valueClassName = compact
@@ -45,7 +34,16 @@ function KpiCards({ values, compact = false }: KpiCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
-          <p className={valueClassName}>{sekFormatter.format(values.turnover)}</p>
+          <p className={valueClassName}>
+            <NumberFlow
+              value={values.turnover}
+              locales="sv-SE"
+              format={{
+                style: "decimal",
+                maximumFractionDigits: 0,
+              }}
+            />
+          </p>
         </CardContent>
       </Card>
 
@@ -56,7 +54,16 @@ function KpiCards({ values, compact = false }: KpiCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
-          <p className={valueClassName}>{numberFormatter.format(values.invoices)}</p>
+          <p className={valueClassName}>
+            <NumberFlow
+              value={values.invoices}
+              locales="sv-SE"
+              format={{
+                style: "decimal",
+                maximumFractionDigits: 0,
+              }}
+            />
+          </p>
         </CardContent>
       </Card>
 
@@ -67,7 +74,16 @@ function KpiCards({ values, compact = false }: KpiCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
-          <p className={valueClassName}>{hoursFormatter.format(values.hours)}</p>
+          <p className={valueClassName}>
+            <NumberFlow
+              value={values.hours}
+              locales="sv-SE"
+              format={{
+                maximumFractionDigits: 1,
+                minimumFractionDigits: 1,
+              }}
+            />
+          </p>
         </CardContent>
       </Card>
 
@@ -78,7 +94,16 @@ function KpiCards({ values, compact = false }: KpiCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
-          <p className={valueClassName}>{sekFormatter.format(values.contractValue)}</p>
+          <p className={valueClassName}>
+            <NumberFlow
+              value={values.contractValue}
+              locales="sv-SE"
+              format={{
+                style: "decimal",
+                maximumFractionDigits: 0,
+              }}
+            />
+          </p>
         </CardContent>
       </Card>
     </div>

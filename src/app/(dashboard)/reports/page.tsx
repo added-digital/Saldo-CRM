@@ -198,6 +198,30 @@ function annualizeContractTotal(
   return base;
 }
 
+function getNiceStep(roughStep: number): number {
+  if (!Number.isFinite(roughStep) || roughStep <= 0) {
+    return 1;
+  }
+
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const residual = roughStep / magnitude;
+
+  if (residual <= 1) return magnitude;
+  if (residual <= 2) return 2 * magnitude;
+  if (residual <= 5) return 5 * magnitude;
+  return 10 * magnitude;
+}
+
+function getRoundedChartMax(dataMax: number): number {
+  if (!Number.isFinite(dataMax) || dataMax <= 0) {
+    return 1;
+  }
+
+  const targetSegments = 5;
+  const step = getNiceStep(dataMax / targetSegments);
+  return Math.max(step, Math.ceil(dataMax / step) * step);
+}
+
 function normalizeText(value: string | null | undefined): string {
   return (value ?? "").trim().toLowerCase();
 }
@@ -1281,7 +1305,7 @@ export default function ReportsPage() {
         const { data: kpiRows, error: kpiError } = await supabase
           .from("customer_kpis")
           .select(
-            "period_year, period_month, total_turnover, invoice_count, total_hours, contract_value",
+            "period_year, period_month, total_turnover, invoice_count, total_hours",
           )
           .in("customer_id", idChunk)
           .eq("period_type", "month")
@@ -1298,7 +1322,6 @@ export default function ReportsPage() {
           total_turnover: number | null;
           invoice_count: number | null;
           total_hours: number | null;
-          contract_value: number | null;
         }>;
 
         for (const row of rows) {
@@ -1308,12 +1331,48 @@ export default function ReportsPage() {
           turnover += Number(row.total_turnover ?? 0);
           invoiceCount += Number(row.invoice_count ?? 0);
           hours += Number(row.total_hours ?? 0);
-          contractValue += Number(row.contract_value ?? 0);
 
           const target = turnoverByMonth.get(monthKey);
           if (target) {
             target.turnover += Number(row.total_turnover ?? 0);
           }
+        }
+      }
+
+      const contractCustomerNumbers = Array.from(
+        new Set(
+          filteredCustomers
+            .map((customer) => customer.fortnox_customer_number)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      );
+
+      const contractCustomerNumberChunks = chunkArray(contractCustomerNumbers, 200);
+
+      for (const numberChunk of contractCustomerNumberChunks) {
+        if (cancelled) return;
+
+        const { data: contractRows, error: contractError } = await supabase
+          .from("contract_accruals")
+          .select("total_ex_vat, total, period")
+          .in("fortnox_customer_number", numberChunk)
+          .eq("is_active", true);
+
+        if (contractError) {
+          throw contractError;
+        }
+
+        const rows = (contractRows ?? []) as Array<{
+          total_ex_vat: number | null;
+          total: number | null;
+          period: string | null;
+        }>;
+
+        for (const row of rows) {
+          contractValue += annualizeContractTotal(
+            row.total_ex_vat ?? row.total,
+            row.period,
+          );
         }
       }
 
@@ -1946,7 +2005,10 @@ export default function ReportsPage() {
       header: "Total",
       size: 140,
       enableSorting: false,
-      cell: ({ row }) => sekFormatter.format(Number(row.original.total ?? 0)),
+      cell: ({ row }) =>
+        sekFormatter.format(
+          Number(row.original.total_ex_vat ?? row.original.total ?? 0),
+        ),
     },
     {
       id: "annualized",
@@ -1955,7 +2017,10 @@ export default function ReportsPage() {
       enableSorting: false,
       cell: ({ row }) =>
         sekFormatter.format(
-          annualizeContractTotal(row.original.total, row.original.period),
+          annualizeContractTotal(
+            row.original.total_ex_vat ?? row.original.total,
+            row.original.period,
+          ),
         ),
     },
     {
@@ -2156,17 +2221,12 @@ export default function ReportsPage() {
         />
       ) : (
         <div className="space-y-10">
-          {kpiLoading ? (
-            <Card>
-              <CardContent className="py-8">
-                <p className="text-sm text-muted-foreground">
-                  Calculating KPIs...
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
+          <div className="space-y-2">
             <KpiCards values={kpis} compact />
-          )}
+            {kpiLoading ? (
+              <p className="text-sm text-muted-foreground">Updating KPIs...</p>
+            ) : null}
+          </div>
 
           <section className="space-y-3">
             <div className="space-y-1">
@@ -2202,9 +2262,10 @@ export default function ReportsPage() {
                   />
                   <YAxis
                     hide
+                    tickCount={6}
                     domain={[
                       0,
-                      (dataMax: number) => Math.max(1, Math.ceil(dataMax * 1.25)),
+                      (dataMax: number) => getRoundedChartMax(dataMax),
                     ]}
                   />
                   <ChartTooltip
