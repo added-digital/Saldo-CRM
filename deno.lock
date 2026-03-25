@@ -10,6 +10,7 @@
     "packageJson": {
       "dependencies": [
         "npm:@hookform/resolvers@^5.2.2",
+        "npm:@number-flow/react@0.6",
         "npm:@react-email/components@^1.0.8",
         "npm:@supabase/ssr@0.9",
         "npm:@supabase/supabase-js@^2.98.0",

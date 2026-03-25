@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, Send } from "lucide-react";
 
 import { useUser } from "@/hooks/use-user";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
@@ -50,12 +52,21 @@ function toParagraphs(raw: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+function toRecipients(raw: string): string[] {
+  return raw
+    .split(/[\r\n,;]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
 export default function SettingsMailPage() {
   const { isAdmin } = useUser();
+  const searchParams = useSearchParams();
   const [form, setForm] = React.useState<MailFormState>(INITIAL_STATE);
   const [previewHtml, setPreviewHtml] = React.useState("");
   const [previewLoading, setPreviewLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
+  const [sendSeparately, setSendSeparately] = React.useState(false);
 
   const payloadData = React.useMemo(
     () => ({
@@ -73,6 +84,19 @@ export default function SettingsMailPage() {
   );
 
   React.useEffect(() => {
+    const toParam = searchParams.get("to");
+    if (!toParam) return;
+
+    setForm((current) => {
+      if (current.to.trim().length > 0) return current;
+      return {
+        ...current,
+        to: toParam,
+      };
+    });
+  }, [searchParams]);
+
+  React.useEffect(() => {
     const abortController = new AbortController();
     const timeout = window.setTimeout(async () => {
       setPreviewLoading(true);
@@ -83,7 +107,7 @@ export default function SettingsMailPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            to: form.to || "preview@example.com",
+            to: toRecipients(form.to).length > 0 ? toRecipients(form.to) : ["preview@example.com"],
             template: "content",
             mode: "preview",
             data: payloadData,
@@ -120,8 +144,8 @@ export default function SettingsMailPage() {
   }, [form.to, payloadData]);
 
   async function handleSend() {
-    const recipient = form.to.trim();
-    if (!recipient) {
+    const recipients = toRecipients(form.to);
+    if (recipients.length === 0) {
       toast.error("Recipient email is required");
       return;
     }
@@ -134,9 +158,10 @@ export default function SettingsMailPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          to: recipient,
+          to: recipients,
           template: "content",
           mode: "send",
+          deliveryMode: sendSeparately ? "separate" : "grouped",
           data: payloadData,
         }),
       });
@@ -144,6 +169,7 @@ export default function SettingsMailPage() {
       const result = (await response.json()) as {
         error?: string;
         message?: string;
+        sent_count?: number;
       };
 
       if (!response.ok) {
@@ -151,7 +177,12 @@ export default function SettingsMailPage() {
         return;
       }
 
-      toast.success("Email sent");
+      if (sendSeparately) {
+        const sentCount = result.sent_count ?? recipients.length;
+        toast.success(`Sent ${sentCount} separate email${sentCount === 1 ? "" : "s"}`);
+      } else {
+        toast.success("Email sent as grouped message");
+      }
     } catch {
       toast.error("Failed to send email");
     } finally {
@@ -189,12 +220,30 @@ export default function SettingsMailPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="mail-to">Send to</Label>
-            <Input
+            <Textarea
               id="mail-to"
-              type="email"
-              placeholder="name@example.com"
+              className="min-h-20"
+              placeholder="name@example.com\nsecond@example.com"
               value={form.to}
               onChange={(event) => updateField("to", event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Add one email per line (or separate with comma/semicolon).
+            </p>
+          </div>
+
+          <div className="flex items-start justify-between gap-4 rounded-md border p-3">
+            <div className="space-y-1">
+              <Label htmlFor="mail-send-separately">Send separate emails</Label>
+              <p className="text-xs text-muted-foreground">
+                When enabled, each recipient gets an individual email. When disabled,
+                all recipients are included in one grouped message.
+              </p>
+            </div>
+            <Switch
+              id="mail-send-separately"
+              checked={sendSeparately}
+              onCheckedChange={setSendSeparately}
             />
           </div>
 

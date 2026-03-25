@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
-import { Users, Tags, ChevronLeft, ChevronRight } from "lucide-react"
+import { Users, Tags, ChevronLeft, ChevronRight, Mail } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import type { CustomerWithRelations, Profile, Segment } from "@/types/database"
@@ -453,6 +453,23 @@ export default function CustomersPage() {
     clearSelectionRef.current?.()
   }
 
+  function handleSendMail() {
+    const recipients = Array.from(
+      new Set(
+        selectedCustomers
+          .map((customer) => customer.email?.trim())
+          .filter((email): email is string => Boolean(email))
+      )
+    )
+
+    if (recipients.length === 0) {
+      toast.error("No primary contact emails found for selected customers")
+      return
+    }
+
+    router.push(`/settings/mail?to=${encodeURIComponent(recipients.join("\n"))}`)
+  }
+
   function toggleListColumn(columnId: string) {
     const column = customerListColumnDefinitions.find((item) => item.id === columnId)
     if (column?.alwaysVisible) return
@@ -558,6 +575,11 @@ export default function CustomersPage() {
         selectedCount={selectedCustomers.length}
         onClear={handleClearSelection}
         actions={[
+          {
+            label: "Send Mail",
+            icon: Mail,
+            onClick: handleSendMail,
+          },
           {
             label: "Add Segments",
             icon: Tags,

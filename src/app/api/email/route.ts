@@ -6,10 +6,11 @@ import { render } from "@react-email/components"
 import type { Profile } from "@/types/database"
 
 interface EmailRequest {
-  to: string
+  to: string | string[]
   template: "content"
   data: Record<string, unknown>
   mode?: "send" | "preview"
+  deliveryMode?: "grouped" | "separate"
 }
 
 function asString(value: unknown, fallback = ""): string {
@@ -27,7 +28,7 @@ function asStringArray(value: unknown): string[] {
 
   if (typeof value === "string") {
     return value
-      .split(/\r?\n/)
+      .split(/[\r\n,;]+/)
       .map((line) => line.trim())
       .filter((line) => line.length > 0)
   }
@@ -66,7 +67,7 @@ const templateRenderers: Record<EmailRequest["template"], TemplateRenderer> = {
 
 async function sendMicrosoftGraphMail(
   providerToken: string,
-  to: string,
+  recipients: string[],
   subject: string,
   html: string,
 ) {
@@ -84,11 +85,11 @@ async function sendMicrosoftGraphMail(
           content: html,
         },
         toRecipients: [
-          {
+          ...recipients.map((recipient) => ({
             emailAddress: {
-              address: to,
+              address: recipient,
             },
-          },
+          })),
         ],
       },
       saveToSentItems: true,
@@ -128,7 +129,27 @@ export async function POST(request: NextRequest) {
     }
 
     const body: EmailRequest = await request.json()
-    const { to, template, data, mode = "send" } = body
+    const { to, template, data, mode = "send", deliveryMode = "grouped" } = body
+    const recipients = asStringArray(to)
+
+    if (recipients.length === 0) {
+      return NextResponse.json({ error: "At least one recipient is required" }, { status: 400 })
+    }
+
+    const invalidRecipients = recipients.filter((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    if (invalidRecipients.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Invalid recipient email address",
+          invalid_recipients: invalidRecipients,
+        },
+        { status: 400 }
+      )
+    }
+
+    if (deliveryMode !== "grouped" && deliveryMode !== "separate") {
+      return NextResponse.json({ error: "Invalid delivery mode" }, { status: 400 })
+    }
 
     const renderTemplate = templateRenderers[template]
     if (!renderTemplate) {
@@ -138,7 +159,7 @@ export async function POST(request: NextRequest) {
     const { subject, html } = await renderTemplate(data ?? {})
 
     if (mode === "preview") {
-      return NextResponse.json({ success: true, subject, html })
+      return NextResponse.json({ success: true, subject, html, recipients })
     }
 
     const {
@@ -156,9 +177,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    await sendMicrosoftGraphMail(providerToken, to, subject, html)
+    if (deliveryMode === "separate") {
+      for (const recipient of recipients) {
+        await sendMicrosoftGraphMail(providerToken, [recipient], subject, html)
+      }
 
-    return NextResponse.json({ success: true, subject })
+      return NextResponse.json({
+        success: true,
+        subject,
+        recipients,
+        delivery_mode: deliveryMode,
+        sent_count: recipients.length,
+      })
+    }
+
+    await sendMicrosoftGraphMail(providerToken, recipients, subject, html)
+
+    return NextResponse.json({
+      success: true,
+      subject,
+      recipients,
+      delivery_mode: deliveryMode,
+      sent_count: 1,
+    })
   } catch (error) {
     console.error("Email send error:", error)
     return NextResponse.json(

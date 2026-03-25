@@ -28,7 +28,6 @@ import { Button } from "@/components/ui/button";
 import {
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
@@ -291,6 +290,7 @@ type TurnoverMonthRow = {
   monthKey: string;
   monthLabel: string;
   turnover: number;
+  invoiceCount: number;
 };
 
 type TimeDetailMetric =
@@ -347,6 +347,7 @@ function createEmptyTurnoverRows(months: RollingMonth[]): TurnoverMonthRow[] {
     monthKey: month.key,
     monthLabel: month.label,
     turnover: 0,
+    invoiceCount: 0,
   }));
 }
 
@@ -356,6 +357,51 @@ const turnoverChartConfig = {
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
+
+type TurnoverTooltipPayloadItem = {
+  value?: number | string | null;
+  payload?: {
+    invoiceCount?: number;
+  };
+};
+
+function TurnoverTooltipContent({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: TurnoverTooltipPayloadItem[];
+  label?: string | number;
+}) {
+  if (!active || !Array.isArray(payload) || payload.length === 0) {
+    return null;
+  }
+
+  const first = payload[0];
+  const turnover = Number(first.value ?? 0);
+  const invoiceCount = Number(first.payload?.invoiceCount ?? 0);
+
+  return (
+    <div className="grid min-w-[10rem] gap-1.5 rounded-md border bg-background px-3 py-2 text-xs shadow-xl">
+      {label != null ? <div className="font-medium">{String(label)}</div> : null}
+      <div className="grid gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground">Turnover</span>
+          <span className="font-medium tabular-nums">
+            {turnover.toLocaleString("sv-SE")}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-muted-foreground">Invoices</span>
+          <span className="font-medium tabular-nums">
+            {invoiceCount.toLocaleString("sv-SE")}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SearchSelect({
   placeholder,
@@ -650,6 +696,7 @@ export default function ReportsPage() {
     return rows
       .filter((row) => matchesMetric(row.entry_type, metric))
       .map((row) => {
+        const normalizedEmployeeId = normalizeIdentifier(row.employee_id);
         const mappedContributorName = row.employee_id
           ? ((
               managerByFortnoxUserId.get(
@@ -660,12 +707,18 @@ export default function ReportsPage() {
               )
             )?.full_name ?? null)
           : null;
+        const baseContributorName = row.employee_name ?? "Unknown";
+        const displayContributorName = mappedContributorName
+          ? mappedContributorName
+          : normalizedEmployeeId
+            ? `${baseContributorName} (ID: ${normalizedEmployeeId})`
+            : baseContributorName;
 
         return {
           id: row.id,
           reportDate: row.report_date,
           customerName: row.customer_name,
-          employeeName: mappedContributorName ?? row.employee_name,
+          employeeName: displayContributorName,
           entryType: row.entry_type,
           projectName: row.project_name,
           activity: row.activity,
@@ -1335,6 +1388,7 @@ export default function ReportsPage() {
           const target = turnoverByMonth.get(monthKey);
           if (target) {
             target.turnover += Number(row.total_turnover ?? 0);
+            target.invoiceCount += Number(row.invoice_count ?? 0);
           }
         }
       }
@@ -1387,13 +1441,14 @@ export default function ReportsPage() {
       setTurnoverByMonthRows(
         rollingWindow.months.map(
           (month) =>
-            turnoverByMonth.get(month.key) ?? {
-              monthKey: month.key,
-              monthLabel: month.label,
-              turnover: 0,
-            },
-        ),
-      );
+              turnoverByMonth.get(month.key) ?? {
+                monthKey: month.key,
+                monthLabel: month.label,
+                turnover: 0,
+                invoiceCount: 0,
+              },
+          ),
+        );
       setKpiLoading(false);
     }
 
@@ -2244,8 +2299,9 @@ export default function ReportsPage() {
                 <BarChart
                   accessibilityLayer
                   data={turnoverByMonthRows.map((row) => ({
-                    month: row.monthLabel,
+                    month: `${row.monthLabel} ${row.monthKey.slice(2, 4)}`,
                     turnover: row.turnover,
+                    invoiceCount: row.invoiceCount,
                   }))}
                   margin={{
                     top: 20,
@@ -2258,7 +2314,6 @@ export default function ReportsPage() {
                     tickLine={false}
                     tickMargin={10}
                     axisLine={false}
-                    tickFormatter={(value) => String(value).slice(0, 3)}
                   />
                   <YAxis
                     hide
@@ -2270,7 +2325,7 @@ export default function ReportsPage() {
                   />
                   <ChartTooltip
                     cursor={false}
-                    content={<ChartTooltipContent hideLabel />}
+                    content={<TurnoverTooltipContent />}
                   />
                   <Bar
                     dataKey="turnover"

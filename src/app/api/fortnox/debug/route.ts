@@ -148,6 +148,32 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    const invoicesCustomerNumber = request.nextUrl.searchParams.get("invoicesCustomer")?.trim() ?? ""
+    if (invoicesCustomerNumber) {
+      const fortnox = await getFortnoxClient(adminClient)
+      const limitRaw = Number(request.nextUrl.searchParams.get("limit") ?? 100)
+      const pageRaw = Number(request.nextUrl.searchParams.get("page") ?? 1)
+      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 500) : 100
+      const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1
+      const endpoint = `/3/invoices?limit=${limit}&page=${page}&customernumber=${encodeURIComponent(invoicesCustomerNumber)}`
+      const result = await fortnox.requestPath<Record<string, unknown>>(endpoint)
+
+      const invoices = readCollection(result, ["Invoices", "invoices"])
+      const normalizedCustomer = invoicesCustomerNumber.trim()
+      const strictMatches = invoices.filter((invoice) => {
+        const fromCustomerNumber = readTextField(invoice, ["CustomerNumber", "customerNumber"])
+        return fromCustomerNumber === normalizedCustomer
+      })
+
+      return NextResponse.json({
+        customer_number: invoicesCustomerNumber,
+        endpoint,
+        returned_count: invoices.length,
+        strict_match_count: strictMatches.length,
+        invoices: strictMatches.length > 0 ? strictMatches : invoices,
+      })
+    }
+
     const contractNumber = request.nextUrl.searchParams.get("contract")?.trim() ?? ""
     if (contractNumber) {
       const fortnox = await getFortnoxClient(adminClient)
@@ -156,6 +182,19 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         contract_number: contractNumber,
+        endpoint,
+        raw: result,
+      })
+    }
+
+    const invoiceNumber = request.nextUrl.searchParams.get("invoice")?.trim() ?? ""
+    if (invoiceNumber) {
+      const fortnox = await getFortnoxClient(adminClient)
+      const endpoint = `/3/invoices/${encodeURIComponent(invoiceNumber)}`
+      const result = await fortnox.requestPath<Record<string, unknown>>(endpoint)
+
+      return NextResponse.json({
+        invoice_number: invoiceNumber,
         endpoint,
         raw: result,
       })

@@ -1,0 +1,35 @@
+# AGENTS
+
+## Scope
+This file applies to `src/app/(dashboard)` and its subdirectories unless a deeper `AGENTS.md` overrides it.
+
+## Purpose
+- Dashboard pages provide operational CRM workflows (reports, customers, users, settings).
+- Prioritize fast scanning, clear state, and consistent table/list behavior.
+
+## UI and Interaction Rules
+- Reuse existing UI primitives and shared components from `src/components/ui` and `src/components/app`.
+- Keep terminology consistent: use "cost center".
+- Reports module lists should follow the same list style as the rest of report view modules.
+- Avoid adding unnecessary wrappers or nested card patterns when existing modules use simpler section layout.
+- Keep filter controls and KPI context concise; place contextual counters close to filter controls when applicable.
+
+## Data Display Rules
+- Prefer ex-VAT turnover values (`total_ex_vat`) whenever available.
+- Month labels should be English 3-letter format with leading capital letter.
+- For unknown cost center fallback text, include identifier when available.
+- Contract-related KPI totals should represent active contracts.
+
+## Next.js App Router Rules
+- `page.tsx` and `layout.tsx` may use default export; other modules should use named exports.
+- Match existing async route params typing conventions used in this codebase.
+
+## Editing Guidance
+- Keep pages focused: move repeated logic to shared helpers/components when already patterned nearby.
+- Do not introduce visual styles that conflict with existing dashboard spacing/typography decisions.
+- Keep comments minimal and only where logic is non-obvious.
+
+## Verification
+- Run diagnostics for modified files.
+- Run relevant tests for touched behavior.
+- Run project typecheck/build when changes affect shared UI or data flow.

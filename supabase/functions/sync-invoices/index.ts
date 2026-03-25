@@ -27,7 +27,7 @@ function readNumberField(
 }
 
 function resolveExVatTotal(record: Record<string, unknown>): number | null {
-  return readNumberField(record, [
+  const explicitExVat = readNumberField(record, [
     "TotalExcludingVAT",
     "TotalExcludingVat",
     "TotalExVAT",
@@ -36,6 +36,24 @@ function resolveExVatTotal(record: Record<string, unknown>): number | null {
     "NetAmount",
     "TotalNet",
   ])
+
+  if (explicitExVat != null) {
+    return explicitExVat
+  }
+
+  const total = readNumberField(record, ["Total", "TotalToPay", "TotalAmount"])
+  const totalVat = readNumberField(record, [
+    "TotalVAT",
+    "TotalVat",
+    "VatTotal",
+    "VATTotal",
+  ])
+
+  if (total != null && totalVat != null) {
+    return Math.max(0, total - totalVat)
+  }
+
+  return null
 }
 
 Deno.serve(async (req) => {
