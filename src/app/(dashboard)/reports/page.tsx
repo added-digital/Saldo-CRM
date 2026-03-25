@@ -104,9 +104,8 @@ function parseMonthKey(monthKey: string): { year: number; month: number } {
 }
 
 function createMonthOptions(count: number): SelectOption[] {
-  const monthFormatter = new Intl.DateTimeFormat("sv-SE", {
-    month: "long",
-    year: "numeric",
+  const monthFormatter = new Intl.DateTimeFormat("en-US", {
+    month: "short",
   });
   const now = new Date();
   const options: SelectOption[] = [];
@@ -115,7 +114,7 @@ function createMonthOptions(count: number): SelectOption[] {
     const valueDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
     options.push({
       id: toMonthKey(valueDate),
-      label: monthFormatter.format(valueDate),
+      label: `${monthFormatter.format(valueDate)} ${valueDate.getFullYear()}`,
     });
   }
 
@@ -138,12 +137,11 @@ function getRollingMonthRange(selectedMonthKey: string): {
   const { year, month } = parseMonthKey(selectedMonthKey);
   const endDate = new Date(year, month, 0);
   const startDate = new Date(year, month - 12, 1);
-  const monthLabelFormatter = new Intl.DateTimeFormat("sv-SE", {
+  const monthLabelFormatter = new Intl.DateTimeFormat("en-US", {
     month: "short",
-    year: "numeric",
   });
-  const titleFormatter = new Intl.DateTimeFormat("sv-SE", {
-    month: "long",
+  const titleFormatter = new Intl.DateTimeFormat("en-US", {
+    month: "short",
     year: "numeric",
   });
   const months: RollingMonth[] = [];
@@ -508,8 +506,7 @@ export default function ReportsPage() {
     () =>
       availableManagers.map((manager) => ({
         id: manager.id,
-        label: manager.full_name ?? manager.email,
-        subLabel: manager.email,
+        label: manager.full_name ?? "Unknown manager",
       })),
     [availableManagers],
   );
@@ -538,9 +535,6 @@ export default function ReportsPage() {
       managerScopedCustomers.map((customer) => ({
         id: customer.id,
         label: customer.name,
-        subLabel: customer.fortnox_customer_number
-          ? `#${customer.fortnox_customer_number}`
-          : "No customer number",
       })),
     [managerScopedCustomers],
   );
@@ -1970,10 +1964,118 @@ export default function ReportsPage() {
     },
   ];
 
+  const timeDetailsColumns: ColumnDef<TimeDetailRow, unknown>[] = [
+    {
+      id: "reportDate",
+      accessorKey: "reportDate",
+      header: "Date",
+      size: 120,
+      enableSorting: false,
+      cell: ({ row }) => row.original.reportDate ?? "-",
+    },
+    {
+      id: "customerName",
+      accessorKey: "customerName",
+      header: "Customer",
+      size: 220,
+      enableSorting: false,
+      cell: ({ row }) => row.original.customerName ?? "-",
+    },
+    {
+      id: "employeeName",
+      accessorKey: "employeeName",
+      header: "Cost center",
+      size: 180,
+      enableSorting: false,
+      cell: ({ row }) => row.original.employeeName ?? "-",
+    },
+    {
+      id: "entryType",
+      accessorKey: "entryType",
+      header: "Type",
+      size: 140,
+      enableSorting: false,
+      cell: ({ row }) => row.original.entryType ?? "-",
+    },
+    {
+      id: "hours",
+      accessorKey: "hours",
+      header: "Hours",
+      size: 110,
+      enableSorting: false,
+      cell: ({ row }) => hoursFormatter.format(row.original.hours),
+    },
+    {
+      id: "projectName",
+      accessorKey: "projectName",
+      header: "Project",
+      size: 200,
+      enableSorting: false,
+      cell: ({ row }) => row.original.projectName ?? "-",
+    },
+    {
+      id: "activity",
+      accessorKey: "activity",
+      header: "Activity",
+      size: 180,
+      enableSorting: false,
+      cell: ({ row }) => row.original.activity ?? "-",
+    },
+    {
+      id: "description",
+      accessorKey: "description",
+      header: "Description",
+      size: 260,
+      enableSorting: false,
+      cell: ({ row }) => row.original.description ?? "-",
+    },
+  ];
+
+  const invoiceDetailsColumns: ColumnDef<InvoiceDetailRow, unknown>[] = [
+    {
+      id: "documentNumber",
+      accessorKey: "documentNumber",
+      header: "Invoice #",
+      size: 160,
+      enableSorting: false,
+    },
+    {
+      id: "invoiceDate",
+      accessorKey: "invoiceDate",
+      header: "Date",
+      size: 120,
+      enableSorting: false,
+      cell: ({ row }) => row.original.invoiceDate ?? "-",
+    },
+    {
+      id: "dueDate",
+      accessorKey: "dueDate",
+      header: "Due date",
+      size: 120,
+      enableSorting: false,
+      cell: ({ row }) => row.original.dueDate ?? "-",
+    },
+    {
+      id: "turnover",
+      accessorKey: "turnover",
+      header: "Turnover - ex. VAT",
+      size: 180,
+      enableSorting: false,
+      cell: ({ row }) => sekFormatter.format(row.original.turnover),
+    },
+    {
+      id: "currencyCode",
+      accessorKey: "currencyCode",
+      header: "Currency",
+      size: 100,
+      enableSorting: false,
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="w-full max-w-6xl">
-        <div className={cn("grid gap-4", filterGridClass)}>
+      <div className="flex w-full max-w-6xl flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className={cn("grid gap-4 lg:flex-1", filterGridClass)}>
           {showTeamFilter ? (
             <SearchSelect
               placeholder="All teams"
@@ -2024,6 +2126,14 @@ export default function ReportsPage() {
             allowClear={false}
           />
         </div>
+
+        <div className="inline-flex h-10 items-center px-1 text-sm font-medium text-muted-foreground lg:shrink-0">
+          <span className="text-[#d4af37]">{filteredCustomers.length}</span>
+          <span>
+            &nbsp;customer{filteredCustomers.length === 1 ? "" : "s"} in
+            current filter
+          </span>
+        </div>
       </div>
 
       {loading ? (
@@ -2042,13 +2152,6 @@ export default function ReportsPage() {
         />
       ) : (
         <div className="space-y-10">
-          <p className="text-sm text-muted-foreground">
-            Showing KPI totals for {filteredCustomers.length} customer
-            {filteredCustomers.length === 1 ? "" : "s"}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Rolling window ending: {rollingWindow.title}
-          </p>
           {kpiLoading ? (
             <Card>
               <CardContent className="py-8">
@@ -2232,46 +2335,19 @@ export default function ReportsPage() {
             <DialogTitle>{timeDetailsTitle}</DialogTitle>
           </DialogHeader>
 
-          {timeDetailsLoading ? (
-            <p className="text-sm text-muted-foreground">Loading rows...</p>
-          ) : timeDetailsRows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No matching rows found.
-            </p>
-          ) : (
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full min-w-[1100px] text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="px-2 py-2 font-medium">Date</th>
-                    <th className="px-2 py-2 font-medium">Customer</th>
-                    <th className="px-2 py-2 font-medium">Contributor</th>
-                    <th className="px-2 py-2 font-medium">Type</th>
-                    <th className="px-2 py-2 font-medium">Hours</th>
-                    <th className="px-2 py-2 font-medium">Project</th>
-                    <th className="px-2 py-2 font-medium">Activity</th>
-                    <th className="px-2 py-2 font-medium">Description</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {timeDetailsRows.map((row) => (
-                    <tr key={row.id} className="border-b last:border-0">
-                      <td className="px-2 py-2">{row.reportDate ?? "-"}</td>
-                      <td className="px-2 py-2">{row.customerName ?? "-"}</td>
-                      <td className="px-2 py-2">{row.employeeName ?? "-"}</td>
-                      <td className="px-2 py-2">{row.entryType ?? "-"}</td>
-                      <td className="px-2 py-2">
-                        {hoursFormatter.format(row.hours)}
-                      </td>
-                      <td className="px-2 py-2">{row.projectName ?? "-"}</td>
-                      <td className="px-2 py-2">{row.activity ?? "-"}</td>
-                      <td className="px-2 py-2">{row.description ?? "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <DataTable
+              columns={timeDetailsColumns}
+              data={timeDetailsRows}
+              loading={timeDetailsLoading}
+              pageSize={20}
+              emptyState={{
+                icon: Filter,
+                title: "No matching rows",
+                description: "No matching rows found.",
+              }}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -2281,42 +2357,19 @@ export default function ReportsPage() {
             <DialogTitle>{invoiceDetailsTitle}</DialogTitle>
           </DialogHeader>
 
-          {invoiceDetailsLoading ? (
-            <p className="text-sm text-muted-foreground">Loading invoices...</p>
-          ) : invoiceDetailsRows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No matching invoices found for this month.
-            </p>
-          ) : (
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full min-w-[760px] text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="px-2 py-2 font-medium">Invoice #</th>
-                    <th className="px-2 py-2 font-medium">Date</th>
-                    <th className="px-2 py-2 font-medium">Due date</th>
-                    <th className="px-2 py-2 font-medium">
-                      Turnover - ex. VAT
-                    </th>
-                    <th className="px-2 py-2 font-medium">Currency</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoiceDetailsRows.map((row) => (
-                    <tr key={row.id} className="border-b last:border-0">
-                      <td className="px-2 py-2">{row.documentNumber}</td>
-                      <td className="px-2 py-2">{row.invoiceDate ?? "-"}</td>
-                      <td className="px-2 py-2">{row.dueDate ?? "-"}</td>
-                      <td className="px-2 py-2">
-                        {sekFormatter.format(row.turnover)}
-                      </td>
-                      <td className="px-2 py-2">{row.currencyCode}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <DataTable
+              columns={invoiceDetailsColumns}
+              data={invoiceDetailsRows}
+              loading={invoiceDetailsLoading}
+              pageSize={20}
+              emptyState={{
+                icon: Filter,
+                title: "No matching invoices",
+                description: "No matching invoices found for this month.",
+              }}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>
