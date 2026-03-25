@@ -328,7 +328,7 @@ function createEmptyTurnoverRows(months: RollingMonth[]): TurnoverMonthRow[] {
 
 const turnoverChartConfig = {
   turnover: {
-    label: "Turnover - ex. VAT",
+    label: "Turnover",
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
@@ -888,7 +888,7 @@ export default function ReportsPage() {
     setInvoiceDetailsLoading(true);
     setInvoiceDetailsRows([]);
     setInvoiceDetailsTitle(
-      `${selectedCustomer?.name ?? "Selected customer"} · ${row.monthLabel} · Turnover - ex. VAT`,
+      `${selectedCustomer?.name ?? "Selected customer"} · ${row.monthLabel} · Turnover`,
     );
 
     const supabase = createClient();
@@ -1499,9 +1499,13 @@ export default function ReportsPage() {
         const entryType = normalizeText(row.entry_type);
         if (entryType !== "time") continue;
 
-        const contributorName = row.employee_name?.trim() || "Unknown";
         const sourceEmployeeId = row.employee_id;
         const normalizedEmployeeId = normalizeIdentifier(sourceEmployeeId);
+        const contributorName = row.employee_name?.trim()
+          ? row.employee_name.trim()
+          : normalizedEmployeeId
+            ? `Unknown (ID: ${normalizedEmployeeId})`
+            : "Unknown";
         const byUserId = normalizedEmployeeId
           ? managerByFortnoxUserId.get(normalizedEmployeeId)
           : undefined;
@@ -1854,7 +1858,7 @@ export default function ReportsPage() {
     {
       id: "turnover",
       accessorKey: "turnover",
-      header: "Turnover - ex. VAT",
+      header: "Turnover",
       size: 180,
       enableSorting: false,
       cell: ({ row }) =>
@@ -1886,7 +1890,7 @@ export default function ReportsPage() {
     {
       id: "turnoverPerHour",
       accessorKey: "turnoverPerHour",
-      header: "Turnover (ex. VAT) / Hours",
+      header: "Turnover / Hours",
       size: 220,
       enableSorting: false,
       cell: ({ row }) =>
@@ -2058,7 +2062,7 @@ export default function ReportsPage() {
     {
       id: "turnover",
       accessorKey: "turnover",
-      header: "Turnover - ex. VAT",
+      header: "Turnover",
       size: 180,
       enableSorting: false,
       cell: ({ row }) => sekFormatter.format(row.original.turnover),
@@ -2166,7 +2170,7 @@ export default function ReportsPage() {
 
           <section className="space-y-3">
             <div className="space-y-1">
-              <h3 className="text-base font-semibold">Turnover per month - ex. VAT</h3>
+              <h3 className="text-base font-semibold">Turnover per month</h3>
               <p className="text-sm text-muted-foreground">
                 Based on current filters and rolling 12-month window.
               </p>
@@ -2293,8 +2297,8 @@ export default function ReportsPage() {
               <section className="space-y-3">
                 <div className="space-y-1">
                   <h3 className="text-base font-semibold">
-                    Monthly turnover (ex. VAT) and hours
-                  </h3>
+                  Monthly turnover and hours
+                </h3>
                   <p className="text-sm text-muted-foreground">
                     {selectedCustomer?.name ?? "Selected customer"} ·{" "}
                     {rollingWindow.title}

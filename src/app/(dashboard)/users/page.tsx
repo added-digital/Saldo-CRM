@@ -275,13 +275,15 @@ export default function UsersPage() {
               avatarUrl={profile.avatar_url}
               size="sm"
             />
-            <div>
-              <p className="text-sm font-medium">{profile.full_name ?? "—"}</p>
-              <p className="text-xs text-muted-foreground">{profile.email}</p>
-            </div>
+            <p className="text-sm font-medium">{profile.full_name ?? "—"}</p>
           </div>
         );
       },
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ row }) => row.getValue("email") as string,
     },
     {
       accessorKey: "role",
@@ -298,17 +300,28 @@ export default function UsersPage() {
       ),
     },
     {
-      accessorKey: "fortnox_cost_center",
-      header: "Cost Center",
+      accessorKey: "fortnox_employee_id",
+      header: "Fnx Employee ID",
       cell: ({ row }) => {
-        const cc = row.getValue("fortnox_cost_center") as string | null
-        return cc ?? "—"
+        const employeeId = row.getValue("fortnox_employee_id") as string | null;
+        return employeeId ?? "—";
       },
     },
     {
-      accessorKey: "created_at",
-      header: "Joined",
-      cell: ({ row }) => formatDate(row.getValue("created_at")),
+      accessorKey: "fortnox_user_id",
+      header: "Fnx User ID",
+      cell: ({ row }) => {
+        const userId = row.getValue("fortnox_user_id") as string | null;
+        return userId ?? "—";
+      },
+    },
+    {
+      accessorKey: "fortnox_cost_center",
+      header: "Cost Center",
+      cell: ({ row }) => {
+        const cc = row.getValue("fortnox_cost_center") as string | null;
+        return cc ?? "—";
+      },
     },
     {
       id: "actions",
