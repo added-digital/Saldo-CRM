@@ -45,14 +45,17 @@ export function EmailLayout({
 
   return (
     <Html>
-      <Head>
-        {previewText ? <Preview>{previewText}</Preview> : null}
-      </Head>
+      <Head>{previewText ? <Preview>{previewText}</Preview> : null}</Head>
       <Body style={main}>
         <Container style={outerContainer}>
           <Section style={shell}>
             <Section style={header}>
-              <Img src={headerImageUrl} width="600" alt={`${brandName} Header`} style={headerImage} />
+              <Img
+                src={headerImageUrl}
+                width="560"
+                alt={`${brandName} Header`}
+                style={headerImage}
+              />
             </Section>
 
             <Section style={content}>{children}</Section>
@@ -60,7 +63,13 @@ export function EmailLayout({
             <Hr style={hr} />
 
             <Section style={footer}>
-              <Img src={footerMarkUrl} width="54" height="54" alt={`${brandName} mark`} style={footerLogo} />
+              <Img
+                src={footerMarkUrl}
+                width="54"
+                height="54"
+                alt={`${brandName} mark`}
+                style={footerLogo}
+              />
               <Text style={footerBrand}>{brandName}</Text>
               <Text style={footerDomain}>saldoredo.se</Text>
               <Text style={footerText}>
@@ -77,42 +86,42 @@ export function EmailLayout({
   );
 }
 
+// ─── Styles ────────────────────────────────────────────────────────────────
+
 const main = {
-  backgroundColor: "#1f2024",
-  fontFamily:
-    'Inter,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif',
+  fontFamily: 'Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
 };
 
 const outerContainer = {
   margin: "0 auto",
   width: "100%",
-  padding: "24px 0 30px",
-  maxWidth: "600px",
+  padding: "16px 0 22px",
+  maxWidth: "560px",
 };
 
 const shell = {
-  borderRadius: "28px",
-  backgroundColor: "#121214",
+  borderRadius: "20px",
+  backgroundColor: "#171717",
   border: "1px solid #2e2f34",
-  boxShadow: "0 16px 44px rgba(0, 0, 0, 0.42)",
   overflow: "hidden",
 };
 
 const header = {
   margin: "0",
   padding: "0",
+  lineHeight: "0",
 };
 
 const headerImage = {
   display: "block",
   width: "100%",
-  maxWidth: "600px",
+  maxWidth: "560px",
   margin: "0",
 };
 
 const content = {
-  padding: "58px 48px 28px",
-  backgroundColor: "#121214",
+  padding: "0",
+  backgroundColor: "#171717",
 };
 
 const hr = {
@@ -121,39 +130,43 @@ const hr = {
 };
 
 const footer = {
-  padding: "34px 48px 38px",
+  padding: "40px 36px",
   textAlign: "center" as const,
-  backgroundColor: "#121214",
+  backgroundColor: "#171717",
 };
 
 const footerLogo = {
-  margin: "0 auto 22px",
+  margin: "0 auto 18px",
   display: "block",
 };
 
 const footerBrand = {
-  fontSize: "42px",
-  lineHeight: "1.08",
-  letterSpacing: "-0.02em",
+  fontSize: "14px",
+  lineHeight: "24px",
   fontWeight: "700",
-  color: "#f4f4f5",
-  margin: "0 0 6px",
+  fontFamily: 'Satoshi, Inter, "Segoe UI", sans-serif',
+  color: "#ffffff",
+  margin: "0",
+  textAlign: "center" as const,
 };
 
 const footerDomain = {
-  fontSize: "34px",
-  lineHeight: "1.1",
+  fontSize: "14px",
+  lineHeight: "24px",
   fontWeight: "400",
-  color: "#8f8f99",
-  margin: "0 0 34px",
+  fontFamily: 'Satoshi, Inter, "Segoe UI", sans-serif',
+  color: "#988f86",
+  margin: "0 0 18px",
+  textAlign: "center" as const,
 };
 
 const footerText = {
-  fontSize: "16px",
+  fontSize: "14px",
   fontWeight: "400",
-  color: "#8f8f99",
+  color: "#988f86",
   lineHeight: "24px",
   margin: "0",
+  textAlign: "center" as const,
 };
 
 const footerLink = {

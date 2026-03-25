@@ -129,6 +129,8 @@ Deno.serve(async (req) => {
               fortnox_customer_number: customerNumber,
               customer_name: inv.CustomerName != null ? String(inv.CustomerName) : null,
               invoice_date: (inv.InvoiceDate as string) ?? null,
+              due_date: (inv.DueDate as string) ?? null,
+              booked: inv.Booked != null ? Boolean(inv.Booked) : false,
               total: inv.Total != null ? Number(inv.Total) : null,
               balance: inv.Balance != null ? Number(inv.Balance) : null,
               currency_code: inv.Currency != null ? String(inv.Currency) : "SEK",

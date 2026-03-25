@@ -1,33 +1,39 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Loader2, Send } from "lucide-react"
+import * as React from "react";
+import { Loader2, Send } from "lucide-react";
 
-import { useUser } from "@/hooks/use-user"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { toast } from "sonner"
+import { useUser } from "@/hooks/use-user";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 type MailFormState = {
-  to: string
-  subject: string
-  title: string
-  previewText: string
-  greeting: string
-  paragraphs: string
-  ctaLabel: string
-  ctaUrl: string
-  footnote: string
-  brandName: string
-}
+  to: string;
+  subject: string;
+  title: string;
+  previewText: string;
+  greeting: string;
+  paragraphs: string;
+  ctaLabel: string;
+  ctaUrl: string;
+  footnote: string;
+  brandName: string;
+};
 
 const INITIAL_STATE: MailFormState = {
   to: "",
   subject: "",
-  title: "Message from Saldo",
+  title: "Headline",
   previewText: "Quick update from Saldo",
   greeting: "Hi there,",
   paragraphs: "This is a preview of your custom email content.",
@@ -35,21 +41,21 @@ const INITIAL_STATE: MailFormState = {
   ctaUrl: process.env.NEXT_PUBLIC_APP_URL || "",
   footnote: "Reply to this email if you need help.",
   brandName: "Saldo Redovisning",
-}
+};
 
 function toParagraphs(raw: string): string[] {
   return raw
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => line.length > 0)
+    .filter((line) => line.length > 0);
 }
 
 export default function SettingsMailPage() {
-  const { isAdmin } = useUser()
-  const [form, setForm] = React.useState<MailFormState>(INITIAL_STATE)
-  const [previewHtml, setPreviewHtml] = React.useState("")
-  const [previewLoading, setPreviewLoading] = React.useState(false)
-  const [sending, setSending] = React.useState(false)
+  const { isAdmin } = useUser();
+  const [form, setForm] = React.useState<MailFormState>(INITIAL_STATE);
+  const [previewHtml, setPreviewHtml] = React.useState("");
+  const [previewLoading, setPreviewLoading] = React.useState(false);
+  const [sending, setSending] = React.useState(false);
 
   const payloadData = React.useMemo(
     () => ({
@@ -64,12 +70,12 @@ export default function SettingsMailPage() {
       brandName: form.brandName,
     }),
     [form],
-  )
+  );
 
   React.useEffect(() => {
-    const abortController = new AbortController()
+    const abortController = new AbortController();
     const timeout = window.setTimeout(async () => {
-      setPreviewLoading(true)
+      setPreviewLoading(true);
       try {
         const response = await fetch("/api/email", {
           method: "POST",
@@ -83,40 +89,44 @@ export default function SettingsMailPage() {
             data: payloadData,
           }),
           signal: abortController.signal,
-        })
+        });
 
-        const result = (await response.json()) as { html?: string; error?: string; message?: string }
+        const result = (await response.json()) as {
+          html?: string;
+          error?: string;
+          message?: string;
+        };
         if (!response.ok) {
-          setPreviewHtml("")
-          return
+          setPreviewHtml("");
+          return;
         }
 
-        setPreviewHtml(result.html ?? "")
+        setPreviewHtml(result.html ?? "");
       } catch {
         if (!abortController.signal.aborted) {
-          setPreviewHtml("")
+          setPreviewHtml("");
         }
       } finally {
         if (!abortController.signal.aborted) {
-          setPreviewLoading(false)
+          setPreviewLoading(false);
         }
       }
-    }, 320)
+    }, 320);
 
     return () => {
-      abortController.abort()
-      window.clearTimeout(timeout)
-    }
-  }, [form.to, payloadData])
+      abortController.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [form.to, payloadData]);
 
   async function handleSend() {
-    const recipient = form.to.trim()
+    const recipient = form.to.trim();
     if (!recipient) {
-      toast.error("Recipient email is required")
-      return
+      toast.error("Recipient email is required");
+      return;
     }
 
-    setSending(true)
+    setSending(true);
     try {
       const response = await fetch("/api/email", {
         method: "POST",
@@ -129,28 +139,34 @@ export default function SettingsMailPage() {
           mode: "send",
           data: payloadData,
         }),
-      })
+      });
 
-      const result = (await response.json()) as { error?: string; message?: string }
+      const result = (await response.json()) as {
+        error?: string;
+        message?: string;
+      };
 
       if (!response.ok) {
-        toast.error(result.message || result.error || "Failed to send email")
-        return
+        toast.error(result.message || result.error || "Failed to send email");
+        return;
       }
 
-      toast.success("Email sent")
+      toast.success("Email sent");
     } catch {
-      toast.error("Failed to send email")
+      toast.error("Failed to send email");
     } finally {
-      setSending(false)
+      setSending(false);
     }
   }
 
-  function updateField<K extends keyof MailFormState>(field: K, value: MailFormState[K]) {
+  function updateField<K extends keyof MailFormState>(
+    field: K,
+    value: MailFormState[K],
+  ) {
     setForm((current) => ({
       ...current,
       [field]: value,
-    }))
+    }));
   }
 
   if (!isAdmin) {
@@ -158,7 +174,7 @@ export default function SettingsMailPage() {
       <div className="space-y-6">
         <div className="h-48 animate-pulse rounded-lg border bg-muted" />
       </div>
-    )
+    );
   }
 
   return (
@@ -166,7 +182,9 @@ export default function SettingsMailPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Mail composer</CardTitle>
-          <CardDescription>Choose recipient and customize template content.</CardDescription>
+          <CardDescription>
+            Choose recipient and customize template content.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -195,7 +213,9 @@ export default function SettingsMailPage() {
               <Input
                 id="mail-brand"
                 value={form.brandName}
-                onChange={(event) => updateField("brandName", event.target.value)}
+                onChange={(event) =>
+                  updateField("brandName", event.target.value)
+                }
               />
             </div>
           </div>
@@ -214,7 +234,9 @@ export default function SettingsMailPage() {
             <Input
               id="mail-preview"
               value={form.previewText}
-              onChange={(event) => updateField("previewText", event.target.value)}
+              onChange={(event) =>
+                updateField("previewText", event.target.value)
+              }
             />
           </div>
 
@@ -228,12 +250,16 @@ export default function SettingsMailPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mail-paragraphs">Content paragraphs (one line per paragraph)</Label>
+            <Label htmlFor="mail-paragraphs">
+              Content paragraphs (one line per paragraph)
+            </Label>
             <Textarea
               id="mail-paragraphs"
               className="min-h-36"
               value={form.paragraphs}
-              onChange={(event) => updateField("paragraphs", event.target.value)}
+              onChange={(event) =>
+                updateField("paragraphs", event.target.value)
+              }
             />
           </div>
 
@@ -243,7 +269,9 @@ export default function SettingsMailPage() {
               <Input
                 id="mail-cta-label"
                 value={form.ctaLabel}
-                onChange={(event) => updateField("ctaLabel", event.target.value)}
+                onChange={(event) =>
+                  updateField("ctaLabel", event.target.value)
+                }
               />
             </div>
 
@@ -268,7 +296,11 @@ export default function SettingsMailPage() {
           </div>
 
           <Button onClick={handleSend} disabled={sending || previewLoading}>
-            {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            {sending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Send className="size-4" />
+            )}
             Send email
           </Button>
         </CardContent>
@@ -277,22 +309,24 @@ export default function SettingsMailPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Rendered HTML preview</CardTitle>
-          <CardDescription>Live server-rendered template output.</CardDescription>
+          <CardDescription>
+            Live server-rendered template output.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {previewLoading ? (
-            <div className="flex h-[720px] items-center justify-center rounded-md border bg-muted/20">
+            <div className="flex h-[875px] items-center justify-center rounded-md border bg-muted/20">
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
             </div>
           ) : (
             <iframe
               title="Mail preview"
-              className="h-[720px] w-full rounded-md border bg-white"
+              className="h-[875px] w-full rounded-md border bg-white"
               srcDoc={previewHtml}
             />
           )}
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
