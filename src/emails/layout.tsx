@@ -71,7 +71,11 @@ export function EmailLayout({
                 style={footerLogo}
               />
               <Text style={footerBrand}>{brandName}</Text>
-              <Text style={footerDomain}>saldoredo.se</Text>
+              <Text style={footerDomainRow}>
+                <Link href={homeUrl} style={footerDomainLink}>
+                  <span style={footerDomainLinkText}>saldoredo.se</span>
+                </Link>
+              </Text>
             </Section>
           </Section>
         </Container>
@@ -144,13 +148,23 @@ const footerBrand = {
   textAlign: "center" as const,
 };
 
-const footerDomain = {
+const footerDomainRow = {
   fontSize: "14px",
   lineHeight: "24px",
   fontWeight: "400",
   fontFamily: 'Satoshi, Inter, "Segoe UI", sans-serif',
-  color: "#d4a96a",
   margin: "0 0 18px",
   textAlign: "center" as const,
 };
 
+const footerDomainLink = {
+  color: "#d4a96a",
+  textDecoration: "none",
+  display: "inline-block",
+};
+
+const footerDomainLinkText = {
+  color: "#d4a96a",
+  textDecoration: "none",
+  WebkitTextFillColor: "#d4a96a",
+};
