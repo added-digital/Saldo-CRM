@@ -35,11 +35,11 @@ const INITIAL_STATE: MailFormState = {
   subject: "",
   title: "Headline",
   previewText: "Quick update from Saldo",
-  greeting: "Hi there,",
+  greeting: "",
   paragraphs: "This is a preview of your custom email content.",
-  ctaLabel: "Open dashboard",
+  ctaLabel: "Call to action",
   ctaUrl: process.env.NEXT_PUBLIC_APP_URL || "",
-  footnote: "Reply to this email if you need help.",
+  footnote: "",
   brandName: "Saldo Redovisning",
 };
 

@@ -40,7 +40,7 @@ export function EmailLayout({
 }: EmailLayoutProps) {
   const baseUrl = normalizeBaseUrl(appUrl);
   const headerImageUrl = toAbsoluteAssetUrl(baseUrl, "/emails/saldo.png");
-  const footerMarkUrl = toAbsoluteAssetUrl(baseUrl, system.logoMark);
+  const footerMarkUrl = toAbsoluteAssetUrl(baseUrl, "/emails/saldo-mark.png");
   const homeUrl = baseUrl || system.url;
 
   return (
@@ -72,12 +72,6 @@ export function EmailLayout({
               />
               <Text style={footerBrand}>{brandName}</Text>
               <Text style={footerDomain}>saldoredo.se</Text>
-              <Text style={footerText}>
-                Trouble seeing this email?{" "}
-                <Link href={homeUrl} style={footerLink}>
-                  Open it in browser.
-                </Link>
-              </Text>
             </Section>
           </Section>
         </Container>
@@ -155,21 +149,8 @@ const footerDomain = {
   lineHeight: "24px",
   fontWeight: "400",
   fontFamily: 'Satoshi, Inter, "Segoe UI", sans-serif',
-  color: "#988f86",
+  color: "#d4a96a",
   margin: "0 0 18px",
   textAlign: "center" as const,
 };
 
-const footerText = {
-  fontSize: "14px",
-  fontWeight: "400",
-  color: "#988f86",
-  lineHeight: "24px",
-  margin: "0",
-  textAlign: "center" as const,
-};
-
-const footerLink = {
-  color: "#7793e4",
-  textDecoration: "none",
-};
