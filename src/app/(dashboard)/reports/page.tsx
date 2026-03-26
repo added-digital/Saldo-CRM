@@ -658,6 +658,13 @@ export default function ReportsPage() {
   const [invoiceDetailsRows, setInvoiceDetailsRows] = React.useState<
     InvoiceDetailRow[]
   >([]);
+  const [contractDetailsOpen, setContractDetailsOpen] = React.useState(false);
+  const [contractDetailsLoading, setContractDetailsLoading] =
+    React.useState(false);
+  const [contractDetailsTitle, setContractDetailsTitle] = React.useState("");
+  const [contractDetailsRows, setContractDetailsRows] = React.useState<
+    ContractAccrual[]
+  >([]);
   const [turnoverByMonthRows, setTurnoverByMonthRows] = React.useState<
     TurnoverMonthRow[]
   >([]);
@@ -1697,6 +1704,39 @@ export default function ReportsPage() {
     setInvoiceDetailsLoading(false);
   }
 
+  async function openManagerCustomerContractDetails(
+    row: ManagerCustomerSummaryRow,
+  ) {
+    setContractDetailsOpen(true);
+    setContractDetailsLoading(true);
+    setContractDetailsRows([]);
+    setContractDetailsTitle(`${row.customerName} · Contract Accruals`);
+
+    const customer = customers.find((item) => item.id === row.customerId) ?? null;
+    if (!customer?.fortnox_customer_number) {
+      setContractDetailsRows([]);
+      setContractDetailsLoading(false);
+      return;
+    }
+
+    const { data, error } = await createClient()
+      .from("contract_accruals")
+      .select(
+        "id, contract_number, description, period, start_date, end_date, total_ex_vat, total, is_active",
+      )
+      .eq("fortnox_customer_number", customer.fortnox_customer_number)
+      .order("start_date", { ascending: false });
+
+    if (error) {
+      setContractDetailsRows([]);
+      setContractDetailsLoading(false);
+      return;
+    }
+
+    setContractDetailsRows((data ?? []) as ContractAccrual[]);
+    setContractDetailsLoading(false);
+  }
+
   React.useEffect(() => {
     if (
       selectedManagerId &&
@@ -2206,7 +2246,7 @@ export default function ReportsPage() {
 
       if (cancelled) return;
 
-      const orderedRows = rollingWindow.months.map(
+      const orderedRows = [...rollingWindow.months].reverse().map(
         (month) =>
           rowsByMonth.get(month.key) ?? {
             monthKey: month.key,
@@ -2493,7 +2533,7 @@ export default function ReportsPage() {
         const { data, error } = await supabase
           .from("customer_kpis")
           .select(
-            "customer_id, period_year, period_month, total_turnover, invoice_count, contract_value, customer_hours",
+            "customer_id, period_year, period_month, total_turnover, invoice_count, customer_hours",
           )
           .in("customer_id", idChunk)
           .eq("period_type", "month")
@@ -2512,7 +2552,6 @@ export default function ReportsPage() {
           period_month: number;
           total_turnover: number | null;
           invoice_count: number | null;
-          contract_value: number | null;
           customer_hours: number | null;
         }>;
 
@@ -2533,10 +2572,77 @@ export default function ReportsPage() {
 
           current.turnover += Number(row.total_turnover ?? 0);
           current.invoiceCount += Number(row.invoice_count ?? 0);
-          current.contractValue += Number(row.contract_value ?? 0);
           current.customerHours += Number(row.customer_hours ?? 0);
 
           totalsByCustomer.set(row.customer_id, current);
+        }
+      }
+
+      const contractCustomerNumberById = new Map(
+        filteredCustomers
+          .filter((customer) => Boolean(customer.fortnox_customer_number))
+          .map((customer) => [customer.id, customer.fortnox_customer_number as string]),
+      );
+      const customerIdsByContractNumber = new Map<string, string[]>();
+      for (const [customerId, contractNumber] of contractCustomerNumberById.entries()) {
+        const existing = customerIdsByContractNumber.get(contractNumber) ?? [];
+        existing.push(customerId);
+        customerIdsByContractNumber.set(contractNumber, existing);
+      }
+
+      const contractCustomerNumberChunks = chunkArray(
+        Array.from(customerIdsByContractNumber.keys()),
+        200,
+      );
+
+      for (const numberChunk of contractCustomerNumberChunks) {
+        if (cancelled) return;
+
+        const { data, error } = await supabase
+          .from("contract_accruals")
+          .select("fortnox_customer_number, total_ex_vat, total, period")
+          .in("fortnox_customer_number", numberChunk)
+          .eq("is_active", true);
+
+        if (error) {
+          setManagerCustomerSummaryRows([]);
+          setManagerCustomerSummaryLoading(false);
+          return;
+        }
+
+        const rows = (data ?? []) as Array<{
+          fortnox_customer_number: string | null;
+          total_ex_vat: number | null;
+          total: number | null;
+          period: string | null;
+        }>;
+
+        for (const row of rows) {
+          const contractNumber = row.fortnox_customer_number;
+          if (!contractNumber) continue;
+
+          const targetCustomerIds = customerIdsByContractNumber.get(contractNumber);
+          if (!targetCustomerIds || targetCustomerIds.length === 0) continue;
+
+          const annualized = annualizeContractTotal(
+            row.total_ex_vat ?? row.total,
+            row.period,
+          );
+
+          for (const customerId of targetCustomerIds) {
+            const current = totalsByCustomer.get(customerId) ?? {
+              customerId,
+              customerName: customerNameById.get(customerId) ?? customerId,
+              turnover: 0,
+              invoiceCount: 0,
+              contractValue: 0,
+              workloadPercentage: 0,
+              customerHours: 0,
+            };
+
+            current.contractValue += annualized;
+            totalsByCustomer.set(customerId, current);
+          }
         }
       }
 
@@ -3038,7 +3144,10 @@ export default function ReportsPage() {
       header: "Contract value",
       size: 180,
       enableSorting: false,
-      cell: ({ row }) => sekFormatter.format(row.original.contractValue),
+      cell: ({ row }) =>
+        renderTurnoverCell(row.original.contractValue, () =>
+          openManagerCustomerContractDetails(row.original),
+        ),
     },
     {
       id: "workloadPercentage",
@@ -3356,7 +3465,7 @@ export default function ReportsPage() {
               setSelectedManagerId(value);
               setSelectedCustomerId(null);
             }}
-            disabled={loading || managerOptions.length === 0}
+            disabled={loading || managerOptions.length === 0 || user.role === "user"}
             allLabel={managerAllLabel}
           />
 
@@ -3460,7 +3569,7 @@ export default function ReportsPage() {
               >
                 <BarChart
                   accessibilityLayer
-                  data={turnoverByMonthRows.map((row) => ({
+                  data={[...turnoverByMonthRows].reverse().map((row) => ({
                     month: `${row.monthLabel} ${row.monthKey.slice(2, 4)}`,
                     turnover: row.turnover,
                     invoiceCount: row.invoiceCount,
@@ -3741,6 +3850,28 @@ export default function ReportsPage() {
                 icon: Filter,
                 title: "No matching invoices",
                 description: "No matching invoices found for this month.",
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={contractDetailsOpen} onOpenChange={setContractDetailsOpen}>
+        <DialogContent className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] w-[calc(100vw-4rem)] max-w-none flex-col sm:max-w-none">
+          <DialogHeader>
+            <DialogTitle>{contractDetailsTitle}</DialogTitle>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <DataTable
+              columns={customerAccrualColumns}
+              data={contractDetailsRows}
+              loading={contractDetailsLoading}
+              pageSize={20}
+              emptyState={{
+                icon: Filter,
+                title: "No contract accruals",
+                description: "No contract accrual rows found for this customer.",
               }}
             />
           </div>
