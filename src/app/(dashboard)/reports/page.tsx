@@ -37,10 +37,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -291,7 +288,34 @@ type SelectOption = {
   id: string;
   label: string;
   subLabel?: string;
+  showAvatar?: boolean;
+  avatarFallback?: string;
 };
+
+function getInitials(value: string | null | undefined): string {
+  const normalized = (value ?? "").trim();
+  if (!normalized) return "--";
+
+  const parts = normalized.split(/\s+/).filter(Boolean).slice(0, 2);
+
+  if (parts.length === 0) return "--";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
+function toPossessive(name: string): string {
+  const normalized = name.trim();
+  if (!normalized) return "";
+  const suffix = normalized.endsWith("s") ? "'" : "'s";
+  return `${normalized}${suffix}`;
+}
+
+function toPossessiveLabel(name: string): string {
+  const possessive = toPossessive(name);
+  if (!possessive) return "All customers";
+  return `${possessive} customers`;
+}
 
 type SearchSelectProps = {
   placeholder: string;
@@ -447,7 +471,9 @@ function TurnoverTooltipContent({
 
   return (
     <div className="grid min-w-[10rem] gap-1.5 rounded-md border bg-background px-3 py-2 text-xs shadow-xl">
-      {label != null ? <div className="font-medium">{String(label)}</div> : null}
+      {label != null ? (
+        <div className="font-medium">{String(label)}</div>
+      ) : null}
       <div className="grid gap-1">
         <div className="flex items-center justify-between gap-2">
           <span className="text-muted-foreground">Turnover</span>
@@ -535,6 +561,11 @@ function SearchSelect({
                       value === option.id ? "opacity-100" : "opacity-0",
                     )}
                   />
+                  {option.showAvatar ? (
+                    <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+                      {option.avatarFallback ?? "--"}
+                    </span>
+                  ) : null}
                   <div className="min-w-0">
                     <p className="truncate">{option.label}</p>
                     {option.subLabel ? (
@@ -598,8 +629,10 @@ export default function ReportsPage() {
     React.useState(false);
   const [customerTimeReportingRows, setCustomerTimeReportingRows] =
     React.useState<CustomerTimeReportingRow[]>([]);
-  const [otherManagersTimeReportingLoading, setOtherManagersTimeReportingLoading] =
-    React.useState(false);
+  const [
+    otherManagersTimeReportingLoading,
+    setOtherManagersTimeReportingLoading,
+  ] = React.useState(false);
   const [otherManagersTimeReportingRows, setOtherManagersTimeReportingRows] =
     React.useState<CustomerTimeReportingRow[]>([]);
   const [helpedCustomerManagersLoading, setHelpedCustomerManagersLoading] =
@@ -629,7 +662,9 @@ export default function ReportsPage() {
 
   const showTeamFilter = isAdmin || user.role === "team_lead";
   const teamFilterDisabled = user.role === "team_lead" && !isAdmin;
-  const filterGridClass = showTeamFilter ? "lg:grid-cols-5" : "lg:grid-cols-4";
+  const filterGridClass = showTeamFilter
+    ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.9fr)_minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,1.25fr)]"
+    : "lg:grid-cols-[minmax(0,1.9fr)_minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,1.25fr)]";
   const monthOptions = React.useMemo<SelectOption[]>(
     () => createMonthOptions(REPORT_MONTH_OPTIONS_COUNT),
     [],
@@ -677,21 +712,60 @@ export default function ReportsPage() {
     );
   }, [teamScopedCustomers, selectedManagerId]);
 
-  const customerOptions = React.useMemo<SelectOption[]>(
-    () =>
-      managerScopedCustomers.map((customer) => ({
+  const customerOptions = React.useMemo<SelectOption[]>(() => {
+    const selectedManagerProfile =
+      managers.find((manager) => manager.id === selectedManagerId) ?? null;
+    const teamManagerIds = new Set(availableManagers.map((manager) => manager.id));
+    const selectedManagerInitials = getInitials(
+      selectedManagerProfile?.full_name ?? selectedManagerProfile?.email,
+    );
+
+    const rows = customers.map((customer) => {
+      const belongsToSelectedManager =
+        Boolean(selectedManagerId) &&
+        customer.account_manager?.id === selectedManagerId;
+      const belongsToSelectedTeam = Boolean(
+        selectedTeamId &&
+          customer.account_manager?.id &&
+          teamManagerIds.has(customer.account_manager.id),
+      );
+      const showOwnerAvatarInTeamScope =
+        Boolean(selectedTeamId) &&
+        !selectedManagerId &&
+        belongsToSelectedTeam;
+      const ownerAvatarFallback = getInitials(
+        customer.account_manager?.full_name ?? customer.account_manager?.email,
+      );
+
+      return {
         id: customer.id,
         label: customer.name,
-      })),
-    [managerScopedCustomers],
-  );
+        showAvatar: belongsToSelectedManager || showOwnerAvatarInTeamScope,
+        avatarFallback: belongsToSelectedManager
+          ? selectedManagerInitials
+          : showOwnerAvatarInTeamScope
+            ? ownerAvatarFallback
+            : undefined,
+        priority: belongsToSelectedManager ? 0 : 1,
+      };
+    });
+
+    rows.sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      return a.label.localeCompare(b.label);
+    });
+
+    return rows.map(({ priority: _priority, ...option }) => option);
+  }, [availableManagers, customers, managers, selectedManagerId, selectedTeamId]);
 
   const filteredCustomers = React.useMemo(() => {
     if (!selectedCustomerId) return managerScopedCustomers;
-    return managerScopedCustomers.filter(
+    return customers.filter(
       (customer) => customer.id === selectedCustomerId,
     );
-  }, [managerScopedCustomers, selectedCustomerId]);
+  }, [customers, managerScopedCustomers, selectedCustomerId]);
 
   const selectedCustomer = React.useMemo(
     () => filteredCustomers[0] ?? null,
@@ -702,6 +776,42 @@ export default function ReportsPage() {
     () => managers.find((manager) => manager.id === selectedManagerId) ?? null,
     [managers, selectedManagerId],
   );
+
+  const selectedTeam = React.useMemo(
+    () => teams.find((team) => team.id === selectedTeamId) ?? null,
+    [teams, selectedTeamId],
+  );
+
+  const customerAllLabel = React.useMemo(() => {
+    if (selectedManagerId === user.id) {
+      return "My customers";
+    }
+
+    if (selectedManager) {
+      return toPossessiveLabel(
+        selectedManager.full_name?.trim() || selectedManager.email,
+      );
+    }
+
+    if (selectedTeam) {
+      return toPossessiveLabel(selectedTeam.name);
+    }
+
+    return "All customers";
+  }, [selectedManager, selectedManagerId, selectedTeam, user.id]);
+
+  const managerAllLabel = React.useMemo(() => {
+    if (!selectedTeam) {
+      return "All customer managers";
+    }
+
+    const possessiveTeam = toPossessive(selectedTeam.name);
+    if (!possessiveTeam) {
+      return "All customer managers";
+    }
+
+    return `All ${possessiveTeam} customer managers`;
+  }, [selectedTeam]);
 
   const teamNameById = React.useMemo(() => {
     return new Map(teams.map((team) => [team.id, team.name]));
@@ -776,7 +886,9 @@ export default function ReportsPage() {
 
       const normalizedEmployeeId = normalizeIdentifier(row.employee_id);
 
-      const selectedUserId = normalizeIdentifier(selectedManager.fortnox_user_id);
+      const selectedUserId = normalizeIdentifier(
+        selectedManager.fortnox_user_id,
+      );
       const selectedEmployeeId = normalizeIdentifier(
         selectedManager.fortnox_employee_id,
       );
@@ -795,10 +907,7 @@ export default function ReportsPage() {
           normalizedEmployeeName === normalizeText(selectedManager.email))
       );
     },
-    [
-      resolveReporterManagerId,
-      selectedManager,
-    ],
+    [resolveReporterManagerId, selectedManager],
   );
 
   function matchesMetric(
@@ -1042,7 +1151,9 @@ export default function ReportsPage() {
           (timeRow) =>
             normalizeIdentifier(timeRow.fortnox_customer_number) === "1",
         );
-        setTimeDetailsRows(formatTimeDetailRows(internalScopeRows, "totalHours"));
+        setTimeDetailsRows(
+          formatTimeDetailRows(internalScopeRows, "totalHours"),
+        );
       } else {
         setTimeDetailsRows(formatTimeDetailRows(scopedRows, metric));
       }
@@ -1179,7 +1290,11 @@ export default function ReportsPage() {
     row: CustomerTimeReportingRow,
     metric: TimeDetailMetric,
   ) {
-    if (!selectedManagerId || selectedCustomerId || filteredCustomers.length === 0) {
+    if (
+      !selectedManagerId ||
+      selectedCustomerId ||
+      filteredCustomers.length === 0
+    ) {
       return;
     }
 
@@ -1591,11 +1706,11 @@ export default function ReportsPage() {
   React.useEffect(() => {
     if (
       selectedCustomerId &&
-      !managerScopedCustomers.some((c) => c.id === selectedCustomerId)
+      !teamScopedCustomers.some((c) => c.id === selectedCustomerId)
     ) {
       setSelectedCustomerId(null);
     }
-  }, [managerScopedCustomers, selectedCustomerId]);
+  }, [selectedCustomerId, teamScopedCustomers]);
 
   const fetchReportData = React.useCallback(async () => {
     setLoading(true);
@@ -1910,7 +2025,10 @@ export default function ReportsPage() {
         ),
       );
 
-      const contractCustomerNumberChunks = chunkArray(contractCustomerNumbers, 200);
+      const contractCustomerNumberChunks = chunkArray(
+        contractCustomerNumbers,
+        200,
+      );
 
       for (const numberChunk of contractCustomerNumberChunks) {
         if (cancelled) return;
@@ -1950,14 +2068,14 @@ export default function ReportsPage() {
       setTurnoverByMonthRows(
         rollingWindow.months.map(
           (month) =>
-              turnoverByMonth.get(month.key) ?? {
-                monthKey: month.key,
-                monthLabel: month.label,
-                turnover: 0,
-                invoiceCount: 0,
-              },
-          ),
-        );
+            turnoverByMonth.get(month.key) ?? {
+              monthKey: month.key,
+              monthLabel: month.label,
+              turnover: 0,
+              invoiceCount: 0,
+            },
+        ),
+      );
       setKpiLoading(false);
     }
 
@@ -2125,18 +2243,17 @@ export default function ReportsPage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    filteredCustomers,
-    rollingWindow,
-    selectedCustomerId,
-    selectedManagerId,
-  ]);
+  }, [filteredCustomers, rollingWindow, selectedCustomerId, selectedManagerId]);
 
   React.useEffect(() => {
     let cancelled = false;
 
     async function fetchOtherManagersOnSelectedCustomers() {
-      if (!selectedManagerId || selectedCustomerId || filteredCustomers.length === 0) {
+      if (
+        !selectedManagerId ||
+        selectedCustomerId ||
+        filteredCustomers.length === 0
+      ) {
         setOtherManagersTimeReportingRows([]);
         setOtherManagersTimeReportingLoading(false);
         return;
@@ -2297,7 +2414,9 @@ export default function ReportsPage() {
         const groupName =
           manager?.fortnox_group_name ??
           (manager?.team_id ? (teamNameById.get(manager.team_id) ?? "-") : "-");
-        const current = totalsByManager.get(row.customer_manager_profile_id) ?? {
+        const current = totalsByManager.get(
+          row.customer_manager_profile_id,
+        ) ?? {
           managerProfileId: row.customer_manager_profile_id,
           managerName,
           groupName,
@@ -2351,7 +2470,11 @@ export default function ReportsPage() {
     let cancelled = false;
 
     async function fetchManagerCustomerSummary() {
-      if (!selectedManagerId || selectedCustomerId || filteredCustomers.length === 0) {
+      if (
+        !selectedManagerId ||
+        selectedCustomerId ||
+        filteredCustomers.length === 0
+      ) {
         setManagerCustomerSummaryRows([]);
         setManagerCustomerSummaryLoading(false);
         return;
@@ -2410,7 +2533,8 @@ export default function ReportsPage() {
 
           const current = totalsByCustomer.get(row.customer_id) ?? {
             customerId: row.customer_id,
-            customerName: customerNameById.get(row.customer_id) ?? row.customer_id,
+            customerName:
+              customerNameById.get(row.customer_id) ?? row.customer_id,
             turnover: 0,
             invoiceCount: 0,
             contractValue: 0,
@@ -3216,7 +3340,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex w-full max-w-6xl flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className={cn("grid gap-4 lg:flex-1", filterGridClass)}>
           {showTeamFilter ? (
             <SearchSelect
@@ -3235,7 +3359,7 @@ export default function ReportsPage() {
           ) : null}
 
           <SearchSelect
-            placeholder="All customer managers"
+            placeholder={managerAllLabel}
             searchPlaceholder="Search customer managers..."
             options={managerOptions}
             value={selectedManagerId}
@@ -3244,17 +3368,17 @@ export default function ReportsPage() {
               setSelectedCustomerId(null);
             }}
             disabled={loading || managerOptions.length === 0}
-            allLabel="All customer managers"
+            allLabel={managerAllLabel}
           />
 
           <SearchSelect
-            placeholder="All customers"
+            placeholder={customerAllLabel}
             searchPlaceholder="Search customers..."
             options={customerOptions}
             value={selectedCustomerId}
             onChange={setSelectedCustomerId}
             disabled={loading || customerOptions.length === 0}
-            allLabel="All customers"
+            allLabel={customerAllLabel}
           />
 
           <SearchSelect
@@ -3285,8 +3409,8 @@ export default function ReportsPage() {
         <div className="inline-flex h-10 items-center px-1 text-sm font-medium text-muted-foreground lg:shrink-0">
           <span className="text-[#d4af37]">{filteredCustomers.length}</span>
           <span>
-            &nbsp;customer{filteredCustomers.length === 1 ? "" : "s"} in
-            current filter
+            &nbsp;customer{filteredCustomers.length === 1 ? "" : "s"} in current
+            filter
           </span>
         </div>
       </div>
@@ -3326,7 +3450,10 @@ export default function ReportsPage() {
                 Loading turnover chart...
               </p>
             ) : (
-              <ChartContainer config={turnoverChartConfig} className="h-[280px]">
+              <ChartContainer
+                config={turnoverChartConfig}
+                className="h-[280px]"
+              >
                 <BarChart
                   accessibilityLayer
                   data={turnoverByMonthRows.map((row) => ({
@@ -3430,8 +3557,8 @@ export default function ReportsPage() {
                     Other customer managers on selected manager customers
                   </h4>
                   <p className="text-sm text-muted-foreground">
-                    Customer-hour time reported by other customer managers on the
-                    selected manager customer scope.
+                    Customer-hour time reported by other customer managers on
+                    the selected manager customer scope.
                   </p>
                 </div>
 
@@ -3484,10 +3611,13 @@ export default function ReportsPage() {
             <section className="space-y-3">
               <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
                 <h3 className="text-base font-semibold">
-                  Customers in cost center {selectedManager?.fortnox_cost_center ?? "-"} - {selectedManager?.full_name ?? "Selected customer manager"}
+                  Customers in cost center{" "}
+                  {selectedManager?.fortnox_cost_center ?? "-"} -{" "}
+                  {selectedManager?.full_name ?? "Selected customer manager"}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Period summary for customers in the selected customer manager scope.
+                  Period summary for customers in the selected customer manager
+                  scope.
                 </p>
               </div>
 
@@ -3534,8 +3664,8 @@ export default function ReportsPage() {
               <section className="space-y-3">
                 <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
                   <h3 className="text-base font-semibold">
-                  Monthly turnover and hours
-                </h3>
+                    Monthly turnover and hours
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     {selectedCustomer?.name ?? "Selected customer"} ·{" "}
                     {rollingWindow.title}

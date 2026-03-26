@@ -77,7 +77,7 @@
 
 @layer base {
   :root {
-    scrollbar-color: var(--color-brand-primary) #000;
+    scrollbar-color: #8b6f2a #000;
   }
 
   * {
@@ -94,13 +94,13 @@
   }
 
   *::-webkit-scrollbar-thumb {
-    background: var(--color-brand-primary);
+    background: #8b6f2a;
     border: 2px solid #000;
     border-radius: 9999px;
   }
 
   *::-webkit-scrollbar-thumb:hover {
-    background: var(--color-brand-primary-hover);
+    background: #8b6f2a;
   }
 
   *::-webkit-scrollbar-corner {
