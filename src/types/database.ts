@@ -155,7 +155,6 @@ export interface ManagerTimeKpi {
   absence_hours: number
   internal_hours: number
   other_hours: number
-  customer_id_1_hours: number
   created_at: string
   updated_at: string
 }

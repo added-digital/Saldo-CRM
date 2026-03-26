@@ -128,15 +128,36 @@ type RollingMonth = {
   month: number;
 };
 
-function getRollingMonthRange(selectedMonthKey: string): {
+type ReportingWindowMode =
+  | "current-month"
+  | "rolling-12-months"
+  | "rolling-year";
+
+const REPORTING_WINDOW_OPTIONS: SelectOption[] = [
+  { id: "current-month", label: "Current month" },
+  { id: "rolling-12-months", label: "Rollback 12 months" },
+  { id: "rolling-year", label: "Rollback year" },
+];
+
+function getReportingWindowRange(
+  selectedMonthKey: string,
+  mode: ReportingWindowMode,
+): {
   from: string;
   to: string;
   months: RollingMonth[];
   title: string;
 } {
   const { year, month } = parseMonthKey(selectedMonthKey);
-  const endDate = new Date(year, month, 0);
-  const startDate = new Date(year, month - 12, 1);
+  const monthDate = new Date(year, month - 1, 1);
+  const endDate =
+    mode === "rolling-year" ? new Date(year, 12, 0) : new Date(year, month, 0);
+  const startDate =
+    mode === "current-month"
+      ? new Date(year, month - 1, 1)
+      : mode === "rolling-year"
+        ? new Date(year, 0, 1)
+        : new Date(year, month - 12, 1);
   const monthLabelFormatter = new Intl.DateTimeFormat("en-US", {
     month: "short",
   });
@@ -146,7 +167,25 @@ function getRollingMonthRange(selectedMonthKey: string): {
   });
   const months: RollingMonth[] = [];
 
-  for (let i = 0; i < 12; i += 1) {
+  if (mode === "current-month") {
+    months.push({
+      key: toMonthKey(monthDate),
+      label: monthLabelFormatter.format(monthDate),
+      year: monthDate.getFullYear(),
+      month: monthDate.getMonth() + 1,
+    });
+
+    return {
+      from: toMonthKey(startDate) + "-01",
+      to: endDate.toISOString().slice(0, 10),
+      months,
+      title: titleFormatter.format(monthDate),
+    };
+  }
+
+  const monthCount = mode === "rolling-year" ? 12 : 12;
+
+  for (let i = 0; i < monthCount; i += 1) {
     const monthDate = new Date(
       startDate.getFullYear(),
       startDate.getMonth() + i,
@@ -164,7 +203,10 @@ function getRollingMonthRange(selectedMonthKey: string): {
     from: toMonthKey(startDate) + "-01",
     to: endDate.toISOString().slice(0, 10),
     months,
-    title: titleFormatter.format(new Date(year, month - 1, 1)),
+    title:
+      mode === "rolling-year"
+        ? String(year)
+        : titleFormatter.format(new Date(year, month - 1, 1)),
   };
 }
 
@@ -219,7 +261,8 @@ function getRoundedChartMax(dataMax: number): number {
 
   const targetSegments = 5;
   const step = getNiceStep(dataMax / targetSegments);
-  return Math.max(step, Math.ceil(dataMax / step) * step);
+  const highestCoveredLine = Math.ceil(dataMax / step);
+  return Math.max(step * 2, (highestCoveredLine + 1) * step);
 }
 
 function normalizeText(value: string | null | undefined): string {
@@ -280,12 +323,30 @@ type CustomerTimeReportingRow = {
   workloadPercentage: number;
 };
 
+type HelpedCustomerManagerRow = {
+  managerProfileId: string;
+  managerName: string;
+  groupName: string;
+  customerHours: number;
+  workloadPercentage: number;
+};
+
 type CustomerMonthlyEconomicsRow = {
   monthKey: string;
   monthLabel: string;
   turnover: number;
   hours: number;
   turnoverPerHour: number;
+};
+
+type ManagerCustomerSummaryRow = {
+  customerId: string;
+  customerName: string;
+  turnover: number;
+  invoiceCount: number;
+  contractValue: number;
+  workloadPercentage: number;
+  customerHours: number;
 };
 
 type TurnoverMonthRow = {
@@ -512,6 +573,8 @@ export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = React.useState<string>(() =>
     toMonthKey(new Date()),
   );
+  const [selectedWindowMode, setSelectedWindowMode] =
+    React.useState<ReportingWindowMode>("rolling-12-months");
   const [kpiLoading, setKpiLoading] = React.useState(false);
   const [kpis, setKpis] = React.useState({
     turnover: 0,
@@ -539,6 +602,14 @@ export default function ReportsPage() {
     React.useState(false);
   const [otherManagersTimeReportingRows, setOtherManagersTimeReportingRows] =
     React.useState<CustomerTimeReportingRow[]>([]);
+  const [helpedCustomerManagersLoading, setHelpedCustomerManagersLoading] =
+    React.useState(false);
+  const [helpedCustomerManagersRows, setHelpedCustomerManagersRows] =
+    React.useState<HelpedCustomerManagerRow[]>([]);
+  const [managerCustomerSummaryLoading, setManagerCustomerSummaryLoading] =
+    React.useState(false);
+  const [managerCustomerSummaryRows, setManagerCustomerSummaryRows] =
+    React.useState<ManagerCustomerSummaryRow[]>([]);
   const [timeDetailsOpen, setTimeDetailsOpen] = React.useState(false);
   const [timeDetailsLoading, setTimeDetailsLoading] = React.useState(false);
   const [timeDetailsTitle, setTimeDetailsTitle] = React.useState("");
@@ -558,14 +629,14 @@ export default function ReportsPage() {
 
   const showTeamFilter = isAdmin || user.role === "team_lead";
   const teamFilterDisabled = user.role === "team_lead" && !isAdmin;
-  const filterGridClass = showTeamFilter ? "lg:grid-cols-4" : "lg:grid-cols-3";
+  const filterGridClass = showTeamFilter ? "lg:grid-cols-5" : "lg:grid-cols-4";
   const monthOptions = React.useMemo<SelectOption[]>(
     () => createMonthOptions(REPORT_MONTH_OPTIONS_COUNT),
     [],
   );
   const rollingWindow = React.useMemo(
-    () => getRollingMonthRange(selectedMonth),
-    [selectedMonth],
+    () => getReportingWindowRange(selectedMonth, selectedWindowMode),
+    [selectedMonth, selectedWindowMode],
   );
 
   const teamOptions = React.useMemo<SelectOption[]>(
@@ -1244,6 +1315,156 @@ export default function ReportsPage() {
     setTimeDetailsLoading(false);
   }
 
+  async function openHelpedCustomerManagersDetails(
+    row: HelpedCustomerManagerRow,
+    metric: TimeDetailMetric,
+  ) {
+    if (!selectedManagerId || selectedCustomerId || !row.managerProfileId) {
+      return;
+    }
+
+    const managerCustomers = customers.filter(
+      (customer) => customer.account_manager?.id === row.managerProfileId,
+    );
+
+    if (managerCustomers.length === 0) {
+      setTimeDetailsOpen(true);
+      setTimeDetailsLoading(false);
+      setTimeDetailsRows([]);
+      setTimeDetailsTitle(
+        `${row.managerName} · ${metricLabel(metric)} · ${rollingWindow.title}`,
+      );
+      return;
+    }
+
+    setTimeDetailsOpen(true);
+    setTimeDetailsLoading(true);
+    setTimeDetailsRows([]);
+    setTimeDetailsTitle(
+      `${row.managerName} · ${metricLabel(metric)} · ${rollingWindow.title}`,
+    );
+
+    const customerScope = managerCustomers.map((customer) => ({
+      id: customer.id,
+      fortnoxCustomerNumber: customer.fortnox_customer_number,
+    }));
+    const customerScopeChunks = chunkArray(customerScope, 200);
+
+    const supabase = createClient();
+    const allRows: Array<{
+      id: string;
+      report_date: string | null;
+      customer_name: string | null;
+      employee_id: string | null;
+      employee_name: string | null;
+      entry_type: string | null;
+      project_name: string | null;
+      activity: string | null;
+      description: string | null;
+      hours: number | null;
+    }> = [];
+    const seenRowIds = new Set<string>();
+
+    function addRows(
+      rows: Array<{
+        id: string;
+        report_date: string | null;
+        customer_name: string | null;
+        employee_id: string | null;
+        employee_name: string | null;
+        entry_type: string | null;
+        project_name: string | null;
+        activity: string | null;
+        description: string | null;
+        hours: number | null;
+      }>,
+    ) {
+      for (const reportRow of rows) {
+        if (seenRowIds.has(reportRow.id)) continue;
+        seenRowIds.add(reportRow.id);
+        allRows.push(reportRow);
+      }
+    }
+
+    for (const scopeChunk of customerScopeChunks) {
+      const customerIds = scopeChunk.map((customer) => customer.id);
+      const customerNumbers = scopeChunk
+        .map((customer) => customer.fortnoxCustomerNumber)
+        .filter((value): value is string => Boolean(value));
+
+      if (customerIds.length > 0) {
+        const { data, error } = await supabase
+          .from("time_reports")
+          .select(
+            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+          )
+          .in("customer_id", customerIds)
+          .gte("report_date", rollingWindow.from)
+          .lte("report_date", rollingWindow.to);
+
+        if (error) {
+          setTimeDetailsRows([]);
+          setTimeDetailsLoading(false);
+          return;
+        }
+
+        addRows(
+          (data ?? []) as Array<{
+            id: string;
+            report_date: string | null;
+            customer_name: string | null;
+            employee_id: string | null;
+            employee_name: string | null;
+            entry_type: string | null;
+            project_name: string | null;
+            activity: string | null;
+            description: string | null;
+            hours: number | null;
+          }>,
+        );
+      }
+
+      if (customerNumbers.length > 0) {
+        const { data, error } = await supabase
+          .from("time_reports")
+          .select(
+            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+          )
+          .in("fortnox_customer_number", customerNumbers)
+          .gte("report_date", rollingWindow.from)
+          .lte("report_date", rollingWindow.to);
+
+        if (error) {
+          setTimeDetailsRows([]);
+          setTimeDetailsLoading(false);
+          return;
+        }
+
+        addRows(
+          (data ?? []) as Array<{
+            id: string;
+            report_date: string | null;
+            customer_name: string | null;
+            employee_id: string | null;
+            employee_name: string | null;
+            entry_type: string | null;
+            project_name: string | null;
+            activity: string | null;
+            description: string | null;
+            hours: number | null;
+          }>,
+        );
+      }
+    }
+
+    const matchingRows = allRows.filter((reportRow) =>
+      isSelectedManagerReporter(reportRow),
+    );
+
+    setTimeDetailsRows(formatTimeDetailRows(matchingRows, metric));
+    setTimeDetailsLoading(false);
+  }
+
   async function openMonthlyInvoiceDetails(row: CustomerMonthlyEconomicsRow) {
     if (!selectedCustomerId) return;
 
@@ -1789,7 +2010,7 @@ export default function ReportsPage() {
         const { data, error } = await supabase
           .from("manager_time_kpis")
           .select(
-            "period_year, period_month, customer_hours, absence_hours, internal_hours, other_hours, total_hours, customer_id_1_hours",
+            "period_year, period_month, customer_hours, absence_hours, internal_hours, other_hours, total_hours",
           )
           .eq("manager_profile_id", selectedManagerId)
           .in("period_year", years)
@@ -1807,7 +2028,6 @@ export default function ReportsPage() {
           internal_hours: number | null;
           other_hours: number | null;
           total_hours: number | null;
-          customer_id_1_hours: number | null;
         }>;
 
         for (const row of rows) {
@@ -1817,9 +2037,7 @@ export default function ReportsPage() {
 
           const customerHours = Number(row.customer_hours ?? 0);
           const absenceHours = Number(row.absence_hours ?? 0);
-          const internalHours = Number(
-            row.customer_id_1_hours ?? row.internal_hours ?? 0,
-          );
+          const internalHours = Number(row.internal_hours ?? 0);
           const totalHours = Number(
             row.total_hours ??
               customerHours +
@@ -2022,6 +2240,222 @@ export default function ReportsPage() {
     selectedManagerId,
     teamNameById,
   ]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function fetchHelpedCustomerManagers() {
+      if (!selectedManagerId || selectedCustomerId) {
+        setHelpedCustomerManagersRows([]);
+        setHelpedCustomerManagersLoading(false);
+        return;
+      }
+
+      setHelpedCustomerManagersLoading(true);
+
+      const monthNumbers = Array.from(
+        new Set(rollingWindow.months.map((month) => month.month)),
+      );
+      const years = Array.from(
+        new Set(rollingWindow.months.map((month) => month.year)),
+      );
+
+      const { data, error } = await createClient()
+        .from("manager_time_kpis")
+        .select(
+          "customer_manager_profile_id, customer_hours, period_year, period_month",
+        )
+        .eq("manager_profile_id", selectedManagerId)
+        .neq("customer_manager_profile_id", selectedManagerId)
+        .not("customer_manager_profile_id", "is", null)
+        .in("period_year", years)
+        .in("period_month", monthNumbers);
+
+      if (error) {
+        setHelpedCustomerManagersRows([]);
+        setHelpedCustomerManagersLoading(false);
+        return;
+      }
+
+      const rows = (data ?? []) as Array<{
+        customer_manager_profile_id: string;
+        customer_hours: number | null;
+        period_year: number;
+        period_month: number;
+      }>;
+
+      const monthKeys = new Set(rollingWindow.months.map((month) => month.key));
+      const totalsByManager = new Map<string, HelpedCustomerManagerRow>();
+
+      for (const row of rows) {
+        const monthKey = `${row.period_year}-${String(row.period_month).padStart(2, "0")}`;
+        if (!monthKeys.has(monthKey)) continue;
+
+        const manager = managerById.get(row.customer_manager_profile_id);
+        const managerName =
+          manager?.full_name?.trim() || manager?.email || "Unknown";
+        const groupName =
+          manager?.fortnox_group_name ??
+          (manager?.team_id ? (teamNameById.get(manager.team_id) ?? "-") : "-");
+        const current = totalsByManager.get(row.customer_manager_profile_id) ?? {
+          managerProfileId: row.customer_manager_profile_id,
+          managerName,
+          groupName,
+          customerHours: 0,
+          workloadPercentage: 0,
+        };
+
+        current.customerHours += Number(row.customer_hours ?? 0);
+        totalsByManager.set(row.customer_manager_profile_id, current);
+      }
+
+      const totalHours = Array.from(totalsByManager.values()).reduce(
+        (sum, row) => sum + row.customerHours,
+        0,
+      );
+
+      const finalRows = Array.from(totalsByManager.values())
+        .map((row) => ({
+          ...row,
+          workloadPercentage:
+            totalHours > 0 ? (row.customerHours / totalHours) * 100 : 0,
+        }))
+        .sort((a, b) => b.customerHours - a.customerHours);
+
+      if (cancelled) return;
+
+      setHelpedCustomerManagersRows(finalRows);
+      setHelpedCustomerManagersLoading(false);
+    }
+
+    fetchHelpedCustomerManagers().catch(() => {
+      if (!cancelled) {
+        setHelpedCustomerManagersRows([]);
+        setHelpedCustomerManagersLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    managerById,
+    rollingWindow,
+    selectedCustomerId,
+    selectedManagerId,
+    teamNameById,
+  ]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function fetchManagerCustomerSummary() {
+      if (!selectedManagerId || selectedCustomerId || filteredCustomers.length === 0) {
+        setManagerCustomerSummaryRows([]);
+        setManagerCustomerSummaryLoading(false);
+        return;
+      }
+
+      setManagerCustomerSummaryLoading(true);
+
+      const supabase = createClient();
+      const customerIds = filteredCustomers.map((customer) => customer.id);
+      const customerIdChunks = chunkArray(customerIds, 200);
+      const monthNumbers = Array.from(
+        new Set(rollingWindow.months.map((month) => month.month)),
+      );
+      const years = Array.from(
+        new Set(rollingWindow.months.map((month) => month.year)),
+      );
+      const monthKeys = new Set(rollingWindow.months.map((month) => month.key));
+
+      const customerNameById = new Map(
+        filteredCustomers.map((customer) => [customer.id, customer.name]),
+      );
+      const totalsByCustomer = new Map<string, ManagerCustomerSummaryRow>();
+
+      for (const idChunk of customerIdChunks) {
+        if (cancelled) return;
+
+        const { data, error } = await supabase
+          .from("customer_kpis")
+          .select(
+            "customer_id, period_year, period_month, total_turnover, invoice_count, contract_value, customer_hours",
+          )
+          .in("customer_id", idChunk)
+          .eq("period_type", "month")
+          .in("period_year", years)
+          .in("period_month", monthNumbers);
+
+        if (error) {
+          setManagerCustomerSummaryRows([]);
+          setManagerCustomerSummaryLoading(false);
+          return;
+        }
+
+        const rows = (data ?? []) as Array<{
+          customer_id: string;
+          period_year: number;
+          period_month: number;
+          total_turnover: number | null;
+          invoice_count: number | null;
+          contract_value: number | null;
+          customer_hours: number | null;
+        }>;
+
+        for (const row of rows) {
+          const monthKey = `${row.period_year}-${String(row.period_month).padStart(2, "0")}`;
+          if (!monthKeys.has(monthKey)) continue;
+
+          const current = totalsByCustomer.get(row.customer_id) ?? {
+            customerId: row.customer_id,
+            customerName: customerNameById.get(row.customer_id) ?? row.customer_id,
+            turnover: 0,
+            invoiceCount: 0,
+            contractValue: 0,
+            workloadPercentage: 0,
+            customerHours: 0,
+          };
+
+          current.turnover += Number(row.total_turnover ?? 0);
+          current.invoiceCount += Number(row.invoice_count ?? 0);
+          current.contractValue += Number(row.contract_value ?? 0);
+          current.customerHours += Number(row.customer_hours ?? 0);
+
+          totalsByCustomer.set(row.customer_id, current);
+        }
+      }
+
+      const totalHours = Array.from(totalsByCustomer.values()).reduce(
+        (sum, row) => sum + row.customerHours,
+        0,
+      );
+
+      const finalRows = Array.from(totalsByCustomer.values())
+        .map((row) => ({
+          ...row,
+          workloadPercentage:
+            totalHours > 0 ? (row.customerHours / totalHours) * 100 : 0,
+        }))
+        .sort((a, b) => b.turnover - a.turnover);
+
+      if (cancelled) return;
+
+      setManagerCustomerSummaryRows(finalRows);
+      setManagerCustomerSummaryLoading(false);
+    }
+
+    fetchManagerCustomerSummary().catch(() => {
+      if (!cancelled) {
+        setManagerCustomerSummaryRows([]);
+        setManagerCustomerSummaryLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filteredCustomers, rollingWindow, selectedCustomerId, selectedManagerId]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -2457,6 +2891,90 @@ export default function ReportsPage() {
     },
   ];
 
+  const managerCustomerSummaryColumns: ColumnDef<
+    ManagerCustomerSummaryRow,
+    unknown
+  >[] = [
+    {
+      id: "customerName",
+      accessorKey: "customerName",
+      header: "Customer name",
+      size: 260,
+      enableSorting: false,
+    },
+    {
+      id: "turnover",
+      accessorKey: "turnover",
+      header: "Turnover",
+      size: 180,
+      enableSorting: false,
+      cell: ({ row }) => sekFormatter.format(row.original.turnover),
+    },
+    {
+      id: "invoiceCount",
+      accessorKey: "invoiceCount",
+      header: "Invoices",
+      size: 140,
+      enableSorting: false,
+      cell: ({ row }) => row.original.invoiceCount.toLocaleString("sv-SE"),
+    },
+    {
+      id: "contractValue",
+      accessorKey: "contractValue",
+      header: "Contract value",
+      size: 180,
+      enableSorting: false,
+      cell: ({ row }) => sekFormatter.format(row.original.contractValue),
+    },
+    {
+      id: "workloadPercentage",
+      accessorKey: "workloadPercentage",
+      header: "Workload",
+      size: 140,
+      enableSorting: false,
+      cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
+    },
+  ];
+
+  const helpedCustomerManagersColumns: ColumnDef<
+    HelpedCustomerManagerRow,
+    unknown
+  >[] = [
+    {
+      id: "managerName",
+      accessorKey: "managerName",
+      header: "Customer manager",
+      size: 240,
+      enableSorting: false,
+    },
+    {
+      id: "groupName",
+      accessorKey: "groupName",
+      header: "Group",
+      size: 180,
+      enableSorting: false,
+    },
+    {
+      id: "customerHours",
+      accessorKey: "customerHours",
+      header: "Customer Hours",
+      size: 180,
+      enableSorting: false,
+      cell: ({ row }) =>
+        renderHourCell(row.original.customerHours, () =>
+          openHelpedCustomerManagersDetails(row.original, "customerHours"),
+        ),
+    },
+    {
+      id: "workloadPercentage",
+      accessorKey: "workloadPercentage",
+      header: "Workload",
+      size: 140,
+      enableSorting: false,
+      cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
+    },
+  ];
+
   const customerMonthlyEconomicsColumns: ColumnDef<
     CustomerMonthlyEconomicsRow,
     unknown
@@ -2748,6 +3266,19 @@ export default function ReportsPage() {
             }
             allowClear={false}
           />
+
+          <SearchSelect
+            placeholder="Select period"
+            searchPlaceholder="Search period..."
+            options={REPORTING_WINDOW_OPTIONS}
+            value={selectedWindowMode}
+            onChange={(value) =>
+              setSelectedWindowMode(
+                (value as ReportingWindowMode | null) ?? "rolling-12-months",
+              )
+            }
+            allowClear={false}
+          />
         </div>
 
         <div className="inline-flex h-10 items-center px-1 text-sm font-medium text-muted-foreground lg:shrink-0">
@@ -2783,7 +3314,7 @@ export default function ReportsPage() {
           </div>
 
           <section className="space-y-3">
-            <div className="space-y-1">
+            <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
               <h3 className="text-base font-semibold">Turnover per month</h3>
               <p className="text-sm text-muted-foreground">
                 Based on current filters and rolling 12-month window.
@@ -2852,10 +3383,14 @@ export default function ReportsPage() {
           </section>
 
           <section className="space-y-3">
-            <div className="space-y-1">
+            <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
               <h3 className="text-base font-semibold">Time reporting</h3>
               <p className="text-sm text-muted-foreground">
-                Rolling 12-month view based on the selected month.
+                {selectedWindowMode === "current-month"
+                  ? "Current month view based on selected month."
+                  : selectedWindowMode === "rolling-year"
+                    ? "Calendar year view based on selected month year."
+                    : "Rolling 12-month view based on selected month."}
               </p>
             </div>
             {!selectedCustomerId ? (
@@ -2889,7 +3424,7 @@ export default function ReportsPage() {
 
             {selectedManagerId && !selectedCustomerId ? (
               <div className="mt-8 space-y-3">
-                <div className="space-y-1">
+                <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
                   <h4 className="text-sm font-semibold">
                     Other customer managers on selected manager customers
                   </h4>
@@ -2914,12 +3449,67 @@ export default function ReportsPage() {
                 />
               </div>
             ) : null}
+
+            {selectedManagerId && !selectedCustomerId ? (
+              <div className="mt-8 space-y-3">
+                <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
+                  <h4 className="text-sm font-semibold">
+                    Customer managers helped most by selected manager
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    Customer-hour entries where the selected customer manager
+                    has worked on customers owned by other customer managers.
+                  </p>
+                </div>
+
+                <DataTable
+                  columns={helpedCustomerManagersColumns}
+                  data={helpedCustomerManagersRows}
+                  loading={helpedCustomerManagersLoading}
+                  hideRowCount
+                  pageSize={12}
+                  emptyState={{
+                    icon: Filter,
+                    title: "No helped manager rows",
+                    description:
+                      "No customer-hour entries were found where this manager worked on other managers' customer scope.",
+                  }}
+                />
+              </div>
+            ) : null}
           </section>
+
+          {selectedManagerId && !selectedCustomerId ? (
+            <section className="space-y-3">
+              <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
+                <h3 className="text-base font-semibold">
+                  Customers in cost center {selectedManager?.fortnox_cost_center ?? "-"} - {selectedManager?.full_name ?? "Selected customer manager"}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Period summary for customers in the selected customer manager scope.
+                </p>
+              </div>
+
+              <DataTable
+                columns={managerCustomerSummaryColumns}
+                data={managerCustomerSummaryRows}
+                loading={managerCustomerSummaryLoading}
+                hideRowCount
+                pageSize={12}
+                emptyState={{
+                  icon: Filter,
+                  title: "No customer summary rows",
+                  description:
+                    "No customer KPI rows were found for this manager and period.",
+                }}
+              />
+            </section>
+          ) : null}
 
           {selectedCustomerId ? (
             <div className="space-y-10">
               <section className="space-y-3">
-                <div className="space-y-1">
+                <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
                   <h3 className="text-base font-semibold">Customer Accruals</h3>
                   <p className="text-sm text-muted-foreground">
                     {selectedCustomer?.name ?? "Selected customer"}
@@ -2941,7 +3531,7 @@ export default function ReportsPage() {
               </section>
 
               <section className="space-y-3">
-                <div className="space-y-1">
+                <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
                   <h3 className="text-base font-semibold">
                   Monthly turnover and hours
                 </h3>

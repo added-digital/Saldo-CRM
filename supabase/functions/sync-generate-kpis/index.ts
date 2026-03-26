@@ -64,7 +64,6 @@ type ManagerPeriodKpiDelta = {
   absence_hours: number
   internal_hours: number
   other_hours: number
-  customer_id_1_hours: number
 }
 
 function getDateParts(value: string | null): { year: number; month: number } | null {
@@ -317,7 +316,6 @@ function getManagerPeriodKpiDelta(
     absence_hours: 0,
     internal_hours: 0,
     other_hours: 0,
-    customer_id_1_hours: 0,
   }
 
   map.set(key, next)
@@ -959,6 +957,7 @@ Deno.serve(async (req) => {
         const isAbsenceHours = entryType === "absence"
         const isInternalHours = entryType === "internal"
         const isOtherHours = !isCustomerHours && !isAbsenceHours && !isInternalHours
+        const isCustomerIdOne = normalizeIdentifier(row.fortnox_customer_number) === "1"
 
         addDatedKpiValues(periodKpis, customer, row.report_date, {
           hours: amount,
@@ -991,11 +990,10 @@ Deno.serve(async (req) => {
         })
 
         managerKpi.total_hours += amount
-        managerKpi.customer_hours += isCustomerHours ? amount : 0
+        managerKpi.customer_hours += isCustomerHours && !isCustomerIdOne ? amount : 0
         managerKpi.absence_hours += isAbsenceHours ? amount : 0
-        managerKpi.internal_hours += isInternalHours ? amount : 0
+        managerKpi.internal_hours += isCustomerIdOne ? amount : 0
         managerKpi.other_hours += isOtherHours ? amount : 0
-        managerKpi.customer_id_1_hours += normalizeIdentifier(row.fortnox_customer_number) === "1" ? amount : 0
       }
 
       const customerTotalRows = Array.from(customerTotals.values())
