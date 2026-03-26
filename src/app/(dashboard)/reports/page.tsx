@@ -37,7 +37,6 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +48,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 const REPORTS_MANAGER_ALIAS: Record<string, string> = {
@@ -3416,13 +3416,30 @@ export default function ReportsPage() {
       </div>
 
       {loading ? (
-        <Card>
-          <CardContent className="py-8">
-            <p className="text-sm text-muted-foreground">
-              Loading report data...
-            </p>
-          </CardContent>
-        </Card>
+        <div className="space-y-10">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+            <Skeleton className="h-24" />
+          </div>
+
+          <section className="space-y-3">
+            <div className="space-y-2 border-t border-[#8b6f2a] pt-6">
+              <Skeleton className="h-5 w-44" />
+              <Skeleton className="h-4 w-80 max-w-full" />
+            </div>
+            <Skeleton className="h-[280px] w-full" />
+          </section>
+
+          <section className="space-y-3">
+            <div className="space-y-2 border-t border-[#8b6f2a] pt-6">
+              <Skeleton className="h-5 w-36" />
+              <Skeleton className="h-4 w-72 max-w-full" />
+            </div>
+            <Skeleton className="h-[420px] w-full" />
+          </section>
+        </div>
       ) : filteredCustomers.length === 0 ? (
         <EmptyState
           icon={Filter}
@@ -3446,9 +3463,7 @@ export default function ReportsPage() {
               </p>
             </div>
             {kpiLoading ? (
-              <p className="text-sm text-muted-foreground">
-                Loading turnover chart...
-              </p>
+              <Skeleton className="h-[280px] w-full" />
             ) : (
               <ChartContainer
                 config={turnoverChartConfig}
@@ -3672,9 +3687,7 @@ export default function ReportsPage() {
                   </p>
                 </div>
                 {customerMonthlyEconomicsLoading ? (
-                  <p className="text-sm text-muted-foreground">
-                    Loading monthly economics...
-                  </p>
+                  <Skeleton className="h-[420px] w-full" />
                 ) : customerMonthlyEconomicsRows.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No turnover or hour data found for this customer in the
