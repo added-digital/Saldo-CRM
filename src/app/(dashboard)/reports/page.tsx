@@ -59,6 +59,7 @@ const REPORTS_MANAGER_ALIAS: Record<string, string> = {
 };
 
 const REPORT_MONTH_OPTIONS_COUNT = 36;
+const TIME_REPORTS_PAGE_SIZE = 1000;
 
 const sekFormatter = new Intl.NumberFormat("sv-SE", {
   style: "currency",
@@ -271,6 +272,7 @@ type MonthlyTimeReportingRow = {
 
 type CustomerTimeReportingRow = {
   contributorKey: string;
+  managerProfileId: string | null;
   contributorId: string | null;
   contributorName: string;
   groupName: string;
@@ -334,7 +336,7 @@ function createEmptyMonthlyTimeReportingRows(
 ): MonthlyTimeReportingRow[] {
   return months.map((month) => ({
     monthKey: month.key,
-    monthLabel: month.label,
+    monthLabel: `${month.label} ${String(month.year).slice(-2)}`,
     customerHours: 0,
     absenceHours: 0,
     internalHours: 0,
@@ -533,6 +535,10 @@ export default function ReportsPage() {
     React.useState(false);
   const [customerTimeReportingRows, setCustomerTimeReportingRows] =
     React.useState<CustomerTimeReportingRow[]>([]);
+  const [otherManagersTimeReportingLoading, setOtherManagersTimeReportingLoading] =
+    React.useState(false);
+  const [otherManagersTimeReportingRows, setOtherManagersTimeReportingRows] =
+    React.useState<CustomerTimeReportingRow[]>([]);
   const [timeDetailsOpen, setTimeDetailsOpen] = React.useState(false);
   const [timeDetailsLoading, setTimeDetailsLoading] = React.useState(false);
   const [timeDetailsTitle, setTimeDetailsTitle] = React.useState("");
@@ -621,9 +627,18 @@ export default function ReportsPage() {
     [filteredCustomers],
   );
 
+  const selectedManager = React.useMemo(
+    () => managers.find((manager) => manager.id === selectedManagerId) ?? null,
+    [managers, selectedManagerId],
+  );
+
   const teamNameById = React.useMemo(() => {
     return new Map(teams.map((team) => [team.id, team.name]));
   }, [teams]);
+
+  const managerById = React.useMemo(() => {
+    return new Map(managers.map((manager) => [manager.id, manager]));
+  }, [managers]);
 
   const managerByFortnoxUserId = React.useMemo(() => {
     const map = new Map<string, ManagerOption>();
@@ -660,6 +675,60 @@ export default function ReportsPage() {
     }
     return map;
   }, [managers]);
+
+  const resolveReporterManagerId = React.useCallback(
+    (row: { employee_id: string | null; employee_name: string | null }) => {
+      const normalizedEmployeeId = normalizeIdentifier(row.employee_id);
+      const byUserId = normalizedEmployeeId
+        ? managerByFortnoxUserId.get(normalizedEmployeeId)
+        : undefined;
+      const byEmployeeId = normalizedEmployeeId
+        ? managerByFortnoxEmployeeId.get(normalizedEmployeeId)
+        : undefined;
+      const contributorName = row.employee_name?.trim() ?? "";
+      const byName = managerByName.get(normalizeText(contributorName));
+      const managerMatch = byUserId ?? byEmployeeId ?? byName;
+
+      return managerMatch?.id ?? null;
+    },
+    [managerByFortnoxEmployeeId, managerByFortnoxUserId, managerByName],
+  );
+
+  const isSelectedManagerReporter = React.useCallback(
+    (row: { employee_id: string | null; employee_name: string | null }) => {
+      if (!selectedManager) return false;
+
+      const resolvedManagerId = resolveReporterManagerId(row);
+      if (resolvedManagerId === selectedManager.id) {
+        return true;
+      }
+
+      const normalizedEmployeeId = normalizeIdentifier(row.employee_id);
+
+      const selectedUserId = normalizeIdentifier(selectedManager.fortnox_user_id);
+      const selectedEmployeeId = normalizeIdentifier(
+        selectedManager.fortnox_employee_id,
+      );
+      if (
+        normalizedEmployeeId &&
+        (normalizedEmployeeId === selectedUserId ||
+          normalizedEmployeeId === selectedEmployeeId)
+      ) {
+        return true;
+      }
+
+      const normalizedEmployeeName = normalizeText(row.employee_name);
+      return (
+        normalizedEmployeeName.length > 0 &&
+        (normalizedEmployeeName === normalizeText(selectedManager.full_name) ||
+          normalizedEmployeeName === normalizeText(selectedManager.email))
+      );
+    },
+    [
+      resolveReporterManagerId,
+      selectedManager,
+    ],
+  );
 
   function matchesMetric(
     entryType: string | null,
@@ -830,9 +899,88 @@ export default function ReportsPage() {
     row: MonthlyTimeReportingRow,
     metric: TimeDetailMetric,
   ) {
+    const { from, to } = getMonthDateRange(row.monthKey);
+
+    if (selectedManagerId && !selectedCustomerId) {
+      setTimeDetailsOpen(true);
+      setTimeDetailsLoading(true);
+      setTimeDetailsRows([]);
+      setTimeDetailsTitle(`${row.monthLabel} · ${metricLabel(metric)}`);
+
+      const supabase = createClient();
+      const allRows: Array<{
+        id: string;
+        report_date: string | null;
+        customer_name: string | null;
+        fortnox_customer_number: string | null;
+        employee_id: string | null;
+        employee_name: string | null;
+        entry_type: string | null;
+        project_name: string | null;
+        activity: string | null;
+        description: string | null;
+        hours: number | null;
+      }> = [];
+      let pageFrom = 0;
+
+      while (true) {
+        const { data, error } = await supabase
+          .from("time_reports")
+          .select(
+            "id, report_date, customer_name, fortnox_customer_number, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+          )
+          .gte("report_date", from)
+          .lte("report_date", to)
+          .range(pageFrom, pageFrom + TIME_REPORTS_PAGE_SIZE - 1);
+
+        if (error) {
+          setTimeDetailsRows([]);
+          setTimeDetailsLoading(false);
+          return;
+        }
+
+        const pageRows = (data ?? []) as Array<{
+          id: string;
+          report_date: string | null;
+          customer_name: string | null;
+          fortnox_customer_number: string | null;
+          employee_id: string | null;
+          employee_name: string | null;
+          entry_type: string | null;
+          project_name: string | null;
+          activity: string | null;
+          description: string | null;
+          hours: number | null;
+        }>;
+
+        allRows.push(...pageRows);
+
+        if (pageRows.length < TIME_REPORTS_PAGE_SIZE) {
+          break;
+        }
+
+        pageFrom += TIME_REPORTS_PAGE_SIZE;
+      }
+
+      const scopedRows = allRows.filter((timeRow) =>
+        isSelectedManagerReporter(timeRow),
+      );
+
+      if (metric === "internalHours") {
+        const internalScopeRows = scopedRows.filter(
+          (timeRow) =>
+            normalizeIdentifier(timeRow.fortnox_customer_number) === "1",
+        );
+        setTimeDetailsRows(formatTimeDetailRows(internalScopeRows, "totalHours"));
+      } else {
+        setTimeDetailsRows(formatTimeDetailRows(scopedRows, metric));
+      }
+      setTimeDetailsLoading(false);
+      return;
+    }
+
     if (filteredCustomers.length === 0) return;
 
-    const { from, to } = getMonthDateRange(row.monthKey);
     const customerScope = filteredCustomers.map((customer) => ({
       id: customer.id,
       fortnoxCustomerNumber: customer.fortnox_customer_number,
@@ -953,6 +1101,146 @@ export default function ReportsPage() {
 
     const detailRows = formatTimeDetailRows(allRows, metric);
     setTimeDetailsRows(detailRows);
+    setTimeDetailsLoading(false);
+  }
+
+  async function openOtherManagersTimeDetails(
+    row: CustomerTimeReportingRow,
+    metric: TimeDetailMetric,
+  ) {
+    if (!selectedManagerId || selectedCustomerId || filteredCustomers.length === 0) {
+      return;
+    }
+
+    setTimeDetailsOpen(true);
+    setTimeDetailsLoading(true);
+    setTimeDetailsRows([]);
+    setTimeDetailsTitle(
+      `${row.contributorName} · ${metricLabel(metric)} · ${rollingWindow.title}`,
+    );
+
+    const customerScope = filteredCustomers.map((customer) => ({
+      id: customer.id,
+      fortnoxCustomerNumber: customer.fortnox_customer_number,
+    }));
+    const customerScopeChunks = chunkArray(customerScope, 200);
+
+    const supabase = createClient();
+    const allRows: Array<{
+      id: string;
+      report_date: string | null;
+      customer_name: string | null;
+      employee_id: string | null;
+      employee_name: string | null;
+      entry_type: string | null;
+      project_name: string | null;
+      activity: string | null;
+      description: string | null;
+      hours: number | null;
+    }> = [];
+    const seenRowIds = new Set<string>();
+
+    function addRows(
+      rows: Array<{
+        id: string;
+        report_date: string | null;
+        customer_name: string | null;
+        employee_id: string | null;
+        employee_name: string | null;
+        entry_type: string | null;
+        project_name: string | null;
+        activity: string | null;
+        description: string | null;
+        hours: number | null;
+      }>,
+    ) {
+      for (const reportRow of rows) {
+        if (seenRowIds.has(reportRow.id)) continue;
+        seenRowIds.add(reportRow.id);
+        allRows.push(reportRow);
+      }
+    }
+
+    for (const scopeChunk of customerScopeChunks) {
+      const customerIds = scopeChunk.map((customer) => customer.id);
+      const customerNumbers = scopeChunk
+        .map((customer) => customer.fortnoxCustomerNumber)
+        .filter((value): value is string => Boolean(value));
+
+      if (customerIds.length > 0) {
+        const { data, error } = await supabase
+          .from("time_reports")
+          .select(
+            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+          )
+          .in("customer_id", customerIds)
+          .gte("report_date", rollingWindow.from)
+          .lte("report_date", rollingWindow.to);
+
+        if (error) {
+          setTimeDetailsRows([]);
+          setTimeDetailsLoading(false);
+          return;
+        }
+
+        addRows(
+          (data ?? []) as Array<{
+            id: string;
+            report_date: string | null;
+            customer_name: string | null;
+            employee_id: string | null;
+            employee_name: string | null;
+            entry_type: string | null;
+            project_name: string | null;
+            activity: string | null;
+            description: string | null;
+            hours: number | null;
+          }>,
+        );
+      }
+
+      if (customerNumbers.length > 0) {
+        const { data, error } = await supabase
+          .from("time_reports")
+          .select(
+            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+          )
+          .in("fortnox_customer_number", customerNumbers)
+          .gte("report_date", rollingWindow.from)
+          .lte("report_date", rollingWindow.to);
+
+        if (error) {
+          setTimeDetailsRows([]);
+          setTimeDetailsLoading(false);
+          return;
+        }
+
+        addRows(
+          (data ?? []) as Array<{
+            id: string;
+            report_date: string | null;
+            customer_name: string | null;
+            employee_id: string | null;
+            employee_name: string | null;
+            entry_type: string | null;
+            project_name: string | null;
+            activity: string | null;
+            description: string | null;
+            hours: number | null;
+          }>,
+        );
+      }
+    }
+
+    const matchingRows = allRows.filter((reportRow) => {
+      if (row.managerProfileId) {
+        return resolveReporterManagerId(reportRow) === row.managerProfileId;
+      }
+
+      return isSelectedManagerReporter(reportRow);
+    });
+
+    setTimeDetailsRows(formatTimeDetailRows(matchingRows, metric));
     setTimeDetailsLoading(false);
   }
 
@@ -1469,7 +1757,13 @@ export default function ReportsPage() {
     let cancelled = false;
 
     async function fetchMonthlyTimeReporting() {
-      if (selectedCustomerId || filteredCustomers.length === 0) {
+      if (selectedCustomerId) {
+        setMonthlyTimeReportingRows([]);
+        setMonthlyTimeReportingLoading(false);
+        return;
+      }
+
+      if (!selectedManagerId && filteredCustomers.length === 0) {
         setMonthlyTimeReportingRows([]);
         setMonthlyTimeReportingLoading(false);
         return;
@@ -1484,8 +1778,6 @@ export default function ReportsPage() {
         rowsByMonth.set(row.monthKey, row);
       }
 
-      const customerIds = filteredCustomers.map((customer) => customer.id);
-      const customerIdChunks = chunkArray(customerIds, 200);
       const monthNumbers = Array.from(
         new Set(rollingWindow.months.map((month) => month.month)),
       );
@@ -1493,16 +1785,13 @@ export default function ReportsPage() {
         new Set(rollingWindow.months.map((month) => month.year)),
       );
 
-      for (const idChunk of customerIdChunks) {
-        if (cancelled) return;
-
+      if (selectedManagerId) {
         const { data, error } = await supabase
-          .from("customer_kpis")
+          .from("manager_time_kpis")
           .select(
-            "period_year, period_month, customer_hours, absence_hours, internal_hours",
+            "period_year, period_month, customer_hours, absence_hours, internal_hours, other_hours, total_hours, customer_id_1_hours",
           )
-          .in("customer_id", idChunk)
-          .eq("period_type", "month")
+          .eq("manager_profile_id", selectedManagerId)
           .in("period_year", years)
           .in("period_month", monthNumbers);
 
@@ -1516,6 +1805,9 @@ export default function ReportsPage() {
           customer_hours: number | null;
           absence_hours: number | null;
           internal_hours: number | null;
+          other_hours: number | null;
+          total_hours: number | null;
+          customer_id_1_hours: number | null;
         }>;
 
         for (const row of rows) {
@@ -1525,12 +1817,65 @@ export default function ReportsPage() {
 
           const customerHours = Number(row.customer_hours ?? 0);
           const absenceHours = Number(row.absence_hours ?? 0);
-          const internalHours = Number(row.internal_hours ?? 0);
+          const internalHours = Number(
+            row.customer_id_1_hours ?? row.internal_hours ?? 0,
+          );
+          const totalHours = Number(
+            row.total_hours ??
+              customerHours +
+                absenceHours +
+                internalHours +
+                Number(row.other_hours ?? 0),
+          );
 
           target.customerHours += customerHours;
           target.absenceHours += absenceHours;
           target.internalHours += internalHours;
-          target.totalHours += customerHours + absenceHours + internalHours;
+          target.totalHours += totalHours;
+        }
+      } else {
+        const customerIds = filteredCustomers.map((customer) => customer.id);
+        const customerIdChunks = chunkArray(customerIds, 200);
+
+        for (const idChunk of customerIdChunks) {
+          if (cancelled) return;
+
+          const { data, error } = await supabase
+            .from("customer_kpis")
+            .select(
+              "period_year, period_month, customer_hours, absence_hours, internal_hours",
+            )
+            .in("customer_id", idChunk)
+            .eq("period_type", "month")
+            .in("period_year", years)
+            .in("period_month", monthNumbers);
+
+          if (error) {
+            throw error;
+          }
+
+          const rows = (data ?? []) as Array<{
+            period_year: number;
+            period_month: number;
+            customer_hours: number | null;
+            absence_hours: number | null;
+            internal_hours: number | null;
+          }>;
+
+          for (const row of rows) {
+            const monthKey = `${row.period_year}-${String(row.period_month).padStart(2, "0")}`;
+            const target = rowsByMonth.get(monthKey);
+            if (!target) continue;
+
+            const customerHours = Number(row.customer_hours ?? 0);
+            const absenceHours = Number(row.absence_hours ?? 0);
+            const internalHours = Number(row.internal_hours ?? 0);
+
+            target.customerHours += customerHours;
+            target.absenceHours += absenceHours;
+            target.internalHours += internalHours;
+            target.totalHours += customerHours + absenceHours + internalHours;
+          }
         }
       }
 
@@ -1562,7 +1907,121 @@ export default function ReportsPage() {
     return () => {
       cancelled = true;
     };
-  }, [filteredCustomers, rollingWindow, selectedCustomerId]);
+  }, [
+    filteredCustomers,
+    rollingWindow,
+    selectedCustomerId,
+    selectedManagerId,
+  ]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function fetchOtherManagersOnSelectedCustomers() {
+      if (!selectedManagerId || selectedCustomerId || filteredCustomers.length === 0) {
+        setOtherManagersTimeReportingRows([]);
+        setOtherManagersTimeReportingLoading(false);
+        return;
+      }
+
+      setOtherManagersTimeReportingLoading(true);
+      const supabase = createClient();
+      const monthNumbers = Array.from(
+        new Set(rollingWindow.months.map((month) => month.month)),
+      );
+      const years = Array.from(
+        new Set(rollingWindow.months.map((month) => month.year)),
+      );
+
+      const { data, error } = await supabase
+        .from("manager_time_kpis")
+        .select("manager_profile_id, customer_hours, period_year, period_month")
+        .eq("customer_manager_profile_id", selectedManagerId)
+        .neq("manager_profile_id", selectedManagerId)
+        .in("period_year", years)
+        .in("period_month", monthNumbers);
+
+      if (error) {
+        setOtherManagersTimeReportingRows([]);
+        setOtherManagersTimeReportingLoading(false);
+        return;
+      }
+
+      const rows = (data ?? []) as Array<{
+        manager_profile_id: string;
+        customer_hours: number | null;
+        period_year: number;
+        period_month: number;
+      }>;
+
+      const byContributor = new Map<string, CustomerTimeReportingRow>();
+
+      for (const row of rows) {
+        const manager = managerById.get(row.manager_profile_id);
+        const displayContributorName =
+          manager?.full_name?.trim() || manager?.email || "Unknown";
+        const contributorId =
+          normalizeIdentifier(manager?.fortnox_user_id) ||
+          normalizeIdentifier(manager?.fortnox_employee_id) ||
+          null;
+        const key = `${row.manager_profile_id}:${displayContributorName}`;
+        const groupName =
+          manager?.fortnox_group_name ??
+          (manager?.team_id ? (teamNameById.get(manager.team_id) ?? "-") : "-");
+        const target = byContributor.get(key) ?? {
+          contributorKey: key,
+          managerProfileId: row.manager_profile_id,
+          contributorId,
+          contributorName: displayContributorName,
+          groupName,
+          customerHours: 0,
+          workloadPercentage: 0,
+        };
+
+        target.customerHours += Number(row.customer_hours ?? 0);
+        byContributor.set(key, target);
+      }
+
+      const totals = Array.from(byContributor.values());
+      const totalCustomerHours = totals.reduce(
+        (sum, reportRow) => sum + reportRow.customerHours,
+        0,
+      );
+
+      const finalRows = totals
+        .map((reportRow) => ({
+          ...reportRow,
+          workloadPercentage:
+            totalCustomerHours > 0
+              ? (reportRow.customerHours / totalCustomerHours) * 100
+              : 0,
+        }))
+        .sort((a, b) => b.customerHours - a.customerHours);
+
+      if (cancelled) return;
+
+      setOtherManagersTimeReportingRows(finalRows);
+      setOtherManagersTimeReportingLoading(false);
+    }
+
+    fetchOtherManagersOnSelectedCustomers().catch(() => {
+      if (!cancelled) {
+        setOtherManagersTimeReportingRows([]);
+        setOtherManagersTimeReportingLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    filteredCustomers,
+    managerById,
+    rollingWindow,
+    selectedCustomerId,
+    selectedManagerId,
+    teamNameById,
+  ]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -1642,6 +2101,7 @@ export default function ReportsPage() {
             : "-");
         const target = byContributor.get(key) ?? {
           contributorKey: key,
+          managerProfileId: managerMatch?.id ?? null,
           contributorId,
           contributorName: displayContributorName,
           groupName,
@@ -1946,6 +2406,45 @@ export default function ReportsPage() {
       cell: ({ row }) =>
         renderHourCell(row.original.customerHours, () =>
           openCustomerTimeDetails(row.original, "customerHours"),
+        ),
+    },
+    {
+      id: "workloadPercentage",
+      accessorKey: "workloadPercentage",
+      header: "Workload Share",
+      size: 160,
+      enableSorting: false,
+      cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
+    },
+  ];
+
+  const otherManagersTimeReportingColumns: ColumnDef<
+    CustomerTimeReportingRow,
+    unknown
+  >[] = [
+    {
+      id: "contributorName",
+      accessorKey: "contributorName",
+      header: "Customer Manager",
+      size: 220,
+      enableSorting: false,
+    },
+    {
+      id: "groupName",
+      accessorKey: "groupName",
+      header: "Group",
+      size: 180,
+      enableSorting: false,
+    },
+    {
+      id: "customerHours",
+      accessorKey: "customerHours",
+      header: "Customer Hours",
+      size: 180,
+      enableSorting: false,
+      cell: ({ row }) =>
+        renderHourCell(row.original.customerHours, () =>
+          openOtherManagersTimeDetails(row.original, "customerHours"),
         ),
     },
     {
@@ -2387,6 +2886,34 @@ export default function ReportsPage() {
                 }}
               />
             )}
+
+            {selectedManagerId && !selectedCustomerId ? (
+              <div className="mt-8 space-y-3">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-semibold">
+                    Other customer managers on selected manager customers
+                  </h4>
+                  <p className="text-sm text-muted-foreground">
+                    Customer-hour time reported by other customer managers on the
+                    selected manager customer scope.
+                  </p>
+                </div>
+
+                <DataTable
+                  columns={otherManagersTimeReportingColumns}
+                  data={otherManagersTimeReportingRows}
+                  loading={otherManagersTimeReportingLoading}
+                  hideRowCount
+                  pageSize={12}
+                  emptyState={{
+                    icon: Filter,
+                    title: "No other manager reports",
+                    description:
+                      "No customer-hour entries from other customer managers were found for this scope.",
+                  }}
+                />
+              </div>
+            ) : null}
           </section>
 
           {selectedCustomerId ? (

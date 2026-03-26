@@ -144,6 +144,22 @@ export interface CustomerKpi {
   updated_at: string
 }
 
+export interface ManagerTimeKpi {
+  id: string
+  manager_profile_id: string
+  customer_manager_profile_id: string | null
+  period_year: number
+  period_month: number
+  total_hours: number
+  customer_hours: number
+  absence_hours: number
+  internal_hours: number
+  other_hours: number
+  customer_id_1_hours: number
+  created_at: string
+  updated_at: string
+}
+
 export interface FortnoxConnection {
   id: string
   access_token: string
@@ -484,6 +500,11 @@ export interface Database {
         Row: SyncJob
         Insert: Omit<SyncJob, "id" | "created_at" | "updated_at">
         Update: Partial<Omit<SyncJob, "id" | "created_at" | "updated_at">>
+      }
+      manager_time_kpis: {
+        Row: ManagerTimeKpi
+        Insert: Omit<ManagerTimeKpi, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<ManagerTimeKpi, "id" | "created_at" | "updated_at">>
       }
     }
   }
