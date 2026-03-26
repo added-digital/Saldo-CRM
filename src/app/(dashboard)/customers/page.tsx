@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
-import { Users, Tags, ChevronLeft, ChevronRight, Mail } from "lucide-react"
+import { Users, Tags, ChevronLeft, ChevronRight, Mail, BarChart3 } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import type { CustomerWithRelations, Profile, Segment } from "@/types/database"
@@ -470,6 +470,12 @@ export default function CustomersPage() {
     router.push(`/settings/mail?to=${encodeURIComponent(recipients.join("\n"))}`)
   }
 
+  function handleOpenInReports() {
+    const selectedCustomer = selectedCustomers[0]
+    if (!selectedCustomer) return
+    router.push(`/reports?customerId=${encodeURIComponent(selectedCustomer.id)}`)
+  }
+
   function toggleListColumn(columnId: string) {
     const column = customerListColumnDefinitions.find((item) => item.id === columnId)
     if (column?.alwaysVisible) return
@@ -575,6 +581,16 @@ export default function CustomersPage() {
         selectedCount={selectedCustomers.length}
         onClear={handleClearSelection}
         actions={[
+          ...(selectedCustomers.length === 1
+            ? [
+                {
+                  label: "Open in Reports",
+                  icon: BarChart3,
+                  onClick: handleOpenInReports,
+                  variant: "outline" as const,
+                },
+              ]
+            : []),
           {
             label: "Send Mail",
             icon: Mail,

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Check, ChevronDown, Filter } from "lucide-react";
 import {
@@ -586,6 +587,7 @@ function SearchSelect({
 
 export default function ReportsPage() {
   const { user, isAdmin } = useUser();
+  const searchParams = useSearchParams();
 
   const [loading, setLoading] = React.useState(true);
   const [teams, setTeams] = React.useState<TeamOption[]>([]);
@@ -659,6 +661,8 @@ export default function ReportsPage() {
   const [turnoverByMonthRows, setTurnoverByMonthRows] = React.useState<
     TurnoverMonthRow[]
   >([]);
+
+  const customerIdFromQuery = searchParams.get("customerId");
 
   const showTeamFilter = isAdmin || user.role === "team_lead";
   const teamFilterDisabled = user.role === "team_lead" && !isAdmin;
@@ -1806,18 +1810,14 @@ export default function ReportsPage() {
         scopedManagers = (teamProfiles ?? []) as ManagerOption[];
       }
     } else {
-      scopedManagers = [
-        {
-          id: effectiveProfile.id,
-          full_name: effectiveProfile.full_name,
-          email: effectiveProfile.email,
-          team_id: effectiveProfile.team_id,
-          fortnox_cost_center: effectiveProfile.fortnox_cost_center,
-          fortnox_employee_id: effectiveProfile.fortnox_employee_id,
-          fortnox_user_id: effectiveProfile.fortnox_user_id,
-          fortnox_group_name: effectiveProfile.fortnox_group_name,
-        },
-      ];
+      const { data: profileRows } = await supabase
+        .from("profiles")
+        .select(
+          "id, full_name, email, team_id, fortnox_cost_center, fortnox_employee_id, fortnox_user_id, fortnox_group_name",
+        )
+        .eq("is_active", true);
+
+      scopedManagers = (profileRows ?? []) as ManagerOption[];
     }
 
     if (scopedManagers.length === 0) {
@@ -1840,14 +1840,12 @@ export default function ReportsPage() {
     );
 
     const managerByCostCenter = new Map<string, ManagerOption>();
-    const allowedCostCenters: string[] = [];
     for (const manager of sortedManagers) {
       if (
         manager.fortnox_cost_center &&
         !managerByCostCenter.has(manager.fortnox_cost_center)
       ) {
         managerByCostCenter.set(manager.fortnox_cost_center, manager);
-        allowedCostCenters.push(manager.fortnox_cost_center);
       }
     }
 
@@ -1855,21 +1853,13 @@ export default function ReportsPage() {
     let allCustomers: Customer[] = [];
     let from = 0;
 
-    if (!isAdmin && allowedCostCenters.length === 0) {
-      allCustomers = [];
-    }
-
-    while (isAdmin || allowedCostCenters.length > 0) {
-      let query = supabase
+    while (true) {
+      const query = supabase
         .from("customers")
         .select("*")
         .eq("status", "active")
         .order("name")
         .range(from, from + PAGE_SIZE - 1);
-
-      if (!isAdmin) {
-        query = query.in("fortnox_cost_center", allowedCostCenters);
-      }
 
       const { data } = await query;
 
@@ -1880,10 +1870,6 @@ export default function ReportsPage() {
       if (rows.length < PAGE_SIZE) break;
       from += PAGE_SIZE;
     }
-
-    const scopedManagerIds = new Set(
-      sortedManagers.map((manager) => manager.id),
-    );
 
     const enrichedCustomers: CustomerWithRelations[] = allCustomers
       .map((customer) => {
@@ -1903,12 +1889,7 @@ export default function ReportsPage() {
           segments: [],
         };
       })
-      .filter(
-        (customer) =>
-          customer.status === "active" &&
-          customer.account_manager &&
-          scopedManagerIds.has(customer.account_manager.id),
-      );
+      .filter((customer) => customer.status === "active");
 
     setTeams(scopedTeams);
     setManagers(sortedManagers);
@@ -1943,6 +1924,14 @@ export default function ReportsPage() {
   React.useEffect(() => {
     void fetchReportData();
   }, [fetchReportData]);
+
+  React.useEffect(() => {
+    if (!customerIdFromQuery) return;
+    if (!customers.some((customer) => customer.id === customerIdFromQuery)) {
+      return;
+    }
+    setSelectedCustomerId(customerIdFromQuery);
+  }, [customerIdFromQuery, customers]);
 
   React.useEffect(() => {
     let cancelled = false;
