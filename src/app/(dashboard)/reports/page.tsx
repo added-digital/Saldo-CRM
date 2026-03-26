@@ -2315,6 +2315,7 @@ export default function ReportsPage() {
       );
 
       const finalRows = Array.from(totalsByManager.values())
+        .filter((row) => row.customerHours > 0)
         .map((row) => ({
           ...row,
           workloadPercentage:
