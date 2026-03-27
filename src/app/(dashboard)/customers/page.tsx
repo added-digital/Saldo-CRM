@@ -7,9 +7,7 @@ import { Users, Tags, ChevronLeft, ChevronRight, Mail, BarChart3 } from "lucide-
 
 import { createClient } from "@/lib/supabase/client"
 import type { CustomerWithRelations, Profile, Segment } from "@/types/database"
-import { PageHeader } from "@/components/app/page-header"
 import { DataTable } from "@/components/app/data-table"
-import { CustomerKpiCards } from "@/components/app/customer-kpi-view"
 import { ActionBar } from "@/components/app/action-bar"
 import {
   CustomerFilters,
@@ -235,6 +233,7 @@ export default function CustomersPage() {
   const clearSelectionRef = React.useRef<(() => void) | null>(null)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [pageIndex, setPageIndex] = React.useState(0)
+  const [pageSize, setPageSize] = React.useState(CUSTOMER_TABLE_PAGE_SIZE)
   const [filters, setFilters] = React.useState<CustomerFilterState>(EMPTY_FILTERS)
   const [visibleListColumns, setVisibleListColumns] = React.useState<Record<string, boolean>>(() => getDefaultVisibleListColumns())
 
@@ -271,8 +270,8 @@ export default function CustomersPage() {
   }, [customers, searchQuery, filters])
 
   const pageCount = React.useMemo(
-    () => Math.max(1, Math.ceil(filteredCustomers.length / CUSTOMER_TABLE_PAGE_SIZE)),
-    [filteredCustomers.length]
+    () => Math.max(1, Math.ceil(filteredCustomers.length / pageSize)),
+    [filteredCustomers.length, pageSize]
   )
 
   React.useEffect(() => {
@@ -284,10 +283,10 @@ export default function CustomersPage() {
   }, [pageCount])
 
   const paginatedCustomers = React.useMemo(() => {
-    const from = pageIndex * CUSTOMER_TABLE_PAGE_SIZE
-    const to = from + CUSTOMER_TABLE_PAGE_SIZE
+    const from = pageIndex * pageSize
+    const to = from + pageSize
     return filteredCustomers.slice(from, to)
-  }, [filteredCustomers, pageIndex])
+  }, [filteredCustomers, pageIndex, pageSize])
 
   async function fetchCustomers() {
     const supabase = createClient()
@@ -498,6 +497,19 @@ export default function CustomersPage() {
 
   const paginationControl = (
     <div className="flex items-center gap-2">
+      <select
+        value={pageSize}
+        onChange={(event) => {
+          setPageSize(Number(event.target.value))
+          setPageIndex(0)
+        }}
+        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+        aria-label="Rows per page"
+      >
+        <option value={15}>15 / page</option>
+        <option value={30}>30 / page</option>
+        <option value={50}>50 / page</option>
+      </select>
       <span className="text-sm text-muted-foreground">
         {pageIndex + 1} of {pageCount}
       </span>
@@ -547,20 +559,13 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Customers"
-        description="Manage customer records synced from Fortnox"
-      />
-
       {toolbar}
-
-      <CustomerKpiCards customers={filteredCustomers} compact />
 
       <DataTable
         columns={visibleColumns}
         data={paginatedCustomers}
         loading={loading}
-        pageSize={CUSTOMER_TABLE_PAGE_SIZE}
+        pageSize={pageSize}
         selectable
         onSelectionChange={setSelectedCustomers}
         clearSelectionRef={clearSelectionRef}

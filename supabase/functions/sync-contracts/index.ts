@@ -6,8 +6,8 @@ declare const Deno: {
 }
 
 const RATE_LIMIT_DELAY_MS = 350
-const BATCH_SIZE = 100
-const KPI_BATCH_SIZE = 1000
+const BATCH_SIZE = 300
+const KPI_BATCH_SIZE = 3000
 
 function readNumberField(
   record: Record<string, unknown>,
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
       let totalPages = 1
 
       do {
-        const response = await client.getContracts(currentPage)
+        const response = await client.getContracts(currentPage, "active")
         totalPages = response.MetaInformation?.["@TotalPages"] ?? 1
         const contracts = response.Contracts ?? []
 

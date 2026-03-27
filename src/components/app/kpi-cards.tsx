@@ -13,9 +13,18 @@ type KpiValues = {
 interface KpiCardsProps {
   values: KpiValues;
   compact?: boolean;
+  hoursMode?: "hours" | "turnoverPerHour";
+  turnoverPerHour?: number;
+  onInvoicesClick?: () => void;
 }
 
-function KpiCards({ values, compact = false }: KpiCardsProps) {
+function KpiCards({
+  values,
+  compact = false,
+  hoursMode = "hours",
+  turnoverPerHour = 0,
+  onInvoicesClick,
+}: KpiCardsProps) {
   const valueClassName = compact
     ? "text-2xl font-semibold leading-tight"
     : "text-4xl font-semibold leading-tight";
@@ -24,6 +33,9 @@ function KpiCards({ values, compact = false }: KpiCardsProps) {
   const gridClassName = compact
     ? "grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4"
     : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4";
+
+  const thirdKpiLabel =
+    hoursMode === "turnoverPerHour" ? "Turnover / Hours Avg (kr/h)" : "Hours (h)";
 
   return (
     <div className={gridClassName}>
@@ -54,33 +66,52 @@ function KpiCards({ values, compact = false }: KpiCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
-          <p className={valueClassName}>
-            <NumberFlow
-              value={values.invoices}
-              locales="sv-SE"
-              format={{
-                style: "decimal",
-                maximumFractionDigits: 0,
-              }}
-            />
-          </p>
+          {onInvoicesClick ? (
+            <button
+              type="button"
+              onClick={onInvoicesClick}
+              className="font-medium text-[#d4af37] underline decoration-2 underline-offset-2 transition-colors hover:text-[#b9931f]"
+            >
+              <span className={valueClassName}>
+                <NumberFlow
+                  value={values.invoices}
+                  locales="sv-SE"
+                  format={{
+                    style: "decimal",
+                    maximumFractionDigits: 0,
+                  }}
+                />
+              </span>
+            </button>
+          ) : (
+            <p className={valueClassName}>
+              <NumberFlow
+                value={values.invoices}
+                locales="sv-SE"
+                format={{
+                  style: "decimal",
+                  maximumFractionDigits: 0,
+                }}
+              />
+            </p>
+          )}
         </CardContent>
       </Card>
 
       <Card className={compact ? "gap-2" : ""}>
         <CardHeader className={cardHeaderClassName}>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Hours (h)
+            {thirdKpiLabel}
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
           <p className={valueClassName}>
             <NumberFlow
-              value={values.hours}
+              value={hoursMode === "turnoverPerHour" ? turnoverPerHour : values.hours}
               locales="sv-SE"
               format={{
-                maximumFractionDigits: 1,
-                minimumFractionDigits: 1,
+                maximumFractionDigits: hoursMode === "turnoverPerHour" ? 0 : 1,
+                minimumFractionDigits: hoursMode === "turnoverPerHour" ? 0 : 1,
               }}
             />
           </p>

@@ -1,9 +1,13 @@
 import { createAdminClient } from "../_shared/supabase.ts"
 import { getFortnoxClient, updateSyncJob, delay, corsHeaders } from "../_shared/sync-helpers.ts"
 
+declare const Deno: {
+  serve: (handler: (req: Request) => Response | Promise<Response>) => void
+}
+
 const RATE_LIMIT_DELAY_MS = 220
 const RETRY_BASE_DELAY_MS = 700
-const PAGES_PER_BATCH = 10
+const PAGES_PER_BATCH = 30
 const PAGE_LIMIT = 500
 const MAX_PAGES = 200
 

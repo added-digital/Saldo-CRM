@@ -1,8 +1,12 @@
 import { createAdminClient } from "../_shared/supabase.ts"
 import { getFortnoxClient, updateSyncJob, delay, corsHeaders } from "../_shared/sync-helpers.ts"
 
+declare const Deno: {
+  serve: (handler: (req: Request) => Response | Promise<Response>) => void
+}
+
 const RATE_LIMIT_DELAY_MS = 350
-const BATCH_SIZE = 25
+const BATCH_SIZE = 75
 const LIST_PAGE_SIZE = 500
 
 Deno.serve(async (req) => {

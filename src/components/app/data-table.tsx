@@ -55,6 +55,8 @@ interface DataTableProps<TData, TValue> {
   onSelectionChange?: (rows: TData[]) => void
   clearSelectionRef?: React.RefObject<(() => void) | null>
   hideRowCount?: boolean
+  sortingStorageKey?: string
+  pageSizeOptions?: number[]
 }
 
 function getColumnWidthPercent<TData, TValue>(
@@ -127,8 +129,11 @@ function DataTable<TData, TValue>({
   onSelectionChange,
   clearSelectionRef,
   hideRowCount = false,
+  sortingStorageKey,
+  pageSizeOptions,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
+  const [sortingHydrated, setSortingHydrated] = React.useState(false)
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({})
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
@@ -197,10 +202,52 @@ function DataTable<TData, TValue>({
   }, [])
 
   React.useEffect(() => {
+    if (!sortingStorageKey) {
+      setSortingHydrated(true)
+      return
+    }
+
+    const raw = window.localStorage.getItem(sortingStorageKey)
+    if (!raw) {
+      setSortingHydrated(true)
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as unknown
+      if (
+        Array.isArray(parsed) &&
+        parsed.every(
+          (entry) =>
+            entry &&
+            typeof entry === "object" &&
+            "id" in entry &&
+            typeof (entry as { id: unknown }).id === "string",
+        )
+      ) {
+        setSorting(parsed as SortingState)
+      }
+    } catch {
+      window.localStorage.removeItem(sortingStorageKey)
+    } finally {
+      setSortingHydrated(true)
+    }
+  }, [sortingStorageKey])
+
+  React.useEffect(() => {
+    if (!sortingStorageKey || !sortingHydrated) return
+    window.localStorage.setItem(sortingStorageKey, JSON.stringify(sorting))
+  }, [sortingStorageKey, sorting, sortingHydrated])
+
+  React.useEffect(() => {
     if (clearSelectionRef) {
       clearSelectionRef.current = clearSelection
     }
   }, [clearSelectionRef, clearSelection])
+
+  React.useEffect(() => {
+    table.setPageSize(pageSize)
+  }, [table, pageSize])
 
   if (loading) {
     return <LoadingState rows={pageSize} columns={allColumns.length} />
@@ -225,6 +272,20 @@ function DataTable<TData, TValue>({
         </div>
         {table.getPageCount() > 1 && (
           <div className="flex shrink-0 items-center gap-2">
+            {pageSizeOptions && pageSizeOptions.length > 0 ? (
+              <select
+                value={table.getState().pagination.pageSize}
+                onChange={(event) => table.setPageSize(Number(event.target.value))}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                aria-label="Rows per page"
+              >
+                {pageSizeOptions.map((size) => (
+                  <option key={size} value={size}>
+                    {size} / page
+                  </option>
+                ))}
+              </select>
+            ) : null}
             <span className="text-sm text-muted-foreground">
               {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
             </span>

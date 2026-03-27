@@ -14,6 +14,13 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 
+function prefixFilterScore(value: string, search: string): number {
+  const normalizedValue = value.trim().toLowerCase()
+  const normalizedSearch = search.trim().toLowerCase()
+  if (!normalizedSearch) return 1
+  return normalizedValue.startsWith(normalizedSearch) ? 1 : 0
+}
+
 interface CustomerOption {
   id: string
   name: string
@@ -65,7 +72,7 @@ export function CustomerMultiSelect({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
-          <Command>
+          <Command filter={(commandValue, search) => prefixFilterScore(commandValue, search)}>
             <CommandInput placeholder="Search customers..." />
             <CommandList>
               <CommandEmpty>No customers found.</CommandEmpty>
@@ -76,7 +83,7 @@ export function CustomerMultiSelect({
                 return (
                   <CommandItem
                     key={customer.id}
-                    value={`${customer.name} ${customer.fortnox_customer_number ?? ""}`}
+                    value={customer.name}
                     onSelect={() => toggleCustomer(customer.id)}
                     className={cn(locked && "opacity-70")}
                   >

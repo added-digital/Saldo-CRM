@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
-import { Check, ChevronDown, Filter } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Filter } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -73,8 +73,16 @@ const hoursFormatter = new Intl.NumberFormat("sv-SE", {
 function invoiceTurnoverExVat(input: {
   total_ex_vat: number | null;
   total: number | null;
-}): number {
-  return Number(input.total_ex_vat ?? input.total ?? 0);
+}): { amount: number | null; fromTotal: boolean } {
+  if (input.total_ex_vat != null) {
+    return { amount: Number(input.total_ex_vat), fromTotal: false };
+  }
+
+  if (input.total != null) {
+    return { amount: Number(input.total), fromTotal: true };
+  }
+
+  return { amount: null, fromTotal: false };
 }
 
 function toMonthKey(date: Date): string {
@@ -106,6 +114,7 @@ function createMonthOptions(count: number): SelectOption[] {
     month: "short",
   });
   const now = new Date();
+  const minSelectableMonth = "2025-01";
   const options: SelectOption[] = [];
 
   for (let i = 0; i < count; i += 1) {
@@ -116,7 +125,7 @@ function createMonthOptions(count: number): SelectOption[] {
     });
   }
 
-  return options;
+  return options.filter((option) => option.id >= minSelectableMonth);
 }
 
 type RollingMonth = {
@@ -149,7 +158,7 @@ function getReportingWindowRange(
   const { year, month } = parseMonthKey(selectedMonthKey);
   const monthDate = new Date(year, month - 1, 1);
   const endDate =
-    mode === "rolling-year" ? new Date(year, 12, 0) : new Date(year, month, 0);
+    mode === "rolling-year" ? new Date(year, month, 0) : new Date(year, month, 0);
   const startDate =
     mode === "current-month"
       ? new Date(year, month - 1, 1)
@@ -181,7 +190,7 @@ function getReportingWindowRange(
     };
   }
 
-  const monthCount = mode === "rolling-year" ? 12 : 12;
+  const monthCount = mode === "rolling-year" ? month : 12;
 
   for (let i = 0; i < monthCount; i += 1) {
     const monthDate = new Date(
@@ -359,9 +368,10 @@ type HelpedCustomerManagerRow = {
 type CustomerMonthlyEconomicsRow = {
   monthKey: string;
   monthLabel: string;
-  turnover: number;
+  turnover: number | null;
+  turnoverFromTotal: boolean;
   hours: number;
-  turnoverPerHour: number;
+  turnoverPerHour: number | null;
 };
 
 type ManagerCustomerSummaryRow = {
@@ -405,9 +415,17 @@ type InvoiceDetailRow = {
   documentNumber: string;
   invoiceDate: string | null;
   dueDate: string | null;
-  turnover: number;
+  turnover: number | null;
+  turnoverFromTotal: boolean;
   currencyCode: string;
 };
+
+function prefixFilterScore(value: string, search: string): number {
+  const normalizedValue = value.trim().toLowerCase();
+  const normalizedSearch = search.trim().toLowerCase();
+  if (!normalizedSearch) return 1;
+  return normalizedValue.startsWith(normalizedSearch) ? 1 : 0;
+}
 
 function metricLabel(metric: TimeDetailMetric): string {
   if (metric === "customerHours") return "Customer Hours";
@@ -433,10 +451,28 @@ function createEmptyMonthlyTimeReportingRows(
 function createEmptyTurnoverRows(months: RollingMonth[]): TurnoverMonthRow[] {
   return months.map((month) => ({
     monthKey: month.key,
-    monthLabel: month.label,
+    monthLabel: `${month.label} ${String(month.year).slice(-2)}`,
     turnover: 0,
     invoiceCount: 0,
   }));
+}
+
+function compareMonthKeys(a: string, b: string): number {
+  if (a === "average" && b === "average") return 0;
+  if (a === "average") return 1;
+  if (b === "average") return -1;
+  return a.localeCompare(b);
+}
+
+function compareMonthKeysWithAverageFixed(
+  a: CustomerMonthlyEconomicsRow,
+  b: CustomerMonthlyEconomicsRow,
+): number {
+  if (a.monthKey === "average" || b.monthKey === "average") {
+    return 0;
+  }
+
+  return a.monthKey.localeCompare(b.monthKey);
 }
 
 const turnoverChartConfig = {
@@ -525,7 +561,11 @@ function SearchSelect({
           className="w-(--radix-popover-trigger-width) p-0"
           align="start"
         >
-          <Command>
+          <Command
+            filter={(commandValue, search) =>
+              prefixFilterScore(commandValue, search)
+            }
+          >
             <CommandInput placeholder={searchPlaceholder} />
             <CommandList>
               {allowClear ? (
@@ -550,7 +590,7 @@ function SearchSelect({
               {options.map((option) => (
                 <CommandItem
                   key={option.id}
-                  value={`${option.label} ${option.subLabel ?? ""}`}
+                    value={option.label}
                   onSelect={() => {
                     onChange(option.id);
                     setOpen(false);
@@ -1005,21 +1045,31 @@ export default function ReportsPage() {
     );
   }
 
-  function renderTurnoverCell(value: number, onClick?: () => void) {
-    if (value === 0 || !onClick) {
-      return <span>{sekFormatter.format(value)}</span>;
-    }
-
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="font-medium underline underline-offset-2 hover:text-foreground"
-      >
-        {sekFormatter.format(value)}
-      </button>
-    );
+function renderTurnoverCell(
+  value: number | null,
+  onClick?: () => void,
+  showNotExVatLabel = false,
+) {
+  if (value == null) {
+    return <span className="text-muted-foreground">missing</span>;
   }
+
+  const valueText = `${sekFormatter.format(value)}${showNotExVatLabel ? " (NOT ex VAT)" : ""}`;
+
+  if (value === 0 || !onClick) {
+    return <span>{valueText}</span>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="font-medium underline underline-offset-2 hover:text-foreground"
+    >
+      {valueText}
+    </button>
+  );
+}
 
   async function openCustomerTimeDetails(
     row: CustomerTimeReportingRow,
@@ -1678,28 +1728,157 @@ export default function ReportsPage() {
       }>;
 
       setInvoiceDetailsRows(
-        rows.map((invoice) => ({
-          id: invoice.id,
-          documentNumber: invoice.document_number,
-          invoiceDate: invoice.invoice_date,
-          dueDate: null,
-          turnover: invoiceTurnoverExVat(invoice),
-          currencyCode: invoice.currency_code ?? "SEK",
-        })),
+        rows.map((invoice) => {
+          const turnover = invoiceTurnoverExVat(invoice);
+          return {
+            id: invoice.id,
+            documentNumber: invoice.document_number,
+            invoiceDate: invoice.invoice_date,
+            dueDate: null,
+            turnover: turnover.amount,
+            turnoverFromTotal: turnover.fromTotal,
+            currencyCode: invoice.currency_code ?? "SEK",
+          };
+        }),
       );
       setInvoiceDetailsLoading(false);
       return;
     }
 
     setInvoiceDetailsRows(
-      dueDateRows.map((invoice) => ({
-        id: invoice.id,
-        documentNumber: invoice.document_number,
-        invoiceDate: invoice.invoice_date,
-        dueDate: invoice.due_date,
-        turnover: invoiceTurnoverExVat(invoice),
-        currencyCode: invoice.currency_code ?? "SEK",
-      })),
+      dueDateRows.map((invoice) => {
+        const turnover = invoiceTurnoverExVat(invoice);
+        return {
+          id: invoice.id,
+          documentNumber: invoice.document_number,
+          invoiceDate: invoice.invoice_date,
+          dueDate: invoice.due_date,
+          turnover: turnover.amount,
+          turnoverFromTotal: turnover.fromTotal,
+          currencyCode: invoice.currency_code ?? "SEK",
+        };
+      }),
+    );
+    setInvoiceDetailsLoading(false);
+  }
+
+  async function openCustomerInvoiceKpiDetails() {
+    if (!selectedCustomerId) return;
+
+    setInvoiceDetailsOpen(true);
+    setInvoiceDetailsLoading(true);
+    setInvoiceDetailsRows([]);
+    setInvoiceDetailsTitle(
+      `${selectedCustomer?.name ?? "Selected customer"} · ${rollingWindow.title} · Invoices`,
+    );
+
+    const supabase = createClient();
+    const withCustomerScope = (query: ReturnType<typeof supabase.from>) => {
+      let scoped = query
+        .gte("invoice_date", rollingWindow.from)
+        .lte("invoice_date", rollingWindow.to);
+      if (selectedCustomer?.fortnox_customer_number) {
+        scoped = scoped.or(
+          `customer_id.eq.${selectedCustomerId},fortnox_customer_number.eq.${selectedCustomer.fortnox_customer_number}`,
+        );
+      } else {
+        scoped = scoped.eq("customer_id", selectedCustomerId);
+      }
+      return scoped.order("invoice_date", { ascending: false });
+    };
+
+    let dueDateAvailable = true;
+    let dueDateRows: Array<{
+      id: string;
+      document_number: string;
+      invoice_date: string | null;
+      due_date: string | null;
+      total_ex_vat: number | null;
+      total: number | null;
+      currency_code: string | null;
+    }> = [];
+
+    const withDueDate = await withCustomerScope(
+      supabase
+        .from("invoices")
+        .select(
+          "id, document_number, invoice_date, due_date, total_ex_vat, total, currency_code",
+        ),
+    );
+
+    if (withDueDate.error && withDueDate.error.message.includes("due_date")) {
+      dueDateAvailable = false;
+    } else if (withDueDate.error) {
+      setInvoiceDetailsRows([]);
+      setInvoiceDetailsLoading(false);
+      return;
+    } else {
+      dueDateRows = (withDueDate.data ?? []) as Array<{
+        id: string;
+        document_number: string;
+        invoice_date: string | null;
+        due_date: string | null;
+        total_ex_vat: number | null;
+        total: number | null;
+        currency_code: string | null;
+      }>;
+    }
+
+    if (!dueDateAvailable) {
+      const withoutDueDate = await withCustomerScope(
+        supabase
+          .from("invoices")
+          .select(
+            "id, document_number, invoice_date, total_ex_vat, total, currency_code",
+          ),
+      );
+
+      if (withoutDueDate.error) {
+        setInvoiceDetailsRows([]);
+        setInvoiceDetailsLoading(false);
+        return;
+      }
+
+      const rows = (withoutDueDate.data ?? []) as Array<{
+        id: string;
+        document_number: string;
+        invoice_date: string | null;
+        total_ex_vat: number | null;
+        total: number | null;
+        currency_code: string | null;
+      }>;
+
+      setInvoiceDetailsRows(
+        rows.map((invoice) => {
+          const turnover = invoiceTurnoverExVat(invoice);
+          return {
+            id: invoice.id,
+            documentNumber: invoice.document_number,
+            invoiceDate: invoice.invoice_date,
+            dueDate: null,
+            turnover: turnover.amount,
+            turnoverFromTotal: turnover.fromTotal,
+            currencyCode: invoice.currency_code ?? "SEK",
+          };
+        }),
+      );
+      setInvoiceDetailsLoading(false);
+      return;
+    }
+
+    setInvoiceDetailsRows(
+      dueDateRows.map((invoice) => {
+        const turnover = invoiceTurnoverExVat(invoice);
+        return {
+          id: invoice.id,
+          documentNumber: invoice.document_number,
+          invoiceDate: invoice.invoice_date,
+          dueDate: invoice.due_date,
+          turnover: turnover.amount,
+          turnoverFromTotal: turnover.fromTotal,
+          currencyCode: invoice.currency_code ?? "SEK",
+        };
+      }),
     );
     setInvoiceDetailsLoading(false);
   }
@@ -2865,10 +3044,11 @@ export default function ReportsPage() {
       for (const month of rollingWindow.months) {
         rowsByMonth.set(month.key, {
           monthKey: month.key,
-          monthLabel: month.label,
+          monthLabel: `${month.label} ${String(month.year).slice(-2)}`,
           turnover: 0,
+          turnoverFromTotal: false,
           hours: 0,
-          turnoverPerHour: 0,
+          turnoverPerHour: null,
         });
       }
 
@@ -2903,7 +3083,14 @@ export default function ReportsPage() {
         const monthKey = (row.invoice_date ?? "").slice(0, 7);
         const target = rowsByMonth.get(monthKey);
         if (!target) continue;
-        target.turnover += invoiceTurnoverExVat(row);
+
+        const turnover = invoiceTurnoverExVat(row);
+        if (turnover.amount == null) {
+          continue;
+        }
+
+        target.turnover = Number(target.turnover ?? 0) + turnover.amount;
+        target.turnoverFromTotal = target.turnoverFromTotal || turnover.fromTotal;
       }
 
       let hoursQuery = supabase
@@ -2943,19 +3130,45 @@ export default function ReportsPage() {
       const orderedRows = rollingWindow.months.map((month) => {
         const row = rowsByMonth.get(month.key) ?? {
           monthKey: month.key,
-          monthLabel: month.label,
+          monthLabel: `${month.label} ${String(month.year).slice(-2)}`,
           turnover: 0,
+          turnoverFromTotal: false,
           hours: 0,
-          turnoverPerHour: 0,
+          turnoverPerHour: null,
         };
 
         return {
           ...row,
-          turnoverPerHour: row.hours > 0 ? row.turnover / row.hours : 0,
+          turnoverPerHour:
+            row.turnover != null && row.hours > 0 ? row.turnover / row.hours : null,
         };
       });
 
-      setCustomerMonthlyEconomicsRows(orderedRows);
+      const averageHours =
+        orderedRows.length > 0
+          ? orderedRows.reduce((sum, row) => sum + row.hours, 0) /
+            orderedRows.length
+          : 0;
+      const averageTurnover =
+        orderedRows.length > 0
+          ? orderedRows.reduce((sum, row) => sum + Number(row.turnover ?? 0), 0) /
+            orderedRows.length
+          : 0;
+      const hasFallbackTurnover = orderedRows.some((row) => row.turnoverFromTotal);
+
+      const averageRow: CustomerMonthlyEconomicsRow = {
+        monthKey: "average",
+        monthLabel: "Average",
+        turnover: averageTurnover,
+        turnoverFromTotal: hasFallbackTurnover,
+        hours: averageHours,
+        turnoverPerHour:
+          averageTurnover != null && averageHours > 0
+            ? averageTurnover / averageHours
+            : null,
+      };
+
+      setCustomerMonthlyEconomicsRows([...orderedRows, averageRow]);
       setCustomerMonthlyEconomicsLoading(false);
     }
 
@@ -2977,10 +3190,13 @@ export default function ReportsPage() {
   >[] = [
     {
       id: "monthLabel",
-      accessorKey: "monthLabel",
+      accessorFn: (row) => row.monthKey,
       header: "Month",
       size: 160,
-      enableSorting: false,
+      enableSorting: true,
+      sortingFn: (rowA, rowB) =>
+        compareMonthKeys(rowA.original.monthKey, rowB.original.monthKey),
+      cell: ({ row }) => row.original.monthLabel,
     },
     {
       id: "customerHours",
@@ -3157,6 +3373,26 @@ export default function ReportsPage() {
       enableSorting: false,
       cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
     },
+    {
+      id: "openCustomer",
+      header: "",
+      size: 56,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              onClick={() => setSelectedCustomerId(row.original.customerId)}
+              aria-label={`Open ${row.original.customerName} in report`}
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+        </div>
+      ),
+    },
   ];
 
   const helpedCustomerManagersColumns: ColumnDef<
@@ -3204,10 +3440,13 @@ export default function ReportsPage() {
   >[] = [
     {
       id: "monthLabel",
-      accessorKey: "monthLabel",
+      accessorFn: (row) => row.monthKey,
       header: "Month",
       size: 180,
-      enableSorting: false,
+      enableSorting: true,
+      sortingFn: (rowA, rowB) =>
+        compareMonthKeysWithAverageFixed(rowA.original, rowB.original),
+      cell: ({ row }) => row.original.monthLabel,
     },
     {
       id: "turnover",
@@ -3216,8 +3455,12 @@ export default function ReportsPage() {
       size: 180,
       enableSorting: false,
       cell: ({ row }) =>
-        renderTurnoverCell(row.original.turnover, () =>
-          openMonthlyInvoiceDetails(row.original),
+        renderTurnoverCell(
+          row.original.turnover,
+          row.original.monthKey !== "average"
+            ? () => openMonthlyInvoiceDetails(row.original)
+            : undefined,
+          row.original.turnoverFromTotal,
         ),
     },
     {
@@ -3227,18 +3470,22 @@ export default function ReportsPage() {
       size: 140,
       enableSorting: false,
       cell: ({ row }) =>
-        renderHourCell(row.original.hours, () =>
-          openMonthlyTimeDetails(
-            {
-              monthKey: row.original.monthKey,
-              monthLabel: row.original.monthLabel,
-              customerHours: row.original.hours,
-              absenceHours: 0,
-              internalHours: 0,
-              totalHours: row.original.hours,
-            },
-            "customerHours",
-          ),
+        renderHourCell(
+          row.original.hours,
+          row.original.monthKey !== "average"
+            ? () =>
+                openMonthlyTimeDetails(
+                  {
+                    monthKey: row.original.monthKey,
+                    monthLabel: row.original.monthLabel,
+                    customerHours: row.original.hours,
+                    absenceHours: 0,
+                    internalHours: 0,
+                    totalHours: row.original.hours,
+                  },
+                  "customerHours",
+                )
+            : undefined,
         ),
     },
     {
@@ -3247,10 +3494,17 @@ export default function ReportsPage() {
       header: "Turnover / Hours",
       size: 220,
       enableSorting: false,
-      cell: ({ row }) =>
-        row.original.hours > 0
-          ? `${sekFormatter.format(row.original.turnoverPerHour)} / h`
-          : "-",
+      cell: ({ row }) => {
+        if (row.original.turnover == null) {
+          return "missing";
+        }
+        if (row.original.hours <= 0) {
+          return "-";
+        }
+        const turnoverPerHour =
+          row.original.turnoverPerHour ?? row.original.turnover / row.original.hours;
+        return `${sekFormatter.format(turnoverPerHour)} / h`;
+      },
     },
   ];
 
@@ -3425,7 +3679,12 @@ export default function ReportsPage() {
       header: "Turnover",
       size: 180,
       enableSorting: false,
-      cell: ({ row }) => sekFormatter.format(row.original.turnover),
+      cell: ({ row }) =>
+        renderTurnoverCell(
+          row.original.turnover,
+          undefined,
+          row.original.turnoverFromTotal,
+        ),
     },
     {
       id: "currencyCode",
@@ -3547,7 +3806,17 @@ export default function ReportsPage() {
       ) : (
         <div className="space-y-10">
           <div className="space-y-2">
-            <KpiCards values={kpis} compact />
+              <KpiCards
+                values={kpis}
+                compact
+                hoursMode={selectedCustomerId ? "turnoverPerHour" : "hours"}
+                turnoverPerHour={
+                  kpis.hours > 0 ? kpis.turnover / kpis.hours : 0
+                }
+                onInvoicesClick={
+                  selectedCustomerId ? () => openCustomerInvoiceKpiDetails() : undefined
+                }
+              />
             {kpiLoading ? (
               <p className="text-sm text-muted-foreground">Updating KPIs...</p>
             ) : null}
@@ -3570,7 +3839,7 @@ export default function ReportsPage() {
                 <BarChart
                   accessibilityLayer
                   data={[...turnoverByMonthRows].reverse().map((row) => ({
-                    month: `${row.monthLabel} ${row.monthKey.slice(2, 4)}`,
+                    month: row.monthLabel,
                     turnover: row.turnover,
                     invoiceCount: row.invoiceCount,
                   }))}
@@ -3641,6 +3910,7 @@ export default function ReportsPage() {
                 loading={monthlyTimeReportingLoading}
                 hideRowCount
                 pageSize={12}
+                sortingStorageKey="reports.monthly-time-reporting.sort"
                 emptyState={{
                   icon: Filter,
                   title: "No time reporting data",
@@ -3797,7 +4067,8 @@ export default function ReportsPage() {
                     data={customerMonthlyEconomicsRows}
                     loading={customerMonthlyEconomicsLoading}
                     hideRowCount
-                    pageSize={12}
+                    pageSize={Math.max(customerMonthlyEconomicsRows.length, 1)}
+                    sortingStorageKey="reports.monthly-turnover-hours.sort"
                     emptyState={{
                       icon: Filter,
                       title: "No monthly economics",

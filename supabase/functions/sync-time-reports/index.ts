@@ -7,7 +7,7 @@ declare const Deno: {
 
 const TIME_REPORT_FROM_DATE = "2025-01-01"
 const SOURCE_ENDPOINT = "/api/time/registrations-v2"
-const KPI_BATCH_SIZE = 1000
+const KPI_BATCH_SIZE = 3000
 
 interface DateWindow {
   fromDate: string

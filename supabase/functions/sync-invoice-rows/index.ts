@@ -6,7 +6,7 @@ declare const Deno: {
 }
 
 const INVOICE_DETAIL_DELAY_MS = 220
-const INVOICE_BATCH_SIZE = 30
+const INVOICE_BATCH_SIZE = 90
 
 type InvoiceRowInsert = {
   invoice_number: string

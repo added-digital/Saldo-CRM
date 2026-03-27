@@ -1,6 +1,12 @@
 const FORTNOX_API_BASE = "https://api.fortnox.se"
 const FORTNOX_AUTH_BASE = "https://apps.fortnox.se/oauth-v1"
 
+declare const Deno: {
+  env: {
+    get: (name: string) => string | undefined
+  }
+}
+
 function authHeader(): string {
   const clientId = Deno.env.get("FORTNOX_CLIENT_ID")!
   const clientSecret = Deno.env.get("FORTNOX_CLIENT_SECRET")!
@@ -130,11 +136,19 @@ export class FortnoxClient {
     return this.request<Record<string, unknown>>(`${endpoint}?${params.toString()}`)
   }
 
-  async getContracts(page = 1) {
+  async getContracts(
+    page = 1,
+    filter?: "active" | "inactive" | "finished"
+  ) {
+    const params = new URLSearchParams({ page: String(page) })
+    if (filter) {
+      params.set("filter", filter)
+    }
+
     return this.request<{
       Contracts: Array<Record<string, unknown>>
       MetaInformation: { "@TotalResources": number; "@TotalPages": number; "@CurrentPage": number }
-    }>(`/3/contracts?page=${page}`)
+    }>(`/3/contracts?${params.toString()}`)
   }
 
   async getContract(contractNumber: string) {

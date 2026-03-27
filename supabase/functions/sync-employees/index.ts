@@ -1,7 +1,11 @@
 import { createAdminClient } from "../_shared/supabase.ts"
 import { getFortnoxClient, updateSyncJob, corsHeaders } from "../_shared/sync-helpers.ts"
 
-const BATCH_SIZE = 15
+declare const Deno: {
+  serve: (handler: (req: Request) => Response | Promise<Response>) => void
+}
+
+const BATCH_SIZE = 45
 
 function normalizeName(name: string): string {
   return name.replace(/\s+/g, " ").trim()

@@ -192,6 +192,7 @@ export interface Invoice {
   fortnox_customer_number: string | null
   customer_name: string | null
   invoice_date: string | null
+  final_pay_date: string | null
   total_ex_vat: number | null
   total: number | null
   balance: number | null
