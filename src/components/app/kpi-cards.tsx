@@ -15,7 +15,6 @@ interface KpiCardsProps {
   compact?: boolean;
   hoursMode?: "hours" | "turnoverPerHour";
   turnoverPerHour?: number;
-  onInvoicesClick?: () => void;
 }
 
 function KpiCards({
@@ -23,7 +22,6 @@ function KpiCards({
   compact = false,
   hoursMode = "hours",
   turnoverPerHour = 0,
-  onInvoicesClick,
 }: KpiCardsProps) {
   const valueClassName = compact
     ? "text-2xl font-semibold leading-tight"
@@ -66,35 +64,16 @@ function KpiCards({
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
-          {onInvoicesClick ? (
-            <button
-              type="button"
-              onClick={onInvoicesClick}
-              className="font-medium text-[#d4af37] underline decoration-2 underline-offset-2 transition-colors hover:text-[#b9931f]"
-            >
-              <span className={valueClassName}>
-                <NumberFlow
-                  value={values.invoices}
-                  locales="sv-SE"
-                  format={{
-                    style: "decimal",
-                    maximumFractionDigits: 0,
-                  }}
-                />
-              </span>
-            </button>
-          ) : (
-            <p className={valueClassName}>
-              <NumberFlow
-                value={values.invoices}
-                locales="sv-SE"
-                format={{
-                  style: "decimal",
-                  maximumFractionDigits: 0,
-                }}
-              />
-            </p>
-          )}
+          <p className={valueClassName}>
+            <NumberFlow
+              value={values.invoices}
+              locales="sv-SE"
+              format={{
+                style: "decimal",
+                maximumFractionDigits: 0,
+              }}
+            />
+          </p>
         </CardContent>
       </Card>
 

@@ -20,7 +20,13 @@ import {
 
 import { createClient } from "@/lib/supabase/client"
 import type { SyncJob } from "@/types/database"
-import { useSync, SYNC_STEPS, STEP_LABELS, type SyncStep } from "@/hooks/use-sync"
+import {
+  useSync,
+  SYNC_STEPS,
+  STEP_LABELS,
+  type SyncStep,
+  type InvoiceSyncMode,
+} from "@/hooks/use-sync"
 import { useUser } from "@/hooks/use-user"
 import { Button } from "@/components/ui/button"
 import {
@@ -62,6 +68,7 @@ export default function SyncPage() {
   const [recentJobs, setRecentJobs] = React.useState<SyncJob[]>([])
   const [loadingJobs, setLoadingJobs] = React.useState(true)
   const [clearing, setClearing] = React.useState(false)
+  const [invoiceSyncMode, setInvoiceSyncMode] = React.useState<InvoiceSyncMode>("incomplete")
 
   const fetchRecentJobs = React.useCallback(async () => {
     const supabase = createClient()
@@ -148,11 +155,42 @@ export default function SyncPage() {
                   size="sm"
                   className="w-full"
                   disabled={syncing || isRunning}
-                  onClick={() => startSync([step])}
+                  onClick={() =>
+                    startSync(
+                      [step],
+                      step === "invoices"
+                        ? { invoiceSyncMode }
+                        : undefined,
+                    )
+                  }
                 >
                   <Play className="size-3" />
                   Run
                 </Button>
+                {step === "invoices" ? (
+                  <div className="grid grid-cols-2 gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={invoiceSyncMode === "incomplete" ? "default" : "outline"}
+                      className="h-8"
+                      disabled={syncing || isRunning}
+                      onClick={() => setInvoiceSyncMode("incomplete")}
+                    >
+                      Sync incomplete
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={invoiceSyncMode === "full" ? "default" : "outline"}
+                      className="h-8"
+                      disabled={syncing || isRunning}
+                      onClick={() => setInvoiceSyncMode("full")}
+                    >
+                      Sync full
+                    </Button>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           )

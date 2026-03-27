@@ -95,9 +95,29 @@ export class FortnoxClient {
     return this.request<{ CostCenters: Array<Record<string, unknown>> }>(`/3/costcenters`)
   }
 
-  async getInvoices(page = 1, limit = 100, fromDate?: string) {
-    let url = `/3/invoices?limit=${limit}&page=${page}`
-    if (fromDate) url += `&fromdate=${fromDate}`
+  async getInvoices(
+    page = 1,
+    limit = 100,
+    filters?: {
+      fromDate?: string
+      toDate?: string
+      customerNumber?: string
+      filter?: "cancelled" | "fullypaid" | "unpaid" | "unpaidoverdue" | "unbooked"
+      sortBy?: "customername" | "customernumber" | "documentnumber" | "invoicedate" | "ocr" | "total"
+    }
+  ) {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      page: String(page),
+    })
+
+    if (filters?.fromDate) params.set("fromdate", filters.fromDate)
+    if (filters?.toDate) params.set("todate", filters.toDate)
+    if (filters?.customerNumber) params.set("customernumber", filters.customerNumber)
+    if (filters?.filter) params.set("filter", filters.filter)
+    if (filters?.sortBy) params.set("sortby", filters.sortBy)
+
+    const url = `/3/invoices?${params.toString()}`
     return this.request<{
       Invoices: Array<Record<string, unknown>>
       MetaInformation: { "@TotalResources": number; "@TotalPages": number; "@CurrentPage": number }

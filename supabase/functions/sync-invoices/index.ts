@@ -10,12 +10,38 @@ declare const Deno: {
   serve: (handler: (req: Request) => Response | Promise<Response>) => void;
 };
 
-const RATE_LIMIT_DELAY_MS = 350;
-const PAGES_PER_BATCH = 1;
-const INVOICE_PAGE_SIZE = 50;
+const RATE_LIMIT_DELAY_MS = 100;
+const CUSTOMERS_PER_BATCH = 50;
+const INVOICE_PAGE_SIZE = 20;
 const INVOICE_FROM_DATE = "2025-01-01";
 const KPI_BATCH_SIZE = 3000;
-const INVOICE_DETAIL_DELAY_MS = 120;
+const INVOICE_DETAIL_DELAY_MS = 50;
+const CUSTOMER_DB_PAGE_SIZE = 1000;
+
+type InvoiceSyncMode = "full" | "incomplete";
+
+function logSyncEvent(event: string, context: Record<string, unknown>) {
+  console.log(
+    JSON.stringify({
+      scope: "sync-invoices",
+      event,
+      ...context,
+    }),
+  );
+}
+
+function compareCustomerNumbers(a: string, b: string): number {
+  const aNumber = Number(a);
+  const bNumber = Number(b);
+  const aIsNumeric = !Number.isNaN(aNumber);
+  const bIsNumeric = !Number.isNaN(bNumber);
+
+  if (aIsNumeric && bIsNumeric) {
+    return aNumber - bNumber;
+  }
+
+  return a.localeCompare(b);
+}
 
 function readNumberField(
   record: Record<string, unknown>,
@@ -82,18 +108,27 @@ function toMappedInvoice(input: {
     currency_code: string;
   } | null;
   skipped: boolean;
+  skipReason: "missing_document_number" | "missing_customer_mapping" | null;
 } {
   const detail = input.invoiceDetail;
   const documentNumber =
     detail.DocumentNumber != null ? String(detail.DocumentNumber) : null;
   if (!documentNumber) {
-    return { mapped: null, skipped: true };
+    return {
+      mapped: null,
+      skipped: true,
+      skipReason: "missing_document_number",
+    };
   }
 
   const customerNumber =
     detail.CustomerNumber != null ? String(detail.CustomerNumber) : null;
   if (!customerNumber || !input.customerMap.has(customerNumber)) {
-    return { mapped: null, skipped: true };
+    return {
+      mapped: null,
+      skipped: true,
+      skipReason: "missing_customer_mapping",
+    };
   }
 
   const mapped = {
@@ -116,7 +151,7 @@ function toMappedInvoice(input: {
     currency_code: detail.Currency != null ? String(detail.Currency) : "SEK",
   };
 
-  return { mapped, skipped: false };
+  return { mapped, skipped: false, skipReason: null };
 }
 
 Deno.serve(async (req) => {
@@ -132,50 +167,143 @@ Deno.serve(async (req) => {
     jobId = body.job_id ?? null;
     const phase: string = body.phase ?? "list";
     const offset: number = body.offset ?? 0;
+    const syncMode: InvoiceSyncMode =
+      body.sync_mode === "incomplete" ? "incomplete" : "full";
+    const requestedStartCustomerNumber: string | null =
+      body.start_customer_number != null
+        ? String(body.start_customer_number)
+        : "735";
+    const debugInvoiceNumber: string | null =
+      body.debug_invoice_number != null ? String(body.debug_invoice_number) : null;
+
+    logSyncEvent("request_received", {
+      job_id: jobId,
+      phase,
+      offset,
+      sync_mode: syncMode,
+      start_customer_number: requestedStartCustomerNumber,
+      debug_invoice_number: debugInvoiceNumber,
+    });
 
     const client = await getFortnoxClient(supabase);
 
     if (phase === "list") {
+      let listFromDate = INVOICE_FROM_DATE;
+      if (syncMode === "incomplete") {
+        const { data: latestCompletedInvoice } = await supabase
+          .from("invoices")
+          .select("invoice_date")
+          .not("final_pay_date", "is", null)
+          .not("due_date", "is", null)
+          .not("invoice_date", "is", null)
+          .order("invoice_date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const { data: earliestIncompleteInvoice } = await supabase
+          .from("invoices")
+          .select("invoice_date")
+          .or("due_date.is.null,final_pay_date.is.null")
+          .not("invoice_date", "is", null)
+          .order("invoice_date", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        const latestCompletedDate = (
+          latestCompletedInvoice as unknown as { invoice_date: string | null } | null
+        )?.invoice_date;
+        const earliestIncompleteDate = (
+          earliestIncompleteInvoice as unknown as { invoice_date: string | null } | null
+        )?.invoice_date;
+
+        if (earliestIncompleteDate) {
+          listFromDate = earliestIncompleteDate;
+        } else if (latestCompletedDate) {
+          listFromDate = latestCompletedDate;
+        }
+      }
+
+      logSyncEvent("list_from_date_resolved", {
+        job_id: jobId,
+        sync_mode: syncMode,
+        list_from_date: listFromDate,
+      });
+
       if (jobId) {
         await updateSyncJob(supabase, jobId, {
           status: "processing",
-          current_step: `Fetching invoices from ${INVOICE_FROM_DATE}...`,
+          current_step: `Fetching ${syncMode} invoices from ${listFromDate}...`,
         });
       }
 
-      const { data: customers } = await supabase
-        .from("customers")
-        .select("id, fortnox_customer_number");
-
       const customerMap = new Map<string, string>();
-      if (customers) {
-        for (const c of customers as Array<{
+
+      let customerOffset = 0;
+      while (true) {
+        const { data: customerRows, error: customerError } = await supabase
+          .from("customers")
+          .select("id, fortnox_customer_number")
+          .order("id", { ascending: true })
+          .range(customerOffset, customerOffset + CUSTOMER_DB_PAGE_SIZE - 1);
+
+        if (customerError) {
+          throw new Error(`Failed to read customers: ${customerError.message}`);
+        }
+
+        const rows = (customerRows ?? []) as Array<{
           id: string;
           fortnox_customer_number: string | null;
-        }>) {
+        }>;
+
+        if (rows.length === 0) {
+          break;
+        }
+
+        for (const c of rows) {
           if (c.fortnox_customer_number) {
             customerMap.set(c.fortnox_customer_number, c.id);
           }
         }
+
+        if (rows.length < CUSTOMER_DB_PAGE_SIZE) {
+          break;
+        }
+
+        customerOffset += CUSTOMER_DB_PAGE_SIZE;
       }
+
+      logSyncEvent("customer_scope_loaded", {
+        job_id: jobId,
+        customer_count: customerMap.size,
+      });
 
       let prevSynced = 0;
       let prevErrors = 0;
       let prevTotal = 0;
 
-      if (jobId && offset > 0) {
+      let jobPayload: Record<string, unknown> | null = null;
+      if (jobId) {
         const { data: jobRow } = await supabase
           .from("sync_jobs")
           .select("payload")
           .eq("id", jobId)
-          .single();
+          .maybeSingle();
 
-        const payload = (
+        jobPayload = (
           jobRow as unknown as { payload: Record<string, unknown> } | null
-        )?.payload;
-        prevSynced = (payload?.synced as number) ?? 0;
-        prevErrors = (payload?.errors as number) ?? 0;
-        prevTotal = (payload?.total as number) ?? 0;
+        )?.payload ?? null;
+      }
+
+      const startCustomerNumber =
+        requestedStartCustomerNumber ??
+        (typeof jobPayload?.start_customer_number === "string"
+          ? jobPayload.start_customer_number
+          : null);
+
+      if (offset > 0) {
+        prevSynced = (jobPayload?.synced as number) ?? 0;
+        prevErrors = (jobPayload?.errors as number) ?? 0;
+        prevTotal = (jobPayload?.total as number) ?? 0;
       }
 
       let synced = prevSynced;
@@ -185,44 +313,147 @@ Deno.serve(async (req) => {
       let skipped = 0;
       let firstError: string | null = null;
 
-      const startPage = offset + 1;
-      let currentPage = startPage;
-      let totalPages = 1;
-      let pagesThisBatch = 0;
+      const customerNumbers = Array.from(customerMap.keys()).sort(
+        compareCustomerNumbers,
+      );
+      totalResources = customerNumbers.length;
+      let currentCustomerIndex = offset;
+      if (offset === 0 && startCustomerNumber) {
+        const requestedIndex = customerNumbers.indexOf(startCustomerNumber);
+        if (requestedIndex >= 0) {
+          currentCustomerIndex = requestedIndex;
+          logSyncEvent("start_customer_applied", {
+            job_id: jobId,
+            start_customer_number: startCustomerNumber,
+            start_customer_index: requestedIndex,
+          });
+        } else {
+          logSyncEvent("start_customer_not_found", {
+            job_id: jobId,
+            start_customer_number: startCustomerNumber,
+          });
+        }
+      }
+      let customersThisBatch = 0;
 
-      do {
-        const response = await client.getInvoices(
-          currentPage,
-          INVOICE_PAGE_SIZE,
-          INVOICE_FROM_DATE,
-        );
-        totalPages = response.MetaInformation["@TotalPages"];
-        totalResources =
-          response.MetaInformation["@TotalResources"] ?? totalResources;
-        const invoices = response.Invoices ?? [];
+      while (
+        currentCustomerIndex < customerNumbers.length &&
+        customersThisBatch < CUSTOMERS_PER_BATCH
+      ) {
+        const customerNumber = customerNumbers[currentCustomerIndex];
+        let customerPage = 1;
+        let customerTotalPages = 1;
 
-        const mapped: Array<{
-          document_number: string;
-          customer_id: string | null;
-          fortnox_customer_number: string;
-          customer_name: string | null;
-          invoice_date: string | null;
-          due_date: string | null;
-          final_pay_date: string | null;
-          booked: boolean;
-          total_ex_vat: number | null;
-          total: number | null;
-          balance: number | null;
-          currency_code: string;
-        }> = [];
+        do {
+          const response = await client.getInvoices(customerPage, INVOICE_PAGE_SIZE, {
+            fromDate: listFromDate,
+            customerNumber,
+            sortBy: "invoicedate",
+          });
+          customerTotalPages = response.MetaInformation["@TotalPages"];
+          const rawInvoices = response.Invoices ?? [];
+          const invoices = rawInvoices.filter((invoice) =>
+            invoice.CustomerNumber != null
+              ? String(invoice.CustomerNumber) === customerNumber
+              : false,
+          );
 
-        for (const [invoiceIndex, invoice] of invoices.entries()) {
+          logSyncEvent("invoice_page_fetched", {
+            job_id: jobId,
+            sync_mode: syncMode,
+            customer_number: customerNumber,
+            customer_index: currentCustomerIndex + 1,
+            total_customers: customerNumbers.length,
+            page: customerPage,
+            total_pages: customerTotalPages,
+            invoice_count: invoices.length,
+            invoice_count_raw: rawInvoices.length,
+            total_resources: totalResources,
+          });
+
+        const invoiceNumbers = invoices
+          .map((invoice) =>
+            invoice.DocumentNumber != null ? String(invoice.DocumentNumber) : null,
+          )
+          .filter((value): value is string => Boolean(value));
+
+          const finalizedInvoiceNumbers = new Set<string>();
+          if (syncMode === "incomplete" && invoiceNumbers.length > 0) {
+            const { data: existingRows } = await supabase
+              .from("invoices")
+              .select("document_number, due_date, final_pay_date")
+              .in("document_number", invoiceNumbers as never);
+
+            const rows = (existingRows ?? []) as Array<{
+              document_number: string;
+              due_date: string | null;
+              final_pay_date: string | null;
+            }>;
+            for (const row of rows) {
+              if (row.document_number && row.due_date && row.final_pay_date) {
+                finalizedInvoiceNumbers.add(row.document_number);
+              }
+            }
+          }
+
+          if (syncMode === "incomplete") {
+            logSyncEvent("incomplete_page_precheck", {
+              job_id: jobId,
+              customer_number: customerNumber,
+              page: customerPage,
+              prechecked_invoice_count: invoiceNumbers.length,
+              finalized_skip_candidates: finalizedInvoiceNumbers.size,
+            });
+          }
+
+          const mapped: Array<{
+            document_number: string;
+            customer_id: string | null;
+            fortnox_customer_number: string;
+            customer_name: string | null;
+            invoice_date: string | null;
+            due_date: string | null;
+            final_pay_date: string | null;
+            booked: boolean;
+            total_ex_vat: number | null;
+            total: number | null;
+            balance: number | null;
+            currency_code: string;
+          }> = [];
+
+          for (const [invoiceIndex, invoice] of invoices.entries()) {
           const documentNumber =
             invoice.DocumentNumber != null
               ? String(invoice.DocumentNumber)
               : null;
           if (!documentNumber) {
             skipped += 1;
+            logSyncEvent("invoice_skipped", {
+              job_id: jobId,
+              customer_number: customerNumber,
+              page: customerPage,
+              reason: "missing_document_number_in_list",
+            });
+            continue;
+          }
+
+          if (
+            syncMode === "incomplete" &&
+            finalizedInvoiceNumbers.has(documentNumber)
+          ) {
+            skipped += 1;
+            if (
+              !debugInvoiceNumber ||
+              debugInvoiceNumber === documentNumber
+            ) {
+                logSyncEvent("invoice_skipped", {
+                  job_id: jobId,
+                  customer_number: customerNumber,
+                  page: customerPage,
+                  document_number: documentNumber,
+                  reason: "already_finalized_in_db",
+                });
+            }
             continue;
           }
 
@@ -234,12 +465,64 @@ Deno.serve(async (req) => {
             > | null;
             const mappedResult = detail
               ? toMappedInvoice({ invoiceDetail: detail, customerMap })
-              : { mapped: null, skipped: true };
+              : {
+                  mapped: null,
+                  skipped: true,
+                  skipReason: "missing_document_number" as const,
+                };
+
+            if (
+              debugInvoiceNumber &&
+              debugInvoiceNumber === documentNumber &&
+              detail
+            ) {
+              logSyncEvent("debug_invoice_detail", {
+                job_id: jobId,
+                customer_number: customerNumber,
+                page: customerPage,
+                document_number: documentNumber,
+                booked: detail.Booked ?? null,
+                due_date: detail.DueDate ?? null,
+                final_pay_date: detail.FinalPayDate ?? null,
+                has_net: detail.Net != null,
+                has_total_excluding_vat: detail.TotalExcludingVAT != null,
+                has_total: detail.Total != null,
+                has_total_vat: detail.TotalVAT != null,
+              });
+            }
 
             if (mappedResult.skipped || !mappedResult.mapped) {
               skipped += 1;
+              if (
+                !debugInvoiceNumber ||
+                debugInvoiceNumber === documentNumber
+              ) {
+                logSyncEvent("invoice_skipped", {
+                  job_id: jobId,
+                  customer_number: customerNumber,
+                  page: customerPage,
+                  document_number: documentNumber,
+                  reason: mappedResult.skipReason ?? "mapping_result_null",
+                });
+              }
             } else {
               mapped.push(mappedResult.mapped);
+              if (
+                !debugInvoiceNumber ||
+                debugInvoiceNumber === documentNumber
+              ) {
+                logSyncEvent("invoice_mapped", {
+                  job_id: jobId,
+                  customer_number: customerNumber,
+                  page: customerPage,
+                  document_number: documentNumber,
+                  booked: mappedResult.mapped.booked,
+                  due_date: mappedResult.mapped.due_date,
+                  final_pay_date: mappedResult.mapped.final_pay_date,
+                  total_ex_vat: mappedResult.mapped.total_ex_vat,
+                  total: mappedResult.mapped.total,
+                });
+              }
             }
           } catch (detailError) {
             if (!firstError) {
@@ -249,6 +532,16 @@ Deno.serve(async (req) => {
                   : "Invoice detail fetch failed";
             }
             errors += 1;
+            logSyncEvent("invoice_detail_fetch_error", {
+              job_id: jobId,
+              customer_number: customerNumber,
+              page: customerPage,
+              document_number: documentNumber,
+              error:
+                detailError instanceof Error
+                  ? detailError.message
+                  : "Invoice detail fetch failed",
+            });
           }
 
           if (invoiceIndex < invoices.length - 1) {
@@ -256,40 +549,66 @@ Deno.serve(async (req) => {
           }
         }
 
-        if (mapped.length > 0) {
-          const { error: upsertError } = await supabase
-            .from("invoices")
-            .upsert(mapped as never, { onConflict: "document_number" });
+          if (mapped.length > 0) {
+            const { error: upsertError } = await supabase
+              .from("invoices")
+              .upsert(mapped as never, { onConflict: "document_number" });
 
-          if (upsertError) {
-            console.error(
-              "Invoice upsert error:",
-              upsertError.message,
-              upsertError.details,
-            );
-            if (!firstError) firstError = upsertError.message;
-            errors += invoices.length;
-          } else {
-            synced += mapped.length;
+            if (upsertError) {
+              console.error(
+                "Invoice upsert error:",
+                upsertError.message,
+                upsertError.details,
+              );
+              if (!firstError) firstError = upsertError.message;
+              errors += invoices.length;
+              logSyncEvent("invoice_upsert_error", {
+                job_id: jobId,
+                customer_number: customerNumber,
+                page: customerPage,
+                upsert_count: mapped.length,
+                error: upsertError.message,
+              });
+            } else {
+              synced += mapped.length;
+              logSyncEvent("invoice_upsert_success", {
+                job_id: jobId,
+                customer_number: customerNumber,
+                page: customerPage,
+                upsert_count: mapped.length,
+                synced_total: synced,
+              });
+            }
           }
-        }
 
-        totalFetched += invoices.length;
+          totalFetched += invoices.length;
 
-        pagesThisBatch++;
-        currentPage++;
+          if (customerPage < customerTotalPages) {
+            await delay(RATE_LIMIT_DELAY_MS);
+          }
 
-        if (currentPage <= totalPages && pagesThisBatch < PAGES_PER_BATCH) {
+          customerPage++;
+        } while (customerPage <= customerTotalPages);
+
+        customersThisBatch += 1;
+        currentCustomerIndex += 1;
+
+        if (
+          currentCustomerIndex < customerNumbers.length &&
+          customersThisBatch < CUSTOMERS_PER_BATCH
+        ) {
           await delay(RATE_LIMIT_DELAY_MS);
         }
-      } while (currentPage <= totalPages && pagesThisBatch < PAGES_PER_BATCH);
+      }
 
-      const morePages = currentPage <= totalPages;
+      const morePages = currentCustomerIndex < customerNumbers.length;
 
       if (jobId) {
         const updatePayload: Record<string, unknown> = {
           step_name: "invoices",
           step_label: "Invoices",
+          sync_mode: syncMode,
+          start_customer_number: startCustomerNumber,
           synced,
           errors,
           skipped,
@@ -299,16 +618,16 @@ Deno.serve(async (req) => {
 
         if (morePages) {
           await updateSyncJob(supabase, jobId, {
-            current_step: `Syncing invoices (page ${currentPage - 1}/${totalPages}, ${synced} saved, ${skipped} skipped)...`,
-            total_items: totalResources,
-            processed_items: totalFetched,
+            current_step: `Syncing invoices (customers ${currentCustomerIndex}/${customerNumbers.length}, ${synced} saved, ${skipped} skipped)...`,
+            total_items: customerNumbers.length,
+            processed_items: currentCustomerIndex,
             progress:
-              totalResources > 0
-                ? Math.round((totalFetched / totalResources) * 80)
-                : Math.round(((currentPage - 1) / totalPages) * 80),
+              customerNumbers.length > 0
+                ? Math.round((currentCustomerIndex / customerNumbers.length) * 80)
+                : 80,
             payload: updatePayload,
             batch_phase: "list",
-            batch_offset: currentPage - 1,
+            batch_offset: currentCustomerIndex,
             dispatch_lock: false,
           });
         } else {
@@ -327,6 +646,16 @@ Deno.serve(async (req) => {
           });
         }
       }
+
+      logSyncEvent("list_phase_completed", {
+        job_id: jobId,
+        sync_mode: syncMode,
+        synced,
+        errors,
+        skipped,
+        total_fetched: totalFetched,
+        more_pages: morePages,
+      });
 
       return new Response(
         JSON.stringify({
@@ -424,6 +753,7 @@ Deno.serve(async (req) => {
           payload: {
             step_name: "invoices",
             step_label: "Invoices",
+            sync_mode: syncMode,
             synced: finalSynced,
             errors: finalErrors,
             total: finalTotal,
@@ -432,6 +762,14 @@ Deno.serve(async (req) => {
           dispatch_lock: false,
         });
       }
+
+      logSyncEvent("finalize_phase_completed", {
+        job_id: jobId,
+        sync_mode: syncMode,
+        synced: finalSynced,
+        errors: finalErrors,
+        total: finalTotal,
+      });
 
       return new Response(
         JSON.stringify({
@@ -451,6 +789,10 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    logSyncEvent("sync_error", {
+      job_id: jobId,
+      error: message,
+    });
 
     if (jobId) {
       await updateSyncJob(supabase, jobId, {

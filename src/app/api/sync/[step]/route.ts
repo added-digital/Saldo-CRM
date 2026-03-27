@@ -44,7 +44,7 @@ async function authorize() {
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ step: string }> }
 ) {
   try {
@@ -57,6 +57,19 @@ export async function POST(
     }
 
     const { step } = await params
+    const body = (await request.json().catch(() => ({}))) as {
+      sync_mode?: string
+      start_customer_number?: string
+    }
+    const syncMode =
+      body.sync_mode === "incomplete" || body.sync_mode === "full"
+        ? body.sync_mode
+        : undefined
+    const startCustomerNumber =
+      typeof body.start_customer_number === "string" &&
+      body.start_customer_number.trim().length > 0
+        ? body.start_customer_number.trim()
+        : undefined
 
     if (!VALID_STEPS.has(step)) {
       return NextResponse.json(
@@ -67,6 +80,13 @@ export async function POST(
 
     const supabase = await createClient()
     const label = STEP_LABELS[step] ?? step
+    const payload: Record<string, unknown> = { step_name: step, step_label: label }
+    if (step === "invoices" && syncMode) {
+      payload.sync_mode = syncMode
+    }
+    if (step === "invoices" && startCustomerNumber) {
+      payload.start_customer_number = startCustomerNumber
+    }
 
     const { data: jobRow, error: insertError } = await supabase
       .from("sync_jobs")
@@ -81,7 +101,7 @@ export async function POST(
         batch_offset: 0,
         dispatch_lock: false,
         started_by: user.id,
-        payload: { step_name: step, step_label: label },
+        payload,
       } as never)
       .select("id")
       .single()

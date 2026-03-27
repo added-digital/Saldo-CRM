@@ -21,6 +21,12 @@ type SyncStep =
   | "contracts"
   | "generate-kpis"
 
+type InvoiceSyncMode = "full" | "incomplete"
+
+interface StartSyncOptions {
+  invoiceSyncMode?: InvoiceSyncMode
+}
+
 const SYNC_STEPS: SyncStep[] = [
   "customers",
   "employees",
@@ -47,7 +53,7 @@ const STALE_JOB_TIMEOUT_MS = 5 * 60 * 1000
 
 interface SyncContextValue {
   syncing: boolean
-  startSync: (steps: SyncStep[]) => Promise<void>
+  startSync: (steps: SyncStep[], options?: StartSyncOptions) => Promise<void>
 }
 
 const SyncContext = createContext<SyncContextValue | null>(null)
@@ -76,7 +82,7 @@ function SyncProvider({ children }: { children: ReactNode }) {
   }, [cleanUpStaleJobs])
 
   const startSync = useCallback(
-    async (steps: SyncStep[]) => {
+    async (steps: SyncStep[], options?: StartSyncOptions) => {
       if (syncing) return
       setSyncing(true)
 
@@ -85,6 +91,14 @@ function SyncProvider({ children }: { children: ReactNode }) {
       try {
         for (const step of steps) {
           const label = STEP_LABELS[step]
+          const payload: Record<string, unknown> = {
+            step_name: step,
+            step_label: label,
+          }
+
+          if (step === "invoices" && options?.invoiceSyncMode) {
+            payload.sync_mode = options.invoiceSyncMode
+          }
 
           const { error: insertError } = await supabase
             .from("sync_jobs")
@@ -98,7 +112,7 @@ function SyncProvider({ children }: { children: ReactNode }) {
               batch_phase: "list",
               batch_offset: 0,
               dispatch_lock: false,
-              payload: { step_name: step, step_label: label },
+              payload,
             } as never)
 
           if (insertError) {
@@ -132,4 +146,4 @@ function useSync() {
 }
 
 export { SyncProvider, useSync, SYNC_STEPS, STEP_LABELS }
-export type { SyncStep }
+export type { SyncStep, InvoiceSyncMode, StartSyncOptions }

@@ -1762,127 +1762,6 @@ function renderTurnoverCell(
     setInvoiceDetailsLoading(false);
   }
 
-  async function openCustomerInvoiceKpiDetails() {
-    if (!selectedCustomerId) return;
-
-    setInvoiceDetailsOpen(true);
-    setInvoiceDetailsLoading(true);
-    setInvoiceDetailsRows([]);
-    setInvoiceDetailsTitle(
-      `${selectedCustomer?.name ?? "Selected customer"} · ${rollingWindow.title} · Invoices`,
-    );
-
-    const supabase = createClient();
-    const withCustomerScope = (query: ReturnType<typeof supabase.from>) => {
-      let scoped = query
-        .gte("invoice_date", rollingWindow.from)
-        .lte("invoice_date", rollingWindow.to);
-      if (selectedCustomer?.fortnox_customer_number) {
-        scoped = scoped.or(
-          `customer_id.eq.${selectedCustomerId},fortnox_customer_number.eq.${selectedCustomer.fortnox_customer_number}`,
-        );
-      } else {
-        scoped = scoped.eq("customer_id", selectedCustomerId);
-      }
-      return scoped.order("invoice_date", { ascending: false });
-    };
-
-    let dueDateAvailable = true;
-    let dueDateRows: Array<{
-      id: string;
-      document_number: string;
-      invoice_date: string | null;
-      due_date: string | null;
-      total_ex_vat: number | null;
-      total: number | null;
-      currency_code: string | null;
-    }> = [];
-
-    const withDueDate = await withCustomerScope(
-      supabase
-        .from("invoices")
-        .select(
-          "id, document_number, invoice_date, due_date, total_ex_vat, total, currency_code",
-        ),
-    );
-
-    if (withDueDate.error && withDueDate.error.message.includes("due_date")) {
-      dueDateAvailable = false;
-    } else if (withDueDate.error) {
-      setInvoiceDetailsRows([]);
-      setInvoiceDetailsLoading(false);
-      return;
-    } else {
-      dueDateRows = (withDueDate.data ?? []) as Array<{
-        id: string;
-        document_number: string;
-        invoice_date: string | null;
-        due_date: string | null;
-        total_ex_vat: number | null;
-        total: number | null;
-        currency_code: string | null;
-      }>;
-    }
-
-    if (!dueDateAvailable) {
-      const withoutDueDate = await withCustomerScope(
-        supabase
-          .from("invoices")
-          .select(
-            "id, document_number, invoice_date, total_ex_vat, total, currency_code",
-          ),
-      );
-
-      if (withoutDueDate.error) {
-        setInvoiceDetailsRows([]);
-        setInvoiceDetailsLoading(false);
-        return;
-      }
-
-      const rows = (withoutDueDate.data ?? []) as Array<{
-        id: string;
-        document_number: string;
-        invoice_date: string | null;
-        total_ex_vat: number | null;
-        total: number | null;
-        currency_code: string | null;
-      }>;
-
-      setInvoiceDetailsRows(
-        rows.map((invoice) => {
-          const turnover = invoiceTurnoverExVat(invoice);
-          return {
-            id: invoice.id,
-            documentNumber: invoice.document_number,
-            invoiceDate: invoice.invoice_date,
-            dueDate: null,
-            turnover: turnover.amount,
-            turnoverFromTotal: turnover.fromTotal,
-            currencyCode: invoice.currency_code ?? "SEK",
-          };
-        }),
-      );
-      setInvoiceDetailsLoading(false);
-      return;
-    }
-
-    setInvoiceDetailsRows(
-      dueDateRows.map((invoice) => {
-        const turnover = invoiceTurnoverExVat(invoice);
-        return {
-          id: invoice.id,
-          documentNumber: invoice.document_number,
-          invoiceDate: invoice.invoice_date,
-          dueDate: invoice.due_date,
-          turnover: turnover.amount,
-          turnoverFromTotal: turnover.fromTotal,
-          currencyCode: invoice.currency_code ?? "SEK",
-        };
-      }),
-    );
-    setInvoiceDetailsLoading(false);
-  }
-
   async function openManagerCustomerContractDetails(
     row: ManagerCustomerSummaryRow,
   ) {
@@ -3812,9 +3691,6 @@ function renderTurnoverCell(
                 hoursMode={selectedCustomerId ? "turnoverPerHour" : "hours"}
                 turnoverPerHour={
                   kpis.hours > 0 ? kpis.turnover / kpis.hours : 0
-                }
-                onInvoicesClick={
-                  selectedCustomerId ? () => openCustomerInvoiceKpiDetails() : undefined
                 }
               />
             {kpiLoading ? (
