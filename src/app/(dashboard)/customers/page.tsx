@@ -81,28 +81,12 @@ const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
     },
   },
   {
-    id: "total_turnover",
-    accessorKey: "total_turnover",
-    size: 160,
-    minSize: 120,
-    header: "Turnover",
-    cell: ({ row }) => formatSek(row.getValue("total_turnover") as number | null),
-  },
-  {
     id: "invoice_count",
     accessorKey: "invoice_count",
     size: 120,
     minSize: 100,
     header: "Invoices",
     cell: ({ row }) => formatNumber(row.getValue("invoice_count") as number | null),
-  },
-  {
-    id: "total_hours",
-    accessorKey: "total_hours",
-    size: 120,
-    minSize: 100,
-    header: "Hours",
-    cell: ({ row }) => formatHours(row.getValue("total_hours") as number | null),
   },
   {
     id: "contract_value",
@@ -151,11 +135,6 @@ const sekFormatter = new Intl.NumberFormat("sv-SE", {
 
 const numberFormatter = new Intl.NumberFormat("sv-SE")
 
-const hoursFormatter = new Intl.NumberFormat("sv-SE", {
-  maximumFractionDigits: 1,
-  minimumFractionDigits: 1,
-})
-
 function formatSek(value: number | null): string {
   if (value == null) return "—"
   return sekFormatter.format(value)
@@ -166,11 +145,6 @@ function formatNumber(value: number | null): string {
   return numberFormatter.format(value)
 }
 
-function formatHours(value: number | null): string {
-  if (value == null) return "—"
-  return hoursFormatter.format(value)
-}
-
 const customerListColumnDefinitions: Omit<CustomerListColumnOption, "visible">[] = [
   { id: "name", label: "Customer Name", alwaysVisible: true },
   { id: "fortnox_customer_number", label: "Customer No." },
@@ -178,9 +152,7 @@ const customerListColumnDefinitions: Omit<CustomerListColumnOption, "visible">[]
   { id: "contact_name", label: "Primary Contact" },
   { id: "email", label: "Email" },
   { id: "account_manager", label: "Customer Manager" },
-  { id: "total_turnover", label: "Turnover" },
   { id: "invoice_count", label: "Invoices" },
-  { id: "total_hours", label: "Hours" },
   { id: "contract_value", label: "Contract Value" },
   { id: "segments", label: "Segments" },
 ]
@@ -192,8 +164,6 @@ const DEFAULT_VISIBLE_LIST_COLUMN_IDS = new Set<string>([
   "name",
   "fortnox_customer_number",
   "account_manager",
-  "total_turnover",
-  "total_hours",
   "segments",
 ])
 

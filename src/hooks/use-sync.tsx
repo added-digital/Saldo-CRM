@@ -15,7 +15,6 @@ type SyncStep =
   | "customers"
   | "employees"
   | "invoices"
-  | "invoice-rows"
   | "articles"
   | "time-reports"
   | "contracts"
@@ -31,7 +30,6 @@ const SYNC_STEPS: SyncStep[] = [
   "customers",
   "employees",
   "invoices",
-  "invoice-rows",
   "articles",
   "time-reports",
   "contracts",
@@ -42,7 +40,6 @@ const STEP_LABELS: Record<SyncStep, string> = {
   customers: "Customers",
   employees: "Employees",
   invoices: "Invoices",
-  "invoice-rows": "Invoice Rows",
   articles: "Articles",
   "time-reports": "Time Reports",
   contracts: "Contracts",

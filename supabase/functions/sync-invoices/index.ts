@@ -11,14 +11,25 @@ declare const Deno: {
 };
 
 const RATE_LIMIT_DELAY_MS = 100;
-const CUSTOMERS_PER_BATCH = 50;
-const INVOICE_PAGE_SIZE = 20;
+const CUSTOMERS_PER_BATCH = 25;
+const INVOICE_PAGE_SIZE = 15;
 const INVOICE_FROM_DATE = "2025-01-01";
 const KPI_BATCH_SIZE = 3000;
 const INVOICE_DETAIL_DELAY_MS = 50;
 const CUSTOMER_DB_PAGE_SIZE = 1000;
 
 type InvoiceSyncMode = "full" | "incomplete";
+
+type InvoiceRowInsert = {
+  invoice_number: string;
+  article_number: string | null;
+  article_name: string | null;
+  description: string | null;
+  quantity: number | null;
+  unit_price: number | null;
+  total_ex_vat: number | null;
+  total: number | null;
+};
 
 function logSyncEvent(event: string, context: Record<string, unknown>) {
   console.log(
@@ -154,6 +165,44 @@ function toMappedInvoice(input: {
   return { mapped, skipped: false, skipReason: null };
 }
 
+function toInvoiceRows(
+  invoiceNumber: string,
+  invoicePayload: Record<string, unknown> | null | undefined,
+): InvoiceRowInsert[] {
+  const rawRows = (invoicePayload?.InvoiceRows ?? invoicePayload?.Rows ?? []) as unknown[];
+  if (!Array.isArray(rawRows)) return [];
+
+  return rawRows
+    .filter(
+      (row): row is Record<string, unknown> => Boolean(row && typeof row === "object"),
+    )
+    .map((row) => ({
+      invoice_number: invoiceNumber,
+      article_number:
+        row.ArticleNumber != null
+          ? String(row.ArticleNumber)
+          : row.ArticleNo != null
+            ? String(row.ArticleNo)
+            : null,
+      article_name: row.ArticleName != null ? String(row.ArticleName) : null,
+      description: row.Description != null ? String(row.Description) : null,
+      quantity:
+        row.DeliveredQuantity != null
+          ? Number(row.DeliveredQuantity)
+          : row.Quantity != null
+            ? Number(row.Quantity)
+            : null,
+      unit_price:
+        row.Price != null
+          ? Number(row.Price)
+          : row.UnitPrice != null
+            ? Number(row.UnitPrice)
+            : null,
+      total_ex_vat: resolveExVatTotal(row) ?? (row.Total != null ? Number(row.Total) : null),
+      total: row.Total != null ? Number(row.Total) : null,
+    }));
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders() });
@@ -172,9 +221,11 @@ Deno.serve(async (req) => {
     const requestedStartCustomerNumber: string | null =
       body.start_customer_number != null
         ? String(body.start_customer_number)
-        : "735";
+        : null;
     const debugInvoiceNumber: string | null =
-      body.debug_invoice_number != null ? String(body.debug_invoice_number) : null;
+      body.debug_invoice_number != null
+        ? String(body.debug_invoice_number)
+        : null;
 
     logSyncEvent("request_received", {
       job_id: jobId,
@@ -210,10 +261,14 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         const latestCompletedDate = (
-          latestCompletedInvoice as unknown as { invoice_date: string | null } | null
+          latestCompletedInvoice as unknown as {
+            invoice_date: string | null;
+          } | null
         )?.invoice_date;
         const earliestIncompleteDate = (
-          earliestIncompleteInvoice as unknown as { invoice_date: string | null } | null
+          earliestIncompleteInvoice as unknown as {
+            invoice_date: string | null;
+          } | null
         )?.invoice_date;
 
         if (earliestIncompleteDate) {
@@ -289,9 +344,9 @@ Deno.serve(async (req) => {
           .eq("id", jobId)
           .maybeSingle();
 
-        jobPayload = (
-          jobRow as unknown as { payload: Record<string, unknown> } | null
-        )?.payload ?? null;
+        jobPayload =
+          (jobRow as unknown as { payload: Record<string, unknown> } | null)
+            ?.payload ?? null;
       }
 
       const startCustomerNumber =
@@ -345,11 +400,15 @@ Deno.serve(async (req) => {
         let customerTotalPages = 1;
 
         do {
-          const response = await client.getInvoices(customerPage, INVOICE_PAGE_SIZE, {
-            fromDate: listFromDate,
-            customerNumber,
-            sortBy: "invoicedate",
-          });
+          const response = await client.getInvoices(
+            customerPage,
+            INVOICE_PAGE_SIZE,
+            {
+              fromDate: listFromDate,
+              customerNumber,
+              sortBy: "invoicedate",
+            },
+          );
           customerTotalPages = response.MetaInformation["@TotalPages"];
           const rawInvoices = response.Invoices ?? [];
           const invoices = rawInvoices.filter((invoice) =>
@@ -371,11 +430,13 @@ Deno.serve(async (req) => {
             total_resources: totalResources,
           });
 
-        const invoiceNumbers = invoices
-          .map((invoice) =>
-            invoice.DocumentNumber != null ? String(invoice.DocumentNumber) : null,
-          )
-          .filter((value): value is string => Boolean(value));
+          const invoiceNumbers = invoices
+            .map((invoice) =>
+              invoice.DocumentNumber != null
+                ? String(invoice.DocumentNumber)
+                : null,
+            )
+            .filter((value): value is string => Boolean(value));
 
           const finalizedInvoiceNumbers = new Set<string>();
           if (syncMode === "incomplete" && invoiceNumbers.length > 0) {
@@ -420,78 +481,29 @@ Deno.serve(async (req) => {
             balance: number | null;
             currency_code: string;
           }> = [];
+          const rowInserts: InvoiceRowInsert[] = [];
+          const detailFetchedInvoiceNumbers: string[] = [];
 
           for (const [invoiceIndex, invoice] of invoices.entries()) {
-          const documentNumber =
-            invoice.DocumentNumber != null
-              ? String(invoice.DocumentNumber)
-              : null;
-          if (!documentNumber) {
-            skipped += 1;
-            logSyncEvent("invoice_skipped", {
-              job_id: jobId,
-              customer_number: customerNumber,
-              page: customerPage,
-              reason: "missing_document_number_in_list",
-            });
-            continue;
-          }
-
-          if (
-            syncMode === "incomplete" &&
-            finalizedInvoiceNumbers.has(documentNumber)
-          ) {
-            skipped += 1;
-            if (
-              !debugInvoiceNumber ||
-              debugInvoiceNumber === documentNumber
-            ) {
-                logSyncEvent("invoice_skipped", {
-                  job_id: jobId,
-                  customer_number: customerNumber,
-                  page: customerPage,
-                  document_number: documentNumber,
-                  reason: "already_finalized_in_db",
-                });
-            }
-            continue;
-          }
-
-          try {
-            const invoiceResponse = await client.getInvoice(documentNumber);
-            const detail = (invoiceResponse.Invoice ?? null) as Record<
-              string,
-              unknown
-            > | null;
-            const mappedResult = detail
-              ? toMappedInvoice({ invoiceDetail: detail, customerMap })
-              : {
-                  mapped: null,
-                  skipped: true,
-                  skipReason: "missing_document_number" as const,
-                };
-
-            if (
-              debugInvoiceNumber &&
-              debugInvoiceNumber === documentNumber &&
-              detail
-            ) {
-              logSyncEvent("debug_invoice_detail", {
+            const documentNumber =
+              invoice.DocumentNumber != null
+                ? String(invoice.DocumentNumber)
+                : null;
+            if (!documentNumber) {
+              skipped += 1;
+              logSyncEvent("invoice_skipped", {
                 job_id: jobId,
                 customer_number: customerNumber,
                 page: customerPage,
-                document_number: documentNumber,
-                booked: detail.Booked ?? null,
-                due_date: detail.DueDate ?? null,
-                final_pay_date: detail.FinalPayDate ?? null,
-                has_net: detail.Net != null,
-                has_total_excluding_vat: detail.TotalExcludingVAT != null,
-                has_total: detail.Total != null,
-                has_total_vat: detail.TotalVAT != null,
+                reason: "missing_document_number_in_list",
               });
+              continue;
             }
 
-            if (mappedResult.skipped || !mappedResult.mapped) {
+            if (
+              syncMode === "incomplete" &&
+              finalizedInvoiceNumbers.has(documentNumber)
+            ) {
               skipped += 1;
               if (
                 !debugInvoiceNumber ||
@@ -502,52 +514,108 @@ Deno.serve(async (req) => {
                   customer_number: customerNumber,
                   page: customerPage,
                   document_number: documentNumber,
-                  reason: mappedResult.skipReason ?? "mapping_result_null",
+                  reason: "already_finalized_in_db",
                 });
               }
-            } else {
-              mapped.push(mappedResult.mapped);
+              continue;
+            }
+
+            try {
+              const invoiceResponse = await client.getInvoice(documentNumber);
+              const detail = (invoiceResponse.Invoice ?? null) as Record<
+                string,
+                unknown
+              > | null;
+              const mappedResult = detail
+                ? toMappedInvoice({ invoiceDetail: detail, customerMap })
+                : {
+                    mapped: null,
+                    skipped: true,
+                    skipReason: "missing_document_number" as const,
+                  };
+
+              if (detail) {
+                detailFetchedInvoiceNumbers.push(documentNumber);
+                rowInserts.push(...toInvoiceRows(documentNumber, detail));
+              }
+
               if (
-                !debugInvoiceNumber ||
-                debugInvoiceNumber === documentNumber
+                debugInvoiceNumber &&
+                debugInvoiceNumber === documentNumber &&
+                detail
               ) {
-                logSyncEvent("invoice_mapped", {
+                logSyncEvent("debug_invoice_detail", {
                   job_id: jobId,
                   customer_number: customerNumber,
                   page: customerPage,
                   document_number: documentNumber,
-                  booked: mappedResult.mapped.booked,
-                  due_date: mappedResult.mapped.due_date,
-                  final_pay_date: mappedResult.mapped.final_pay_date,
-                  total_ex_vat: mappedResult.mapped.total_ex_vat,
-                  total: mappedResult.mapped.total,
+                  booked: detail.Booked ?? null,
+                  due_date: detail.DueDate ?? null,
+                  final_pay_date: detail.FinalPayDate ?? null,
+                  has_net: detail.Net != null,
+                  has_total_excluding_vat: detail.TotalExcludingVAT != null,
+                  has_total: detail.Total != null,
+                  has_total_vat: detail.TotalVAT != null,
                 });
               }
-            }
-          } catch (detailError) {
-            if (!firstError) {
-              firstError =
-                detailError instanceof Error
-                  ? detailError.message
-                  : "Invoice detail fetch failed";
-            }
-            errors += 1;
-            logSyncEvent("invoice_detail_fetch_error", {
-              job_id: jobId,
-              customer_number: customerNumber,
-              page: customerPage,
-              document_number: documentNumber,
-              error:
-                detailError instanceof Error
-                  ? detailError.message
-                  : "Invoice detail fetch failed",
-            });
-          }
 
-          if (invoiceIndex < invoices.length - 1) {
-            await delay(INVOICE_DETAIL_DELAY_MS);
+              if (mappedResult.skipped || !mappedResult.mapped) {
+                skipped += 1;
+                if (
+                  !debugInvoiceNumber ||
+                  debugInvoiceNumber === documentNumber
+                ) {
+                  logSyncEvent("invoice_skipped", {
+                    job_id: jobId,
+                    customer_number: customerNumber,
+                    page: customerPage,
+                    document_number: documentNumber,
+                    reason: mappedResult.skipReason ?? "mapping_result_null",
+                  });
+                }
+              } else {
+                mapped.push(mappedResult.mapped);
+                if (
+                  !debugInvoiceNumber ||
+                  debugInvoiceNumber === documentNumber
+                ) {
+                  logSyncEvent("invoice_mapped", {
+                    job_id: jobId,
+                    customer_number: customerNumber,
+                    page: customerPage,
+                    document_number: documentNumber,
+                    booked: mappedResult.mapped.booked,
+                    due_date: mappedResult.mapped.due_date,
+                    final_pay_date: mappedResult.mapped.final_pay_date,
+                    total_ex_vat: mappedResult.mapped.total_ex_vat,
+                    total: mappedResult.mapped.total,
+                  });
+                }
+              }
+            } catch (detailError) {
+              if (!firstError) {
+                firstError =
+                  detailError instanceof Error
+                    ? detailError.message
+                    : "Invoice detail fetch failed";
+              }
+              errors += 1;
+              logSyncEvent("invoice_detail_fetch_error", {
+                job_id: jobId,
+                customer_number: customerNumber,
+                page: customerPage,
+                document_number: documentNumber,
+                error:
+                  detailError instanceof Error
+                    ? detailError.message
+                    : "Invoice detail fetch failed",
+              });
+            }
+
+            if (invoiceIndex < invoices.length - 1) {
+              await delay(INVOICE_DETAIL_DELAY_MS);
+            }
           }
-        }
 
           if (mapped.length > 0) {
             const { error: upsertError } = await supabase
@@ -578,6 +646,51 @@ Deno.serve(async (req) => {
                 upsert_count: mapped.length,
                 synced_total: synced,
               });
+            }
+          }
+
+          if (detailFetchedInvoiceNumbers.length > 0) {
+            const uniqueInvoiceNumbers = Array.from(
+              new Set(detailFetchedInvoiceNumbers),
+            );
+            const { error: deleteRowsError } = await supabase
+              .from("invoice_rows")
+              .delete()
+              .in("invoice_number", uniqueInvoiceNumbers as never);
+
+            if (deleteRowsError) {
+              if (!firstError) firstError = deleteRowsError.message;
+              errors += uniqueInvoiceNumbers.length;
+              logSyncEvent("invoice_rows_delete_error", {
+                job_id: jobId,
+                customer_number: customerNumber,
+                page: customerPage,
+                invoice_count: uniqueInvoiceNumbers.length,
+                error: deleteRowsError.message,
+              });
+            } else if (rowInserts.length > 0) {
+              const { error: insertRowsError } = await supabase
+                .from("invoice_rows")
+                .insert(rowInserts as never);
+
+              if (insertRowsError) {
+                if (!firstError) firstError = insertRowsError.message;
+                errors += rowInserts.length;
+                logSyncEvent("invoice_rows_insert_error", {
+                  job_id: jobId,
+                  customer_number: customerNumber,
+                  page: customerPage,
+                  row_count: rowInserts.length,
+                  error: insertRowsError.message,
+                });
+              } else {
+                logSyncEvent("invoice_rows_insert_success", {
+                  job_id: jobId,
+                  customer_number: customerNumber,
+                  page: customerPage,
+                  row_count: rowInserts.length,
+                });
+              }
             }
           }
 
@@ -623,7 +736,9 @@ Deno.serve(async (req) => {
             processed_items: currentCustomerIndex,
             progress:
               customerNumbers.length > 0
-                ? Math.round((currentCustomerIndex / customerNumbers.length) * 80)
+                ? Math.round(
+                    (currentCustomerIndex / customerNumbers.length) * 80,
+                  )
                 : 80,
             payload: updatePayload,
             batch_phase: "list",

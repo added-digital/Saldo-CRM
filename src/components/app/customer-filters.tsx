@@ -157,7 +157,6 @@ function CustomerFilters({
   onSaveFilter,
   listColumns,
   onToggleListColumn,
-  onResetListColumns,
 }: CustomerFiltersProps) {
   const [managerQuery, setManagerQuery] = React.useState("")
 
@@ -207,9 +206,6 @@ function CustomerFilters({
     filters.missingEmail,
     filters.missingCustomerManager,
   ].filter(Boolean).length
-
-  const hasHiddenListColumns =
-    listColumns?.some((column) => !column.alwaysVisible && !column.visible) ?? false
 
   function toggleStatus(status: CustomerStatusFilter) {
     const next = filters.statuses.includes(status)
@@ -426,18 +422,6 @@ function CustomerFilters({
                   )
                 })}
               </div>
-              {hasHiddenListColumns && onResetListColumns ? (
-                <div className="pt-3">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-0 text-xs text-muted-foreground"
-                    onClick={onResetListColumns}
-                  >
-                    Show all list fields
-                  </Button>
-                </div>
-              ) : null}
             </FilterSection>
           ) : null}
         </div>
