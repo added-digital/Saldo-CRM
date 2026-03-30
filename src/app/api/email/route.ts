@@ -3,11 +3,10 @@ import { createClient } from "@/lib/supabase/server"
 import { system } from "@/config/system"
 import { ContentTemplateEmail } from "@/emails/content-template"
 import { render } from "@react-email/components"
-import type { Profile } from "@/types/database"
 
 interface EmailRequest {
   to: string | string[]
-  template: "content"
+  template: "content" | "plain"
   data: Record<string, unknown>
   mode?: "send" | "preview"
   deliveryMode?: "grouped" | "separate"
@@ -63,6 +62,22 @@ const templateRenderers: Record<EmailRequest["template"], TemplateRenderer> = {
     )
     return { subject, html }
   },
+  plain: async (data) => {
+    const subject = asString(data.subject, "Message from Saldo")
+    const body = asString(data.body, "")
+    const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#111827;">${body
+      .split(/\r?\n/)
+      .map((line) =>
+        line.trim().length === 0
+          ? "<p style=\"margin:0 0 12px;\">&nbsp;</p>"
+          : `<p style=\"margin:0 0 12px;\">${line
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")}</p>`
+      )
+      .join("")}</div>`
+    return { subject, html }
+  },
 }
 
 async function sendMicrosoftGraphMail(
@@ -113,19 +128,6 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single<Pick<Profile, "role">>()
-
-    if (profile?.role !== "admin") {
-      return NextResponse.json(
-        { error: "Forbidden: Admin access required" },
-        { status: 403 }
-      )
     }
 
     const body: EmailRequest = await request.json()

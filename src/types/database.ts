@@ -373,6 +373,17 @@ export interface LicenseCustomerConfig {
   updated_at: string
 }
 
+export interface MailTemplate {
+  id: string
+  name: string
+  template_type: "plain" | "plain_os"
+  payload: Record<string, unknown>
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -495,6 +506,11 @@ export interface Database {
         Row: LicenseCustomerConfig
         Insert: Omit<LicenseCustomerConfig, "id" | "created_at" | "updated_at">
         Update: Partial<Omit<LicenseCustomerConfig, "id" | "created_at" | "updated_at">>
+      }
+      mail_templates: {
+        Row: MailTemplate
+        Insert: Omit<MailTemplate, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<MailTemplate, "id" | "created_at" | "updated_at">>
       }
       sync_jobs: {
         Row: SyncJob

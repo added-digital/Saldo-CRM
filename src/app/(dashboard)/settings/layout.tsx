@@ -24,7 +24,7 @@ function getSettingsTabs(t: (key: string, fallback?: string) => string): Setting
     { label: t("settings.tabs.teams", "Teams"), href: "/settings/teams", icon: UserCog },
     { label: t("settings.tabs.segments", "Segments"), href: "/settings/segments", icon: Tags },
     { label: t("settings.tabs.integrations", "Integrations"), href: "/settings/integrations", icon: Link2 },
-    { label: t("settings.tabs.mail", "Mail"), href: "/settings/mail", icon: Mail },
+    { label: t("settings.tabs.mailTemplates", "Mail Templates"), href: "/settings/mail", icon: Mail },
     { label: t("settings.tabs.sync", "Sync"), href: "/settings/sync", icon: RefreshCw },
   ]
 }

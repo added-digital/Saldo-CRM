@@ -65,6 +65,7 @@ function SidebarNav({ className }: SidebarNavProps) {
       Home: "navigation.items.home",
       Customers: "navigation.items.customers",
       Contacts: "navigation.items.contacts",
+      Mail: "navigation.items.mail",
       Reports: "navigation.items.reports",
       Settings: "navigation.items.settings",
     };

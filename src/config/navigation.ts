@@ -2,6 +2,7 @@ import {
   House,
   Users,
   UserRound,
+  Mail,
   Settings,
   BarChart3,
   type LucideIcon,
@@ -33,6 +34,7 @@ export const navigation: NavSection[] = [
     items: [
       { label: "Customers", href: "/customers", icon: Users, scope: "customers" },
       { label: "Contacts", href: "/contacts", icon: UserRound, scope: "customers" },
+      { label: "Mail", href: "/mail", icon: Mail, scope: "customers" },
     ],
   },
   {

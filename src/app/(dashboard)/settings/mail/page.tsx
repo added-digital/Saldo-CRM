@@ -1,43 +1,57 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { useSearchParams } from "next/navigation";
-import { Loader2, Send } from "lucide-react";
+import * as React from "react"
+import { Loader2, Pencil, Plus, Save, Trash2, X } from "lucide-react"
 
-import { useUser } from "@/hooks/use-user";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useTranslation } from "@/hooks/use-translation";
-import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client"
+import { useUser } from "@/hooks/use-user"
+import { useTranslation } from "@/hooks/use-translation"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
+import type { MailTemplate } from "@/types/database"
+import { toast } from "sonner"
 
-type MailFormState = {
-  to: string;
-  subject: string;
-  title: string;
-  previewText: string;
-  greeting: string;
-  paragraphs: string;
-  ctaLabel: string;
-  ctaUrl: string;
-  footnote: string;
-  brandName: string;
-};
+type MailTemplateType = "plain" | "plain_os"
 
-function createInitialState(
+type TemplateEditorState = {
+  id: string | null
+  name: string
+  templateType: MailTemplateType
+  isActive: boolean
+  subject: string
+  body: string
+  title: string
+  previewText: string
+  greeting: string
+  paragraphs: string
+  ctaLabel: string
+  ctaUrl: string
+  footnote: string
+  brandName: string
+}
+
+function toParagraphs(raw: string): string[] {
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+}
+
+function createDefaultEditorState(
   t: (key: string, fallback?: string) => string,
-): MailFormState {
+): TemplateEditorState {
   return {
-    to: "",
+    id: null,
+    name: "",
+    templateType: "plain_os",
+    isActive: true,
     subject: "",
+    body: "",
     title: t("settings.mail.defaults.title", "Headline"),
     previewText: t("settings.mail.defaults.previewText", "Quick update from Saldo"),
     greeting: "",
@@ -49,335 +63,531 @@ function createInitialState(
     ctaUrl: process.env.NEXT_PUBLIC_APP_URL || "",
     footnote: "",
     brandName: "Saldo Redovisning",
-  };
+  }
 }
 
-function toParagraphs(raw: string): string[] {
-  return raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+function toTemplatePayload(state: TemplateEditorState): Record<string, unknown> {
+  if (state.templateType === "plain") {
+    return {
+      subject: state.subject,
+      body: state.body,
+    }
+  }
+
+  return {
+    subject: state.subject,
+    title: state.title,
+    previewText: state.previewText,
+    greeting: state.greeting,
+    paragraphs: toParagraphs(state.paragraphs),
+    ctaLabel: state.ctaLabel,
+    ctaUrl: state.ctaUrl,
+    footnote: state.footnote,
+    brandName: state.brandName,
+  }
 }
 
-function toRecipients(raw: string): string[] {
-  return raw
-    .split(/[\r\n,;]+/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
+function parseTemplatePayload(
+  template: MailTemplate,
+  t: (key: string, fallback?: string) => string,
+): TemplateEditorState {
+  const payload = template.payload ?? {}
+  const defaultState = createDefaultEditorState(t)
+
+  return {
+    ...defaultState,
+    id: template.id,
+    name: template.name,
+    templateType: template.template_type,
+    isActive: template.is_active,
+    subject: typeof payload.subject === "string" ? payload.subject : defaultState.subject,
+    body: typeof payload.body === "string" ? payload.body : defaultState.body,
+    title: typeof payload.title === "string" ? payload.title : defaultState.title,
+    previewText:
+      typeof payload.previewText === "string"
+        ? payload.previewText
+        : defaultState.previewText,
+    greeting:
+      typeof payload.greeting === "string" ? payload.greeting : defaultState.greeting,
+    paragraphs: Array.isArray(payload.paragraphs)
+      ? payload.paragraphs
+          .filter((entry): entry is string => typeof entry === "string")
+          .join("\n")
+      : typeof payload.paragraphs === "string"
+        ? payload.paragraphs
+        : defaultState.paragraphs,
+    ctaLabel:
+      typeof payload.ctaLabel === "string" ? payload.ctaLabel : defaultState.ctaLabel,
+    ctaUrl: typeof payload.ctaUrl === "string" ? payload.ctaUrl : defaultState.ctaUrl,
+    footnote:
+      typeof payload.footnote === "string" ? payload.footnote : defaultState.footnote,
+    brandName:
+      typeof payload.brandName === "string"
+        ? payload.brandName
+        : defaultState.brandName,
+  }
 }
 
 export default function SettingsMailPage() {
-  const { isAdmin } = useUser();
-  const { t } = useTranslation();
-  const searchParams = useSearchParams();
-  const [form, setForm] = React.useState<MailFormState>(() => createInitialState(t));
-  const [previewHtml, setPreviewHtml] = React.useState("");
-  const [previewLoading, setPreviewLoading] = React.useState(false);
-  const [sending, setSending] = React.useState(false);
+  const { user, isAdmin } = useUser()
+  const { t } = useTranslation()
+  const [templates, setTemplates] = React.useState<MailTemplate[]>([])
+  const [loadingTemplates, setLoadingTemplates] = React.useState(true)
+  const [editorOpen, setEditorOpen] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
+  const [previewLoading, setPreviewLoading] = React.useState(false)
+  const [previewHtml, setPreviewHtml] = React.useState("")
+  const [editor, setEditor] = React.useState<TemplateEditorState>(() =>
+    createDefaultEditorState(t),
+  )
 
-  const payloadData = React.useMemo(
-    () => ({
-      subject: form.subject,
-      title: form.title,
-      previewText: form.previewText,
-      greeting: form.greeting,
-      paragraphs: toParagraphs(form.paragraphs),
-      ctaLabel: form.ctaLabel,
-      ctaUrl: form.ctaUrl,
-      footnote: form.footnote,
-      brandName: form.brandName,
-    }),
-    [form],
-  );
+  async function loadTemplates() {
+    setLoadingTemplates(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from("mail_templates")
+      .select("id, name, template_type, payload, is_active, created_by, created_at, updated_at")
+      .order("updated_at", { ascending: false })
 
-  React.useEffect(() => {
-    const toParam = searchParams.get("to");
-    if (!toParam) return;
-
-    setForm((current) => {
-      if (current.to.trim().length > 0) return current;
-      return {
-        ...current,
-        to: toParam,
-      };
-    });
-  }, [searchParams]);
+    setTemplates((data ?? []) as MailTemplate[])
+    setLoadingTemplates(false)
+  }
 
   React.useEffect(() => {
-    const abortController = new AbortController();
+    void loadTemplates()
+  }, [])
+
+  React.useEffect(() => {
+    if (!editorOpen) return
+    const abortController = new AbortController()
     const timeout = window.setTimeout(async () => {
-      setPreviewLoading(true);
+      setPreviewLoading(true)
       try {
         const response = await fetch("/api/email", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            to: toRecipients(form.to).length > 0 ? toRecipients(form.to) : ["preview@example.com"],
-            template: "content",
+            to: ["preview@example.com"],
+            template: editor.templateType === "plain" ? "plain" : "content",
             mode: "preview",
-            data: payloadData,
+            data: toTemplatePayload(editor),
           }),
           signal: abortController.signal,
-        });
+        })
 
-        const result = (await response.json()) as {
-          html?: string;
-          error?: string;
-          message?: string;
-        };
+        const result = (await response.json()) as { html?: string }
         if (!response.ok) {
-          setPreviewHtml("");
-          return;
+          setPreviewHtml("")
+          return
         }
 
-        setPreviewHtml(result.html ?? "");
+        setPreviewHtml(result.html ?? "")
       } catch {
         if (!abortController.signal.aborted) {
-          setPreviewHtml("");
+          setPreviewHtml("")
         }
       } finally {
         if (!abortController.signal.aborted) {
-          setPreviewLoading(false);
+          setPreviewLoading(false)
         }
       }
-    }, 320);
+    }, 280)
 
     return () => {
-      abortController.abort();
-      window.clearTimeout(timeout);
-    };
-  }, [form.to, payloadData]);
-
-  async function handleSend() {
-    const recipients = toRecipients(form.to);
-    if (recipients.length === 0) {
-      toast.error(t("settings.mail.toast.recipientRequired", "Recipient email is required"));
-      return;
+      abortController.abort()
+      window.clearTimeout(timeout)
     }
+  }, [editor, editorOpen])
 
-    setSending(true);
-    try {
-      const response = await fetch("/api/email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          to: recipients,
-          template: "content",
-          mode: "send",
-          deliveryMode: "separate",
-          data: payloadData,
-        }),
-      });
-
-      const result = (await response.json()) as {
-        error?: string;
-        message?: string;
-        sent_count?: number;
-      };
-
-      if (!response.ok) {
-        toast.error(result.message || result.error || t("settings.mail.toast.sendFailed", "Failed to send email"));
-        return;
-      }
-
-      const sentCount = result.sent_count ?? recipients.length;
-      toast.success(
-        `${t("settings.mail.toast.sentPrefix", "Sent")} ${sentCount} ${
-          sentCount === 1
-            ? t("settings.mail.toast.separateEmailSingular", "separate email")
-            : t("settings.mail.toast.separateEmailPlural", "separate emails")
-        }`,
-      );
-    } catch {
-      toast.error(t("settings.mail.toast.sendFailed", "Failed to send email"));
-    } finally {
-      setSending(false);
-    }
+  function openCreateTemplate() {
+    setEditor(createDefaultEditorState(t))
+    setEditorOpen(true)
   }
 
-  function updateField<K extends keyof MailFormState>(
-    field: K,
-    value: MailFormState[K],
-  ) {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+  function openEditTemplate(template: MailTemplate) {
+    setEditor(parseTemplatePayload(template, t))
+    setEditorOpen(true)
+  }
+
+  async function handleSaveTemplate() {
+    if (!editor.name.trim()) {
+      toast.error(t("settings.mailTemplates.toast.nameRequired", "Template name is required"))
+      return
+    }
+
+    setSaving(true)
+    const supabase = createClient()
+    const payload = toTemplatePayload(editor)
+
+    if (editor.id) {
+      const { error } = await supabase
+        .from("mail_templates")
+        .update({
+          name: editor.name.trim(),
+          template_type: editor.templateType,
+          payload,
+          is_active: editor.isActive,
+        } as never)
+        .eq("id", editor.id)
+
+      if (error) {
+        toast.error(t("settings.mailTemplates.toast.saveFailed", "Failed to save template"))
+        setSaving(false)
+        return
+      }
+    } else {
+      const { error } = await supabase
+        .from("mail_templates")
+        .insert({
+          name: editor.name.trim(),
+          template_type: editor.templateType,
+          payload,
+          is_active: editor.isActive,
+          created_by: user.id,
+        } as never)
+
+      if (error) {
+        toast.error(t("settings.mailTemplates.toast.saveFailed", "Failed to save template"))
+        setSaving(false)
+        return
+      }
+    }
+
+    toast.success(t("settings.mailTemplates.toast.saved", "Template saved"))
+    setSaving(false)
+    setEditorOpen(false)
+    await loadTemplates()
+  }
+
+  async function handleDeleteTemplate(templateId: string) {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from("mail_templates")
+      .delete()
+      .eq("id", templateId)
+
+    if (error) {
+      toast.error(t("settings.mailTemplates.toast.deleteFailed", "Failed to delete template"))
+      return
+    }
+
+    toast.success(t("settings.mailTemplates.toast.deleted", "Template deleted"))
+    await loadTemplates()
   }
 
   if (!isAdmin) {
-    return (
-      <div className="space-y-6">
-        <div className="h-48 animate-pulse rounded-lg border bg-muted" />
-      </div>
-    );
+    return <div className="h-40 rounded-lg border bg-muted/20" />
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr]">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("settings.mail.title", "Mail composer")}</CardTitle>
-          <CardDescription>
-            {t(
-              "settings.mail.description",
-              "Choose recipient and customize template content.",
-            )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="mail-to">{t("settings.mail.sendTo", "Send to")}</Label>
-            <Textarea
-              id="mail-to"
-              className="min-h-20"
-              placeholder={t("settings.mail.sendToPlaceholder", "name@example.com\nsecond@example.com")}
-              value={form.to}
-              onChange={(event) => updateField("to", event.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t(
-                "settings.mail.sendToHelp",
-                "Add one email per line (or separate with comma/semicolon).",
-              )}
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="mail-subject">{t("settings.mail.subject", "Subject")}</Label>
-              <Input
-                id="mail-subject"
-                value={form.subject}
-                onChange={(event) => updateField("subject", event.target.value)}
-              />
+    <div className="space-y-6">
+      {!editorOpen ? (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-semibold">
+                {t("settings.mailTemplates.existing", "Existing templates")}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {t(
+                  "settings.mailTemplates.existingDescription",
+                  "Templates available to users when sending emails.",
+                )}
+              </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="mail-brand">{t("settings.mail.brandName", "Brand name")}</Label>
-              <Input
-                id="mail-brand"
-                value={form.brandName}
-                onChange={(event) =>
-                  updateField("brandName", event.target.value)
-                }
-              />
-            </div>
+            <Button onClick={openCreateTemplate}>
+              <Plus className="size-4" />
+              {t("settings.mailTemplates.create", "Create new template")}
+            </Button>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="mail-title">{t("settings.mail.emailTitle", "Title")}</Label>
-            <Input
-              id="mail-title"
-              value={form.title}
-              onChange={(event) => updateField("title", event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="mail-preview">{t("settings.mail.previewText", "Preview text")}</Label>
-            <Input
-              id="mail-preview"
-              value={form.previewText}
-              onChange={(event) =>
-                updateField("previewText", event.target.value)
-              }
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="mail-greeting">{t("settings.mail.greeting", "Greeting")}</Label>
-            <Input
-              id="mail-greeting"
-              value={form.greeting}
-              onChange={(event) => updateField("greeting", event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="mail-paragraphs">
-              {t("settings.mail.contentParagraphs", "Content paragraphs (one line per paragraph)")}
-            </Label>
-            <Textarea
-              id="mail-paragraphs"
-              className="min-h-36"
-              value={form.paragraphs}
-              onChange={(event) =>
-                updateField("paragraphs", event.target.value)
-              }
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="mail-cta-label">{t("settings.mail.ctaLabel", "CTA label")}</Label>
-              <Input
-                id="mail-cta-label"
-                value={form.ctaLabel}
-                onChange={(event) =>
-                  updateField("ctaLabel", event.target.value)
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="mail-cta-url">{t("settings.mail.ctaUrl", "CTA URL")}</Label>
-              <Input
-                id="mail-cta-url"
-                value={form.ctaUrl}
-                onChange={(event) => updateField("ctaUrl", event.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="mail-footnote">{t("settings.mail.footnote", "Footnote")}</Label>
-            <Textarea
-              id="mail-footnote"
-              className="min-h-20"
-              value={form.footnote}
-              onChange={(event) => updateField("footnote", event.target.value)}
-            />
-          </div>
-
-          <Button onClick={handleSend} disabled={sending || previewLoading}>
-            {sending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Send className="size-4" />
-            )}
-            {t("settings.mail.sendEmail", "Send email")}
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            {t("settings.mail.previewTitle", "Rendered HTML preview")}
-          </CardTitle>
-          <CardDescription>
-            {t("settings.mail.previewDescription", "Live server-rendered template output.")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {previewLoading ? (
-            <div className="flex h-[875px] items-center justify-center rounded-md border bg-muted/20">
-              <Loader2 className="size-5 animate-spin text-muted-foreground" />
-            </div>
+          {loadingTemplates ? (
+            <div className="h-36 animate-pulse rounded-lg border bg-muted/20" />
+          ) : templates.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-sm text-muted-foreground">
+                {t("settings.mailTemplates.empty", "No templates yet. Create your first template.")}
+              </CardContent>
+            </Card>
           ) : (
-            <iframe
-              title={t("settings.mail.previewIframeTitle", "Mail preview")}
-              className="h-[875px] w-full rounded-md border bg-white"
-              srcDoc={previewHtml}
-            />
+            <div className="grid gap-3 md:grid-cols-2">
+              {templates.map((template) => (
+                <Card key={template.id}>
+                  <CardHeader className="space-y-1 pb-2">
+                    <CardTitle className="text-sm font-semibold">{template.name}</CardTitle>
+                    <CardDescription>
+                      {template.template_type === "plain"
+                        ? t("mail.send.optionPlain", "Plain")
+                        : t("mail.send.optionPlainOs", "Plain OS")}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex items-center justify-between pt-0">
+                    <span className="text-xs text-muted-foreground">
+                      {template.is_active
+                        ? t("settings.mailTemplates.active", "Active")
+                        : t("settings.mailTemplates.inactive", "Inactive")}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => openEditTemplate(template)}>
+                        <Pencil className="size-3.5" />
+                        {t("settings.mailTemplates.edit", "Edit")}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => handleDeleteTemplate(template.id)}
+                      >
+                        <Trash2 className="size-3.5" />
+                        {t("common.delete", "Delete")}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr]">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {editor.id
+                  ? t("settings.mailTemplates.editTemplate", "Edit template")
+                  : t("settings.mailTemplates.createTemplate", "Create template")}
+              </CardTitle>
+              <CardDescription>
+                {t(
+                  "settings.mailTemplates.editorDescription",
+                  "Saved templates are available in the Mail send view.",
+                )}
+                <br />
+                {t(
+                  "settings.mailTemplates.dynamicTokensHelp",
+                  "Use @customer and @company to create dynamic parts in the mail.",
+                )}
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="template-name">
+                    {t("settings.mailTemplates.templateName", "Template name")}
+                  </Label>
+                  <Input
+                    id="template-name"
+                    value={editor.name}
+                    onChange={(event) =>
+                      setEditor((current) => ({ ...current, name: event.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="template-type">
+                    {t("settings.mailTemplates.templateType", "Template type")}
+                  </Label>
+                  <Select
+                    value={editor.templateType}
+                    onValueChange={(value: MailTemplateType) =>
+                      setEditor((current) => ({ ...current, templateType: value }))
+                    }
+                  >
+                    <SelectTrigger id="template-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="plain">{t("mail.send.optionPlain", "Plain")}</SelectItem>
+                      <SelectItem value="plain_os">{t("mail.send.optionPlainOs", "Plain OS")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div>
+                  <p className="text-sm font-medium">
+                    {t("settings.mailTemplates.active", "Active")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t(
+                      "settings.mailTemplates.activeDescription",
+                      "Only active templates are shown in the Mail send view.",
+                    )}
+                  </p>
+                </div>
+                <Switch
+                  checked={editor.isActive}
+                  onCheckedChange={(checked) =>
+                    setEditor((current) => ({ ...current, isActive: checked }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="template-subject">{t("settings.mail.subject", "Subject")}</Label>
+                <Input
+                  id="template-subject"
+                  value={editor.subject}
+                  onChange={(event) =>
+                    setEditor((current) => ({ ...current, subject: event.target.value }))
+                  }
+                />
+              </div>
+
+              {editor.templateType === "plain" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="template-body">{t("mail.send.body", "Body")}</Label>
+                  <Textarea
+                    id="template-body"
+                    className="min-h-40"
+                    value={editor.body}
+                    onChange={(event) =>
+                      setEditor((current) => ({ ...current, body: event.target.value }))
+                    }
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="template-title">{t("settings.mail.emailTitle", "Title")}</Label>
+                    <Input
+                      id="template-title"
+                      value={editor.title}
+                      onChange={(event) =>
+                        setEditor((current) => ({ ...current, title: event.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="template-preview-text">
+                      {t("settings.mail.previewText", "Preview text")}
+                    </Label>
+                    <Input
+                      id="template-preview-text"
+                      value={editor.previewText}
+                      onChange={(event) =>
+                        setEditor((current) => ({ ...current, previewText: event.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="template-greeting">{t("settings.mail.greeting", "Greeting")}</Label>
+                    <Input
+                      id="template-greeting"
+                      value={editor.greeting}
+                      onChange={(event) =>
+                        setEditor((current) => ({ ...current, greeting: event.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="template-paragraphs">
+                      {t("settings.mail.contentParagraphs", "Content paragraphs (one line per paragraph)")}
+                    </Label>
+                    <Textarea
+                      id="template-paragraphs"
+                      className="min-h-36"
+                      value={editor.paragraphs}
+                      onChange={(event) =>
+                        setEditor((current) => ({ ...current, paragraphs: event.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="template-cta-label">{t("settings.mail.ctaLabel", "CTA label")}</Label>
+                      <Input
+                        id="template-cta-label"
+                        value={editor.ctaLabel}
+                        onChange={(event) =>
+                          setEditor((current) => ({ ...current, ctaLabel: event.target.value }))
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="template-cta-url">{t("settings.mail.ctaUrl", "CTA URL")}</Label>
+                      <Input
+                        id="template-cta-url"
+                        value={editor.ctaUrl}
+                        onChange={(event) =>
+                          setEditor((current) => ({ ...current, ctaUrl: event.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="template-footnote">{t("settings.mail.footnote", "Footnote")}</Label>
+                    <Textarea
+                      id="template-footnote"
+                      className="min-h-20"
+                      value={editor.footnote}
+                      onChange={(event) =>
+                        setEditor((current) => ({ ...current, footnote: event.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="template-brand">{t("settings.mail.brandName", "Brand name")}</Label>
+                    <Input
+                      id="template-brand"
+                      value={editor.brandName}
+                      onChange={(event) =>
+                        setEditor((current) => ({ ...current, brandName: event.target.value }))
+                      }
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex items-center gap-2">
+                <Button onClick={handleSaveTemplate} disabled={saving || previewLoading}>
+                  {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                  {t("settings.mailTemplates.saveTemplate", "Save template")}
+                </Button>
+                <Button variant="outline" onClick={() => setEditorOpen(false)}>
+                  <X className="size-4" />
+                  {t("common.cancel", "Cancel")}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {t("settings.mail.previewTitle", "Rendered HTML preview")}
+              </CardTitle>
+              <CardDescription>
+                {t("settings.mail.previewDescription", "Live server-rendered template output.")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {previewLoading ? (
+                <div className="flex h-[875px] items-center justify-center rounded-md border bg-muted/20">
+                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <iframe
+                  title={t("settings.mail.previewIframeTitle", "Mail preview")}
+                  className="h-[875px] w-full rounded-md border bg-white"
+                  srcDoc={previewHtml}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
-  );
+  )
 }

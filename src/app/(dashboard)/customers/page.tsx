@@ -442,25 +442,9 @@ export default function CustomersPage() {
   }
 
   function handleSendMail() {
-    const recipients = Array.from(
-      new Set(
-        selectedCustomers
-          .map((customer) => customer.email?.trim())
-          .filter((email): email is string => Boolean(email))
-      )
-    )
-
-    if (recipients.length === 0) {
-      toast.error(
-        t(
-          "customers.toast.noPrimaryEmails",
-          "No primary contact emails found for selected customers"
-        )
-      )
-      return
-    }
-
-    router.push(`/settings/mail?to=${encodeURIComponent(recipients.join("\n"))}`)
+    const customerIds = selectedCustomers.map((customer) => customer.id)
+    if (customerIds.length === 0) return
+    router.push(`/mail?customerIds=${encodeURIComponent(customerIds.join(","))}`)
   }
 
   function handleOpenInReports() {
