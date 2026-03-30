@@ -65,11 +65,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { FormActions } from "@/components/app/form-actions";
 import { useUser } from "@/hooks/use-user";
+import { useTranslation } from "@/hooks/use-translation";
 import { getRoleLabel, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function UsersPage() {
   const { isAdmin } = useUser();
+  const { t } = useTranslation();
   const [users, setUsers] = React.useState<Profile[]>([]);
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [scopes, setScopes] = React.useState<Scope[]>([]);
@@ -132,9 +134,11 @@ export default function UsersPage() {
     });
 
     if (!response.ok) {
-      toast.error("Failed to invite user");
+      toast.error(t("users.toast.inviteFailed", "Failed to invite user"));
     } else {
-      toast.success(`Invitation sent to ${values.email}`);
+      toast.success(
+        `${t("users.toast.invitationSentTo", "Invitation sent to")} ${values.email}`,
+      );
       setInviteDialogOpen(false);
       inviteForm.reset();
     }
@@ -151,9 +155,9 @@ export default function UsersPage() {
       .eq("id", userId);
 
     if (error) {
-      toast.error("Failed to update role");
+      toast.error(t("users.toast.updateRoleFailed", "Failed to update role"));
     } else {
-      toast.success("Role updated");
+      toast.success(t("users.toast.roleUpdated", "Role updated"));
       fetchData();
       if (selectedUser?.id === userId) {
         setSelectedUser((prev) =>
@@ -178,12 +182,14 @@ export default function UsersPage() {
       .eq("id", selectedUser.id);
 
     if (error) {
-      toast.error("Failed to update Fortnox user ID");
+      toast.error(
+        t("users.toast.updateFortnoxUserIdFailed", "Failed to update Fortnox user ID"),
+      );
       setActionLoading(false);
       return;
     }
 
-    toast.success("Fortnox user ID updated");
+    toast.success(t("users.toast.fortnoxUserIdUpdated", "Fortnox user ID updated"));
     setSelectedUser((prev) =>
       prev ? { ...prev, fortnox_user_id: value } : prev,
     );
@@ -208,9 +214,9 @@ export default function UsersPage() {
       .eq("id", userId);
 
     if (error) {
-      toast.error("Failed to update team");
+      toast.error(t("users.toast.updateTeamFailed", "Failed to update team"));
     } else {
-      toast.success("Team updated");
+      toast.success(t("users.toast.teamUpdated", "Team updated"));
       fetchData();
       if (selectedUser?.id === userId) {
         setSelectedUser((prev) => (prev ? { ...prev, team_id: value } : prev));
@@ -253,9 +259,17 @@ export default function UsersPage() {
       .eq("id", deactivateTarget.id);
 
     if (error) {
-      toast.error(`Failed to ${newStatus ? "reactivate" : "deactivate"} user`);
+      toast.error(
+        newStatus
+          ? t("users.toast.reactivateFailed", "Failed to reactivate user")
+          : t("users.toast.deactivateFailed", "Failed to deactivate user"),
+      );
     } else {
-      toast.success(`User ${newStatus ? "reactivated" : "deactivated"}`);
+      toast.success(
+        newStatus
+          ? t("users.toast.userReactivated", "User reactivated")
+          : t("users.toast.userDeactivated", "User deactivated"),
+      );
       setDeactivateTarget(null);
       fetchData();
     }
@@ -265,7 +279,7 @@ export default function UsersPage() {
   const columns: ColumnDef<Profile, unknown>[] = [
     {
       accessorKey: "full_name",
-      header: "Name",
+      header: t("users.columns.name", "Name"),
       cell: ({ row }) => {
         const profile = row.original;
         return (
@@ -282,17 +296,17 @@ export default function UsersPage() {
     },
     {
       accessorKey: "email",
-      header: "Email",
+      header: t("users.columns.email", "Email"),
       cell: ({ row }) => row.getValue("email") as string,
     },
     {
       accessorKey: "role",
-      header: "Role",
+      header: t("users.columns.role", "Role"),
       cell: ({ row }) => getRoleLabel(row.getValue("role")),
     },
     {
       accessorKey: "is_active",
-      header: "Status",
+      header: t("users.columns.status", "Status"),
       cell: ({ row }) => (
         <StatusBadge
           status={row.getValue("is_active") ? "active" : "archived"}
@@ -301,7 +315,7 @@ export default function UsersPage() {
     },
     {
       accessorKey: "fortnox_employee_id",
-      header: "Fnx Employee ID",
+      header: t("users.columns.fnxEmployeeId", "Fnx Employee ID"),
       cell: ({ row }) => {
         const employeeId = row.getValue("fortnox_employee_id") as string | null;
         return employeeId ?? "—";
@@ -309,7 +323,7 @@ export default function UsersPage() {
     },
     {
       accessorKey: "fortnox_user_id",
-      header: "Fnx User ID",
+      header: t("users.columns.fnxUserId", "Fnx User ID"),
       cell: ({ row }) => {
         const userId = row.getValue("fortnox_user_id") as string | null;
         return userId ?? "—";
@@ -317,7 +331,7 @@ export default function UsersPage() {
     },
     {
       accessorKey: "fortnox_cost_center",
-      header: "Cost Center",
+      header: t("users.columns.costCenter", "Cost Center"),
       cell: ({ row }) => {
         const cc = row.getValue("fortnox_cost_center") as string | null;
         return cc ?? "—";
@@ -330,27 +344,27 @@ export default function UsersPage() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreHorizontal className="size-4" />
-                <span className="sr-only">Actions</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => openUserDetail(profile)}>
-                Manage user
-              </DropdownMenuItem>
+                <Button variant="ghost" size="icon">
+                  <MoreHorizontal className="size-4" />
+                  <span className="sr-only">{t("users.actions.label", "Actions")}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{t("users.actions.label", "Actions")}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => openUserDetail(profile)}>
+                  {t("users.actions.manageUser", "Manage user")}
+                </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setDeactivateTarget(profile)}>
                 {profile.is_active ? (
                   <>
                     <UserX className="size-4" />
-                    Deactivate
+                    {t("users.actions.deactivate", "Deactivate")}
                   </>
                 ) : (
                   <>
                     <UserCheck className="size-4" />
-                    Reactivate
+                    {t("users.actions.reactivate", "Reactivate")}
                   </>
                 )}
               </DropdownMenuItem>
@@ -368,21 +382,21 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Users"
-        description="Manage user accounts, roles, and permissions"
+        title={t("users.header.title", "Users")}
+        description={t("users.header.description", "Manage user accounts, roles, and permissions")}
       >
         <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="size-4" />
-              Invite User
+              {t("users.invite.button", "Invite User")}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Invite User</DialogTitle>
+              <DialogTitle>{t("users.invite.title", "Invite User")}</DialogTitle>
               <DialogDescription>
-                Send an invitation to a new user.
+                {t("users.invite.description", "Send an invitation to a new user.")}
               </DialogDescription>
             </DialogHeader>
             <Form {...inviteForm}>
@@ -395,11 +409,11 @@ export default function UsersPage() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email Address</FormLabel>
+                      <FormLabel>{t("users.invite.emailAddress", "Email Address")}</FormLabel>
                       <FormControl>
                         <Input
                           type="email"
-                          placeholder="user@company.com"
+                          placeholder={t("users.invite.emailPlaceholder", "user@company.com")}
                           {...field}
                         />
                       </FormControl>
@@ -408,7 +422,7 @@ export default function UsersPage() {
                   )}
                 />
                 <FormActions
-                  submitLabel="Send Invitation"
+                  submitLabel={t("users.invite.sendInvitation", "Send Invitation")}
                   loading={inviting}
                   onCancel={() => setInviteDialogOpen(false)}
                 />
@@ -422,13 +436,13 @@ export default function UsersPage() {
         columns={columns}
         data={users}
         searchKey="full_name"
-        searchPlaceholder="Search users..."
+        searchPlaceholder={t("users.searchPlaceholder", "Search users...")}
         loading={loading}
         pageSize={10}
         emptyState={{
           icon: Shield,
-          title: "No users",
-          description: "Invite your first team member to get started.",
+          title: t("users.empty.title", "No users"),
+          description: t("users.empty.description", "Invite your first team member to get started."),
         }}
       />
 
@@ -438,14 +452,14 @@ export default function UsersPage() {
       >
         <SheetContent className="overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>{selectedUser?.full_name ?? "User"}</SheetTitle>
+            <SheetTitle>{selectedUser?.full_name ?? t("users.userFallback", "User")}</SheetTitle>
             <SheetDescription>{selectedUser?.email}</SheetDescription>
           </SheetHeader>
 
           {selectedUser && (
             <div className="space-y-6 py-6 px-6">
               <div className="space-y-2">
-                <Label>Role</Label>
+                <Label>{t("users.fields.role", "Role")}</Label>
                 <Select
                   value={selectedUser.role}
                   onValueChange={(v) => handleRoleChange(selectedUser.id, v)}
@@ -455,15 +469,15 @@ export default function UsersPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="team_lead">Team Lead</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="user">{t("users.role.user", "User")}</SelectItem>
+                    <SelectItem value="team_lead">{t("users.role.teamLead", "Team Lead")}</SelectItem>
+                    <SelectItem value="admin">{t("users.role.admin", "Admin")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>Team</Label>
+                <Label>{t("users.fields.team", "Team")}</Label>
                 <Select
                   value={selectedUser.team_id ?? "none"}
                   onValueChange={(v) => handleTeamChange(selectedUser.id, v)}
@@ -473,7 +487,7 @@ export default function UsersPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No team</SelectItem>
+                    <SelectItem value="none">{t("users.noTeam", "No team")}</SelectItem>
                     {teams.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}
@@ -484,13 +498,15 @@ export default function UsersPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="fortnox-user-id">Fortnox user ID</Label>
+                <Label htmlFor="fortnox-user-id">
+                  {t("users.fields.fortnoxUserId", "Fortnox user ID")}
+                </Label>
                 <div className="flex gap-2">
                   <Input
                     id="fortnox-user-id"
                     value={fortnoxUserIdDraft}
                     onChange={(event) => setFortnoxUserIdDraft(event.target.value)}
-                    placeholder="Enter Fortnox user ID"
+                    placeholder={t("users.fields.enterFortnoxUserId", "Enter Fortnox user ID")}
                     disabled={actionLoading}
                   />
                   <Button
@@ -499,7 +515,7 @@ export default function UsersPage() {
                     onClick={handleFortnoxUserIdSave}
                     disabled={actionLoading}
                   >
-                    Save
+                    {t("common.save", "Save")}
                   </Button>
                 </div>
               </div>
@@ -507,11 +523,11 @@ export default function UsersPage() {
               <Separator />
 
               <div className="space-y-3">
-                <Label>Scopes</Label>
+                <Label>{t("users.fields.scopes", "Scopes")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Scopes determine which features this user can access.
+                  {t("users.scopes.description", "Scopes determine which features this user can access.")}
                   {selectedUser.role === "admin" &&
-                    " Admins have all scopes by default."}
+                    ` ${t("users.scopes.adminDefault", "Admins have all scopes by default.")}`}
                 </p>
                 {scopes.map((scope) => (
                   <div key={scope.id} className="flex items-start space-x-3">
@@ -547,11 +563,11 @@ export default function UsersPage() {
 
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Joined</span>
+                  <span className="text-muted-foreground">{t("users.fields.joined", "Joined")}</span>
                   <span>{formatDate(selectedUser.created_at)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Status</span>
+                  <span className="text-muted-foreground">{t("users.columns.status", "Status")}</span>
                   <StatusBadge
                     status={selectedUser.is_active ? "active" : "archived"}
                   />
@@ -566,14 +582,20 @@ export default function UsersPage() {
         open={!!deactivateTarget}
         onOpenChange={(open) => !open && setDeactivateTarget(null)}
         title={
-          deactivateTarget?.is_active ? "Deactivate user" : "Reactivate user"
+          deactivateTarget?.is_active
+            ? t("users.deactivateDialog.title", "Deactivate user")
+            : t("users.reactivateDialog.title", "Reactivate user")
         }
         description={
           deactivateTarget?.is_active
-            ? `Deactivate ${deactivateTarget?.full_name ?? deactivateTarget?.email ?? "this user"}? They will no longer be able to sign in.`
-            : `Reactivate ${deactivateTarget?.full_name ?? deactivateTarget?.email ?? "this user"}? They will be able to sign in again.`
+            ? `${t("users.deactivateDialog.prefix", "Deactivate")} ${deactivateTarget?.full_name ?? deactivateTarget?.email ?? t("users.thisUser", "this user")}? ${t("users.deactivateDialog.description", "They will no longer be able to sign in.")}`
+            : `${t("users.reactivateDialog.prefix", "Reactivate")} ${deactivateTarget?.full_name ?? deactivateTarget?.email ?? t("users.thisUser", "this user")}? ${t("users.reactivateDialog.description", "They will be able to sign in again.")}`
         }
-        confirmLabel={deactivateTarget?.is_active ? "Deactivate" : "Reactivate"}
+        confirmLabel={
+          deactivateTarget?.is_active
+            ? t("users.actions.deactivate", "Deactivate")
+            : t("users.actions.reactivate", "Reactivate")
+        }
         variant={deactivateTarget?.is_active ? "destructive" : "default"}
         onConfirm={handleToggleActive}
         loading={actionLoading}

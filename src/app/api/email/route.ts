@@ -129,7 +129,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body: EmailRequest = await request.json()
-    const { to, template, data, mode = "send", deliveryMode = "grouped" } = body
+    const { to, template, data, mode = "send" } = body
+    const deliveryMode = "separate"
     const recipients = asStringArray(to)
 
     if (recipients.length === 0) {
@@ -145,10 +146,6 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       )
-    }
-
-    if (deliveryMode !== "grouped" && deliveryMode !== "separate") {
-      return NextResponse.json({ error: "Invalid delivery mode" }, { status: 400 })
     }
 
     const renderTemplate = templateRenderers[template]
@@ -177,28 +174,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (deliveryMode === "separate") {
-      for (const recipient of recipients) {
-        await sendMicrosoftGraphMail(providerToken, [recipient], subject, html)
-      }
-
-      return NextResponse.json({
-        success: true,
-        subject,
-        recipients,
-        delivery_mode: deliveryMode,
-        sent_count: recipients.length,
-      })
+    for (const recipient of recipients) {
+      await sendMicrosoftGraphMail(providerToken, [recipient], subject, html)
     }
-
-    await sendMicrosoftGraphMail(providerToken, recipients, subject, html)
 
     return NextResponse.json({
       success: true,
       subject,
       recipients,
       delivery_mode: deliveryMode,
-      sent_count: 1,
+      sent_count: recipients.length,
     })
   } catch (error) {
     console.error("Email send error:", error)

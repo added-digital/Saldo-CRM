@@ -7,6 +7,7 @@ import { ChevronRight, House } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
+import { useTranslation } from "@/hooks/use-translation"
 
 interface BreadcrumbsProps {
   className?: string
@@ -14,6 +15,7 @@ interface BreadcrumbsProps {
 
 function Breadcrumbs({ className }: BreadcrumbsProps) {
   const pathname = usePathname()
+  const { t } = useTranslation()
   const [dynamicLabels, setDynamicLabels] = React.useState<Record<string, string>>({})
 
   const segments = React.useMemo(
@@ -23,42 +25,79 @@ function Breadcrumbs({ className }: BreadcrumbsProps) {
 
   React.useEffect(() => {
     const isCustomerDetailsRoute = segments[0] === "customers" && Boolean(segments[1]) && segments[1] !== "contacts"
-    if (!isCustomerDetailsRoute) {
+    const isTeamDetailsRoute =
+      segments[0] === "settings" && segments[1] === "teams" && Boolean(segments[2])
+
+    if (!isCustomerDetailsRoute && !isTeamDetailsRoute) {
       setDynamicLabels((current) => (Object.keys(current).length === 0 ? current : {}))
       return
     }
 
-    const customerId = segments[1]
+    const customerId = isCustomerDetailsRoute ? segments[1] : null
+    const teamId = isTeamDetailsRoute ? segments[2] : null
     let cancelled = false
 
-    async function loadCustomerName() {
+    async function loadDynamicName() {
       const supabase = createClient()
-      const { data } = await supabase
-        .from("customers")
-        .select("name")
-        .eq("id", customerId)
-        .maybeSingle()
+      if (customerId) {
+        const { data } = await supabase
+          .from("customers")
+          .select("name")
+          .eq("id", customerId)
+          .maybeSingle()
 
-      if (cancelled) return
-      const customerRow = data as { name: string | null } | null
-      const customerName = customerRow?.name?.trim()
-      if (!customerName) return
+        if (cancelled) return
+        const customerRow = data as { name: string | null } | null
+        const customerName = customerRow?.name?.trim()
+        if (!customerName) return
 
-      setDynamicLabels((current) => ({
-        ...current,
-        [`/customers/${customerId}`]: customerName,
-      }))
+        setDynamicLabels((current) => ({
+          ...current,
+          [`/customers/${customerId}`]: customerName,
+        }))
+        return
+      }
+
+      if (teamId) {
+        const { data } = await supabase
+          .from("teams")
+          .select("name")
+          .eq("id", teamId)
+          .maybeSingle()
+
+        if (cancelled) return
+        const teamRow = data as { name: string | null } | null
+        const teamName = teamRow?.name?.trim()
+        if (!teamName) return
+
+        setDynamicLabels((current) => ({
+          ...current,
+          [`/settings/teams/${teamId}`]: teamName,
+        }))
+      }
     }
 
-    void loadCustomerName()
+    void loadDynamicName()
 
     return () => {
       cancelled = true
     }
   }, [pathname, segments])
 
+  function translateSegmentLabel(segment: string, fallbackLabel: string): string {
+    const keyBySegment: Record<string, string> = {
+      customers: "navigation.items.customers",
+      contacts: "navigation.items.contacts",
+      reports: "navigation.items.reports",
+      settings: "navigation.items.settings",
+    }
+
+    const key = keyBySegment[segment.toLowerCase()]
+    return key ? t(key, fallbackLabel) : fallbackLabel
+  }
+
   const breadcrumbs = [
-    { label: "Home", href: "/" },
+    { label: t("common.home", "Home"), href: "/" },
     ...segments.map((segment, index) => {
       const href = "/" + segments.slice(0, index + 1).join("/")
       const fallbackLabel = segment
@@ -66,7 +105,9 @@ function Breadcrumbs({ className }: BreadcrumbsProps) {
         .replace(/\b\w/g, (c) => c.toUpperCase())
 
       return {
-        label: dynamicLabels[href] ?? fallbackLabel,
+        label:
+          dynamicLabels[href] ??
+          translateSegmentLabel(segment, fallbackLabel),
         href,
       }
     }),
@@ -86,7 +127,10 @@ function Breadcrumbs({ className }: BreadcrumbsProps) {
               )}
               {isLast ? (
                 isRoot ? (
-                  <span className="inline-flex items-center text-foreground" aria-label="Home">
+                  <span
+                    className="inline-flex items-center text-foreground"
+                    aria-label={t("common.home", "Home")}
+                  >
                     <House className="size-4" aria-hidden="true" />
                   </span>
                 ) : (

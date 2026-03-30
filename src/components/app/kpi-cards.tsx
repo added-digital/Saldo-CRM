@@ -2,6 +2,7 @@
 
 import NumberFlow from "@number-flow/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useTranslation } from "@/hooks/use-translation";
 
 type KpiValues = {
   turnover: number;
@@ -23,6 +24,7 @@ function KpiCards({
   hoursMode = "hours",
   turnoverPerHour = 0,
 }: KpiCardsProps) {
+  const { t } = useTranslation();
   const valueClassName = compact
     ? "text-2xl font-semibold leading-tight"
     : "text-4xl font-semibold leading-tight";
@@ -33,14 +35,16 @@ function KpiCards({
     : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4";
 
   const thirdKpiLabel =
-    hoursMode === "turnoverPerHour" ? "Turnover / Hours Avg (kr/h)" : "Hours (h)";
+    hoursMode === "turnoverPerHour"
+      ? t("kpi.labels.turnoverPerHoursAvg", "Turnover / Hours Avg (kr/h)")
+      : t("kpi.labels.hours", "Hours (h)");
 
   return (
     <div className={gridClassName}>
       <Card className={compact ? "gap-2" : ""}>
         <CardHeader className={cardHeaderClassName}>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Turnover (kr)
+            {t("kpi.labels.turnover", "Turnover (kr)")}
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
@@ -60,7 +64,7 @@ function KpiCards({
       <Card className={compact ? "gap-2" : ""}>
         <CardHeader className={cardHeaderClassName}>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Invoices (pcs)
+            {t("kpi.labels.invoices", "Invoices (pcs)")}
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>
@@ -100,7 +104,7 @@ function KpiCards({
       <Card className={compact ? "gap-2" : ""}>
         <CardHeader className={cardHeaderClassName}>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Contract Value (kr)
+            {t("kpi.labels.contractValue", "Contract Value (kr)")}
           </CardTitle>
         </CardHeader>
         <CardContent className={cardContentClassName}>

@@ -39,6 +39,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { FormActions } from "@/components/app/form-actions"
 import { useUser } from "@/hooks/use-user"
+import { useTranslation } from "@/hooks/use-translation"
 import { toast } from "sonner"
 
 interface TeamWithLead extends Team {
@@ -49,6 +50,7 @@ interface TeamWithLead extends Team {
 export default function SettingsTeamsPage() {
   const router = useRouter()
   const { isAdmin } = useUser()
+  const { t } = useTranslation()
   const [teams, setTeams] = React.useState<TeamWithLead[]>([])
   const [loading, setLoading] = React.useState(true)
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -104,11 +106,11 @@ export default function SettingsTeamsPage() {
       .insert(values as never)
 
     if (error) {
-      toast.error("Failed to create team")
+      toast.error(t("settings.teams.toast.createFailed", "Failed to create team"))
       return
     }
 
-    toast.success("Team created")
+    toast.success(t("settings.teams.toast.created", "Team created"))
     setDialogOpen(false)
     form.reset()
     fetchTeams()
@@ -134,14 +136,17 @@ export default function SettingsTeamsPage() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="size-4" />
-                New Team
+                {t("settings.teams.newTeam", "New Team")}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create Team</DialogTitle>
+                <DialogTitle>{t("settings.teams.createTitle", "Create Team")}</DialogTitle>
                 <DialogDescription>
-                  Add a new team to your organization.
+                  {t(
+                    "settings.teams.createDescription",
+                    "Add a new team to your organization."
+                  )}
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -151,9 +156,12 @@ export default function SettingsTeamsPage() {
                     name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Team Name</FormLabel>
+                        <FormLabel>{t("settings.teams.teamName", "Team Name")}</FormLabel>
                         <FormControl>
-                          <Input placeholder="Sales Team" {...field} />
+                          <Input
+                            placeholder={t("settings.teams.teamNamePlaceholder", "Sales Team")}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -164,10 +172,10 @@ export default function SettingsTeamsPage() {
                     name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Description</FormLabel>
+                        <FormLabel>{t("settings.teams.description", "Description")}</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="What does this team do?"
+                            placeholder={t("settings.teams.descriptionPlaceholder", "What does this team do?")}
                             {...field}
                           />
                         </FormControl>
@@ -176,7 +184,7 @@ export default function SettingsTeamsPage() {
                     )}
                   />
                   <FormActions
-                    submitLabel="Create Team"
+                    submitLabel={t("settings.teams.createTitle", "Create Team")}
                     loading={form.formState.isSubmitting}
                     onCancel={() => setDialogOpen(false)}
                   />
@@ -190,8 +198,11 @@ export default function SettingsTeamsPage() {
       {teams.length === 0 ? (
         <EmptyState
           icon={UserCog}
-          title="No teams"
-          description="Create your first team to organize your users."
+          title={t("settings.teams.empty.title", "No teams")}
+          description={t(
+            "settings.teams.empty.description",
+            "Create your first team to organize your users."
+          )}
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -220,18 +231,24 @@ export default function SettingsTeamsPage() {
                           size="sm"
                         />
                         <div>
-                          <p className="text-xs text-muted-foreground">Lead</p>
+                          <p className="text-xs text-muted-foreground">
+                            {t("settings.teams.lead", "Lead")}
+                          </p>
                           <p className="text-sm font-medium">
                             {team.lead.full_name ?? team.lead.email}
                           </p>
                         </div>
                       </>
                     ) : (
-                      <p className="text-sm text-muted-foreground">No lead assigned</p>
+                      <p className="text-sm text-muted-foreground">
+                        {t("settings.teams.noLeadAssigned", "No lead assigned")}
+                      </p>
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {team.memberCount} member{team.memberCount !== 1 ? "s" : ""}
+                    {team.memberCount} {team.memberCount === 1
+                      ? t("settings.teams.memberSingular", "member")
+                      : t("settings.teams.memberPlural", "members")}
                   </p>
                 </div>
               </CardContent>

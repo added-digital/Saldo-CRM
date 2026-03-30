@@ -1,8 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { DashboardAskQuestion } from "@/components/app/dashboard-ask-question";
-import { PageHeader } from "@/components/app/page-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { DashboardHomeContent } from "@/components/app/dashboard-home-content";
 
 type DashboardCustomerOptionRow = {
   id: string;
@@ -52,18 +49,6 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Home" description="Overview of your operations" />
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <CardTitle>Ask a question</CardTitle>
-          <Badge variant="outline">Beta</Badge>
-        </CardHeader>
-        <CardContent>
-          <DashboardAskQuestion customers={customerOptions} users={userOptions} />
-        </CardContent>
-      </Card>
-    </div>
+    <DashboardHomeContent customers={customerOptions} users={userOptions} />
   );
 }

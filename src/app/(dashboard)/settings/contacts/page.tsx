@@ -38,6 +38,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useUser } from "@/hooks/use-user";
+import { useTranslation } from "@/hooks/use-translation";
 
 type CustomerOptionWithStatus = Pick<
   Customer,
@@ -65,6 +66,7 @@ const DEFAULT_CONTACT_ADVANCED_FILTERS: ContactAdvancedFilters = {
 
 export default function ContactsPage() {
   const { isAdmin } = useUser();
+  const { t } = useTranslation();
   const [contacts, setContacts] = React.useState<ContactWithCustomers[]>([]);
   const [allCustomers, setAllCustomers] = React.useState<
     CustomerOptionWithStatus[]
@@ -93,7 +95,7 @@ export default function ContactsPage() {
     } | null;
 
     if (!response.ok) {
-      toast.error(payload?.error ?? "Failed to load contacts");
+      toast.error(payload?.error ?? t("settings.contacts.toast.loadFailed", "Failed to load contacts"));
       setContacts([]);
       setAllCustomers([]);
       setLoading(false);
@@ -280,7 +282,11 @@ export default function ContactsPage() {
         error?: string;
       } | null;
       toast.error(
-        payload?.error ?? "Failed to sync primary contact fields to Fortnox",
+        payload?.error ??
+          t(
+            "settings.contacts.toast.syncPrimaryFailed",
+            "Failed to sync primary contact fields to Fortnox",
+          ),
       );
     }
   }
@@ -317,7 +323,7 @@ export default function ContactsPage() {
       .eq("id", editingContact.id);
 
     if (updateError) {
-      toast.error("Failed to update contact");
+      toast.error(t("settings.contacts.toast.updateFailed", "Failed to update contact"));
       throw updateError;
     }
 
@@ -351,7 +357,7 @@ export default function ContactsPage() {
         .neq("contact_id", editingContact.id);
 
       if (conflictingError) {
-        toast.error("Failed to validate primary contacts");
+        toast.error(t("settings.contacts.toast.validatePrimaryFailed", "Failed to validate primary contacts"));
         throw conflictingError;
       }
 
@@ -377,7 +383,7 @@ export default function ContactsPage() {
         .in("customer_id", idsToRemove);
 
       if (removeError) {
-        toast.error("Failed to remove customer relations");
+        toast.error(t("settings.contacts.toast.removeRelationsFailed", "Failed to remove customer relations"));
         throw removeError;
       }
     }
@@ -410,7 +416,7 @@ export default function ContactsPage() {
         .insert(insertRows as never);
 
       if (insertError) {
-        toast.error("Failed to add customer relations");
+        toast.error(t("settings.contacts.toast.addRelationsFailed", "Failed to add customer relations"));
         throw insertError;
       }
     }
@@ -430,7 +436,7 @@ export default function ContactsPage() {
         .eq("customer_id", customerId);
 
       if (error) {
-        toast.error("Failed to update primary status");
+        toast.error(t("settings.contacts.toast.updatePrimaryStatusFailed", "Failed to update primary status"));
         throw error;
       }
     }
@@ -443,7 +449,7 @@ export default function ContactsPage() {
         .eq("customer_id", customerId);
 
       if (error) {
-        toast.error("Failed to update primary status");
+        toast.error(t("settings.contacts.toast.updatePrimaryStatusFailed", "Failed to update primary status"));
         throw error;
       }
     }
@@ -455,7 +461,7 @@ export default function ContactsPage() {
         .in("id", conflictingLinkIds);
 
       if (removeConflictingError) {
-        toast.error("Failed to replace existing primary contacts");
+        toast.error(t("settings.contacts.toast.replacePrimaryFailed", "Failed to replace existing primary contacts"));
         throw removeConflictingError;
       }
     }
@@ -467,7 +473,7 @@ export default function ContactsPage() {
         .eq("contact_id", conflictingContactId);
 
       if (countError) {
-        toast.error("Failed to validate replaced contacts");
+        toast.error(t("settings.contacts.toast.validateReplacedFailed", "Failed to validate replaced contacts"));
         throw countError;
       }
 
@@ -478,7 +484,7 @@ export default function ContactsPage() {
           .eq("id", conflictingContactId);
 
         if (deleteContactError) {
-          toast.error("Failed to clean up replaced primary contact");
+          toast.error(t("settings.contacts.toast.cleanupReplacedFailed", "Failed to clean up replaced primary contact"));
           throw deleteContactError;
         }
       }
@@ -486,7 +492,7 @@ export default function ContactsPage() {
 
     await syncPrimaryFields([...uniquePrimaryIds, ...removedPrimaryIds]);
 
-    toast.success("Contact updated");
+    toast.success(t("settings.contacts.toast.updated", "Contact updated"));
     setEditingContact(null);
     await fetchContacts();
   }
@@ -502,7 +508,7 @@ export default function ContactsPage() {
       .eq("contact_id", deletingContact.id);
 
     if (unlinkError) {
-      toast.error("Failed to delete contact");
+      toast.error(t("settings.contacts.toast.deleteFailed", "Failed to delete contact"));
       setDeleting(false);
       return;
     }
@@ -513,12 +519,12 @@ export default function ContactsPage() {
       .eq("id", deletingContact.id);
 
     if (deleteError) {
-      toast.error("Failed to delete contact");
+      toast.error(t("settings.contacts.toast.deleteFailed", "Failed to delete contact"));
       setDeleting(false);
       return;
     }
 
-    toast.success("Contact deleted");
+    toast.success(t("settings.contacts.toast.deleted", "Contact deleted"));
     setDeleting(false);
     setDeleteDialogOpen(false);
     setDeletingContact(null);
@@ -537,7 +543,7 @@ export default function ContactsPage() {
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search contacts or customers..."
+            placeholder={t("settings.contacts.searchPlaceholder", "Search contacts or customers...")}
             className="pl-9"
           />
         </div>
@@ -545,7 +551,7 @@ export default function ContactsPage() {
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className="ml-auto h-9 gap-1.5">
               <Filter className="size-3.5" />
-              Filters
+              {t("settings.contacts.filters", "Filters")}
               {activeFilterCount > 0 ? (
                 <Badge
                   variant="secondary"
@@ -558,9 +564,14 @@ export default function ContactsPage() {
           </PopoverTrigger>
           <PopoverContent align="end" className="w-80 space-y-3">
             <div>
-              <p className="text-sm font-medium">Advanced filtering</p>
+              <p className="text-sm font-medium">
+                {t("settings.contacts.advancedFiltering", "Advanced filtering")}
+              </p>
               <p className="text-xs text-muted-foreground">
-                Refine contacts with checkbox-based filters.
+                {t(
+                  "settings.contacts.advancedFilteringDescription",
+                  "Refine contacts with checkbox-based filters.",
+                )}
               </p>
             </div>
 
@@ -568,13 +579,22 @@ export default function ContactsPage() {
               {[
                 {
                   key: "showDuplicates" as const,
-                  label: `Duplicates${duplicateCount > 0 ? ` (${duplicateCount})` : ""}`,
+                  label: `${t("settings.contacts.filter.duplicates", "Duplicates")}${duplicateCount > 0 ? ` (${duplicateCount})` : ""}`,
                 },
-                { key: "showMissingMail" as const, label: "Missing Mail" },
-                { key: "showMissingPhone" as const, label: "Missing Phone" },
+                {
+                  key: "showMissingMail" as const,
+                  label: t("settings.contacts.filter.missingMail", "Missing Mail"),
+                },
+                {
+                  key: "showMissingPhone" as const,
+                  label: t("settings.contacts.filter.missingPhone", "Missing Phone"),
+                },
                 {
                   key: "showArchivedCustomerContacts" as const,
-                  label: "Show contacts for archived customers",
+                  label: t(
+                    "settings.contacts.filter.showArchivedCustomerContacts",
+                    "Show contacts for archived customers",
+                  ),
                 },
               ].map((item) => {
                 const id = `contact-advanced-filter-${item.key}`;
@@ -605,7 +625,7 @@ export default function ContactsPage() {
                 }
                 disabled={activeFilterCount === 0}
               >
-                Clear filters
+                {t("settings.contacts.clearFilters", "Clear filters")}
               </Button>
             </div>
           </PopoverContent>
@@ -613,8 +633,8 @@ export default function ContactsPage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Showing {filteredContacts.length} of {contactsByArchivedToggle.length}{" "}
-        contacts
+        {t("settings.contacts.showing", "Showing")} {filteredContacts.length} {t("settings.contacts.of", "of")}{" "}
+        {contactsByArchivedToggle.length} {t("settings.contacts.contacts", "contacts")}
       </p>
 
       {loading ? (
@@ -629,8 +649,11 @@ export default function ContactsPage() {
       ) : filteredContacts.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No contacts"
-          description="Contacts linked to customers will appear here."
+          title={t("settings.contacts.empty.title", "No contacts")}
+          description={t(
+            "settings.contacts.empty.description",
+            "Contacts linked to customers will appear here.",
+          )}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -659,7 +682,9 @@ export default function ContactsPage() {
                         onClick={() => openEditDialog(contact)}
                       >
                         <Pencil className="size-3.5" />
-                        <span className="sr-only">Edit contact</span>
+                        <span className="sr-only">
+                          {t("settings.contacts.editContact", "Edit contact")}
+                        </span>
                       </Button>
                       <Button
                         variant="ghost"
@@ -668,7 +693,9 @@ export default function ContactsPage() {
                         onClick={() => openDeleteDialog(contact)}
                       >
                         <Trash2 className="size-3.5" />
-                        <span className="sr-only">Delete contact</span>
+                        <span className="sr-only">
+                          {t("settings.contacts.deleteContact", "Delete contact")}
+                        </span>
                       </Button>
                     </div>
                   </div>
@@ -708,7 +735,7 @@ export default function ContactsPage() {
                   {visibleRelations.primary.length > 0 ? (
                     <div className="space-y-1.5">
                       <p className="text-xs font-medium text-muted-foreground">
-                        Primary contact for:
+                        {t("settings.contacts.primaryContactFor", "Primary contact for:")}
                       </p>
                       <div className="flex flex-wrap gap-1.5">
                         {visibleRelations.primary.map((customer) => (
@@ -733,7 +760,7 @@ export default function ContactsPage() {
                   {visibleRelations.regular.length > 0 ? (
                     <div className="space-y-1.5">
                       <p className="text-xs font-medium text-muted-foreground">
-                        Contact for:
+                        {t("settings.contacts.contactFor", "Contact for:")}
                       </p>
                       <div className="flex flex-wrap gap-1.5">
                         {visibleRelations.regular.map((customer) => (
@@ -777,13 +804,15 @@ export default function ContactsPage() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Contact</DialogTitle>
+            <DialogTitle>
+              {t("settings.contacts.deleteDialog.title", "Delete Contact")}
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete{" "}
+              {t("settings.contacts.deleteDialog.descriptionPrefix", "Are you sure you want to delete")}{" "}
               <span className="font-medium text-foreground">
                 {deletingContact?.name}
               </span>
-              ? This action cannot be undone.
+              ? {t("settings.contacts.deleteDialog.descriptionSuffix", "This action cannot be undone.")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
@@ -791,14 +820,16 @@ export default function ContactsPage() {
               variant="outline"
               onClick={() => setDeleteDialogOpen(false)}
             >
-              Cancel
+              {t("common.cancel", "Cancel")}
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={deleting}
             >
-              {deleting ? "Deleting..." : "Delete Contact"}
+              {deleting
+                ? t("settings.contacts.deleting", "Deleting...")
+                : t("settings.contacts.deleteContact", "Delete Contact")}
             </Button>
           </div>
         </DialogContent>

@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useTranslation } from "@/hooks/use-translation";
 import { toast } from "sonner";
 
 type MailFormState = {
@@ -32,18 +32,25 @@ type MailFormState = {
   brandName: string;
 };
 
-const INITIAL_STATE: MailFormState = {
-  to: "",
-  subject: "",
-  title: "Headline",
-  previewText: "Quick update from Saldo",
-  greeting: "",
-  paragraphs: "This is a preview of your custom email content.",
-  ctaLabel: "Call to action",
-  ctaUrl: process.env.NEXT_PUBLIC_APP_URL || "",
-  footnote: "",
-  brandName: "Saldo Redovisning",
-};
+function createInitialState(
+  t: (key: string, fallback?: string) => string,
+): MailFormState {
+  return {
+    to: "",
+    subject: "",
+    title: t("settings.mail.defaults.title", "Headline"),
+    previewText: t("settings.mail.defaults.previewText", "Quick update from Saldo"),
+    greeting: "",
+    paragraphs: t(
+      "settings.mail.defaults.paragraphs",
+      "This is a preview of your custom email content.",
+    ),
+    ctaLabel: t("settings.mail.defaults.ctaLabel", "Call to action"),
+    ctaUrl: process.env.NEXT_PUBLIC_APP_URL || "",
+    footnote: "",
+    brandName: "Saldo Redovisning",
+  };
+}
 
 function toParagraphs(raw: string): string[] {
   return raw
@@ -61,12 +68,12 @@ function toRecipients(raw: string): string[] {
 
 export default function SettingsMailPage() {
   const { isAdmin } = useUser();
+  const { t } = useTranslation();
   const searchParams = useSearchParams();
-  const [form, setForm] = React.useState<MailFormState>(INITIAL_STATE);
+  const [form, setForm] = React.useState<MailFormState>(() => createInitialState(t));
   const [previewHtml, setPreviewHtml] = React.useState("");
   const [previewLoading, setPreviewLoading] = React.useState(false);
   const [sending, setSending] = React.useState(false);
-  const [sendSeparately, setSendSeparately] = React.useState(false);
 
   const payloadData = React.useMemo(
     () => ({
@@ -146,7 +153,7 @@ export default function SettingsMailPage() {
   async function handleSend() {
     const recipients = toRecipients(form.to);
     if (recipients.length === 0) {
-      toast.error("Recipient email is required");
+      toast.error(t("settings.mail.toast.recipientRequired", "Recipient email is required"));
       return;
     }
 
@@ -161,7 +168,7 @@ export default function SettingsMailPage() {
           to: recipients,
           template: "content",
           mode: "send",
-          deliveryMode: sendSeparately ? "separate" : "grouped",
+          deliveryMode: "separate",
           data: payloadData,
         }),
       });
@@ -173,18 +180,20 @@ export default function SettingsMailPage() {
       };
 
       if (!response.ok) {
-        toast.error(result.message || result.error || "Failed to send email");
+        toast.error(result.message || result.error || t("settings.mail.toast.sendFailed", "Failed to send email"));
         return;
       }
 
-      if (sendSeparately) {
-        const sentCount = result.sent_count ?? recipients.length;
-        toast.success(`Sent ${sentCount} separate email${sentCount === 1 ? "" : "s"}`);
-      } else {
-        toast.success("Email sent as grouped message");
-      }
+      const sentCount = result.sent_count ?? recipients.length;
+      toast.success(
+        `${t("settings.mail.toast.sentPrefix", "Sent")} ${sentCount} ${
+          sentCount === 1
+            ? t("settings.mail.toast.separateEmailSingular", "separate email")
+            : t("settings.mail.toast.separateEmailPlural", "separate emails")
+        }`,
+      );
     } catch {
-      toast.error("Failed to send email");
+      toast.error(t("settings.mail.toast.sendFailed", "Failed to send email"));
     } finally {
       setSending(false);
     }
@@ -212,44 +221,35 @@ export default function SettingsMailPage() {
     <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr]">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Mail composer</CardTitle>
+          <CardTitle className="text-base">{t("settings.mail.title", "Mail composer")}</CardTitle>
           <CardDescription>
-            Choose recipient and customize template content.
+            {t(
+              "settings.mail.description",
+              "Choose recipient and customize template content.",
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="mail-to">Send to</Label>
+            <Label htmlFor="mail-to">{t("settings.mail.sendTo", "Send to")}</Label>
             <Textarea
               id="mail-to"
               className="min-h-20"
-              placeholder="name@example.com\nsecond@example.com"
+              placeholder={t("settings.mail.sendToPlaceholder", "name@example.com\nsecond@example.com")}
               value={form.to}
               onChange={(event) => updateField("to", event.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Add one email per line (or separate with comma/semicolon).
+              {t(
+                "settings.mail.sendToHelp",
+                "Add one email per line (or separate with comma/semicolon).",
+              )}
             </p>
-          </div>
-
-          <div className="flex items-start justify-between gap-4 rounded-md border p-3">
-            <div className="space-y-1">
-              <Label htmlFor="mail-send-separately">Send separate emails</Label>
-              <p className="text-xs text-muted-foreground">
-                When enabled, each recipient gets an individual email. When disabled,
-                all recipients are included in one grouped message.
-              </p>
-            </div>
-            <Switch
-              id="mail-send-separately"
-              checked={sendSeparately}
-              onCheckedChange={setSendSeparately}
-            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="mail-subject">Subject</Label>
+              <Label htmlFor="mail-subject">{t("settings.mail.subject", "Subject")}</Label>
               <Input
                 id="mail-subject"
                 value={form.subject}
@@ -258,7 +258,7 @@ export default function SettingsMailPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="mail-brand">Brand name</Label>
+              <Label htmlFor="mail-brand">{t("settings.mail.brandName", "Brand name")}</Label>
               <Input
                 id="mail-brand"
                 value={form.brandName}
@@ -270,7 +270,7 @@ export default function SettingsMailPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mail-title">Title</Label>
+            <Label htmlFor="mail-title">{t("settings.mail.emailTitle", "Title")}</Label>
             <Input
               id="mail-title"
               value={form.title}
@@ -279,7 +279,7 @@ export default function SettingsMailPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mail-preview">Preview text</Label>
+            <Label htmlFor="mail-preview">{t("settings.mail.previewText", "Preview text")}</Label>
             <Input
               id="mail-preview"
               value={form.previewText}
@@ -290,7 +290,7 @@ export default function SettingsMailPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mail-greeting">Greeting</Label>
+            <Label htmlFor="mail-greeting">{t("settings.mail.greeting", "Greeting")}</Label>
             <Input
               id="mail-greeting"
               value={form.greeting}
@@ -300,7 +300,7 @@ export default function SettingsMailPage() {
 
           <div className="space-y-2">
             <Label htmlFor="mail-paragraphs">
-              Content paragraphs (one line per paragraph)
+              {t("settings.mail.contentParagraphs", "Content paragraphs (one line per paragraph)")}
             </Label>
             <Textarea
               id="mail-paragraphs"
@@ -314,7 +314,7 @@ export default function SettingsMailPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="mail-cta-label">CTA label</Label>
+              <Label htmlFor="mail-cta-label">{t("settings.mail.ctaLabel", "CTA label")}</Label>
               <Input
                 id="mail-cta-label"
                 value={form.ctaLabel}
@@ -325,7 +325,7 @@ export default function SettingsMailPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="mail-cta-url">CTA URL</Label>
+              <Label htmlFor="mail-cta-url">{t("settings.mail.ctaUrl", "CTA URL")}</Label>
               <Input
                 id="mail-cta-url"
                 value={form.ctaUrl}
@@ -335,7 +335,7 @@ export default function SettingsMailPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="mail-footnote">Footnote</Label>
+            <Label htmlFor="mail-footnote">{t("settings.mail.footnote", "Footnote")}</Label>
             <Textarea
               id="mail-footnote"
               className="min-h-20"
@@ -350,16 +350,18 @@ export default function SettingsMailPage() {
             ) : (
               <Send className="size-4" />
             )}
-            Send email
+            {t("settings.mail.sendEmail", "Send email")}
           </Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Rendered HTML preview</CardTitle>
+          <CardTitle className="text-base">
+            {t("settings.mail.previewTitle", "Rendered HTML preview")}
+          </CardTitle>
           <CardDescription>
-            Live server-rendered template output.
+            {t("settings.mail.previewDescription", "Live server-rendered template output.")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -369,7 +371,7 @@ export default function SettingsMailPage() {
             </div>
           ) : (
             <iframe
-              title="Mail preview"
+              title={t("settings.mail.previewIframeTitle", "Mail preview")}
               className="h-[875px] w-full rounded-md border bg-white"
               srcDoc={previewHtml}
             />

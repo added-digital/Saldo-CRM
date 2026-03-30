@@ -9,6 +9,7 @@ import { type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PageHeader } from "@/components/app/page-header"
 import { useUser } from "@/hooks/use-user"
+import { useTranslation } from "@/hooks/use-translation"
 
 interface SettingsTab {
   label: string
@@ -16,15 +17,17 @@ interface SettingsTab {
   icon: LucideIcon
 }
 
-const settingsTabs: SettingsTab[] = [
-  { label: "Profile", href: "/settings/profile", icon: User },
-  { label: "Users", href: "/settings/users", icon: Shield },
-  { label: "Teams", href: "/settings/teams", icon: UserCog },
-  { label: "Segments", href: "/settings/segments", icon: Tags },
-  { label: "Integrations", href: "/settings/integrations", icon: Link2 },
-  { label: "Mail", href: "/settings/mail", icon: Mail },
-  { label: "Sync", href: "/settings/sync", icon: RefreshCw },
-]
+function getSettingsTabs(t: (key: string, fallback?: string) => string): SettingsTab[] {
+  return [
+    { label: t("settings.tabs.profile", "Profile"), href: "/settings/profile", icon: User },
+    { label: t("settings.tabs.users", "Users"), href: "/settings/users", icon: Shield },
+    { label: t("settings.tabs.teams", "Teams"), href: "/settings/teams", icon: UserCog },
+    { label: t("settings.tabs.segments", "Segments"), href: "/settings/segments", icon: Tags },
+    { label: t("settings.tabs.integrations", "Integrations"), href: "/settings/integrations", icon: Link2 },
+    { label: t("settings.tabs.mail", "Mail"), href: "/settings/mail", icon: Mail },
+    { label: t("settings.tabs.sync", "Sync"), href: "/settings/sync", icon: RefreshCw },
+  ]
+}
 
 export default function SettingsLayout({
   children,
@@ -33,6 +36,9 @@ export default function SettingsLayout({
 }) {
   const pathname = usePathname()
   const { isAdmin } = useUser()
+  const { t } = useTranslation()
+
+  const settingsTabs = React.useMemo(() => getSettingsTabs(t), [t])
 
   const visibleTabs = isAdmin
     ? settingsTabs
@@ -41,12 +47,15 @@ export default function SettingsLayout({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Settings"
-        description="Manage your account and system configuration"
+        title={t("settings.header.title", "Settings")}
+        description={t("settings.header.description", "Manage your account and system configuration")}
       />
 
       <div className="border-b">
-        <nav className="-mb-px flex gap-4" aria-label="Settings navigation">
+        <nav
+          className="-mb-px flex gap-4"
+          aria-label={t("settings.navigation.ariaLabel", "Settings navigation")}
+        >
           {visibleTabs.map((tab) => {
             const isActive =
               pathname === tab.href || pathname.startsWith(tab.href + "/")

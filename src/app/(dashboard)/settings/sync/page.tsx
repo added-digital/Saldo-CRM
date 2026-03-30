@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatDateTime } from "@/lib/utils"
+import { useTranslation } from "@/hooks/use-translation"
 import { toast } from "sonner"
 
 const STEP_ICONS: Record<SyncStep, React.ElementType> = {
@@ -59,8 +60,29 @@ const STEP_DESCRIPTIONS: Record<SyncStep, string> = {
   "generate-kpis": "Recompute all customer KPI fields from existing invoices, time reports, and contracts",
 }
 
+const STEP_LABEL_KEYS: Record<SyncStep, string> = {
+  customers: "settings.sync.step.customers",
+  employees: "settings.sync.step.employees",
+  invoices: "settings.sync.step.invoices",
+  articles: "settings.sync.step.articles",
+  "time-reports": "settings.sync.step.timeReports",
+  contracts: "settings.sync.step.contracts",
+  "generate-kpis": "settings.sync.step.generateKpis",
+}
+
+const STEP_DESCRIPTION_KEYS: Record<SyncStep, string> = {
+  customers: "settings.sync.desc.customers",
+  employees: "settings.sync.desc.employees",
+  invoices: "settings.sync.desc.invoices",
+  articles: "settings.sync.desc.articles",
+  "time-reports": "settings.sync.desc.timeReports",
+  contracts: "settings.sync.desc.contracts",
+  "generate-kpis": "settings.sync.desc.generateKpis",
+}
+
 export default function SyncPage() {
   const { isAdmin } = useUser()
+  const { t } = useTranslation()
   const { syncing, startSync } = useSync()
   const [recentJobs, setRecentJobs] = React.useState<SyncJob[]>([])
   const [loadingJobs, setLoadingJobs] = React.useState(true)
@@ -131,21 +153,21 @@ export default function SyncPage() {
             <Card key={step}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-sm font-medium">
-                    <Icon className="size-4 text-muted-foreground" />
-                    {STEP_LABELS[step]}
-                  </CardTitle>
-                  {isRunning && (
-                    <Badge variant="secondary" className="font-normal">
-                      <Loader2 className="mr-1 size-3 animate-spin" />
-                      Running
-                    </Badge>
-                  )}
+                    <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                      <Icon className="size-4 text-muted-foreground" />
+                      {t(STEP_LABEL_KEYS[step], STEP_LABELS[step])}
+                    </CardTitle>
+                    {isRunning && (
+                      <Badge variant="secondary" className="font-normal">
+                        <Loader2 className="mr-1 size-3 animate-spin" />
+                        {t("common.running", "Running")}
+                      </Badge>
+                    )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  {STEP_DESCRIPTIONS[step]}
+                  {t(STEP_DESCRIPTION_KEYS[step], STEP_DESCRIPTIONS[step])}
                 </p>
                 <Button
                   variant="outline"
@@ -162,7 +184,7 @@ export default function SyncPage() {
                   }
                 >
                   <Play className="size-3" />
-                  Run
+                  {t("common.run", "Run")}
                 </Button>
                 {step === "invoices" ? (
                   <div className="grid grid-cols-2 gap-1">
@@ -174,7 +196,7 @@ export default function SyncPage() {
                       disabled={syncing || isRunning}
                       onClick={() => setInvoiceSyncMode("incomplete")}
                     >
-                      Sync incomplete
+                      {t("settings.sync.syncIncomplete", "Sync incomplete")}
                     </Button>
                     <Button
                       type="button"
@@ -184,7 +206,7 @@ export default function SyncPage() {
                       disabled={syncing || isRunning}
                       onClick={() => setInvoiceSyncMode("full")}
                     >
-                      Sync full
+                      {t("settings.sync.syncFull", "Sync full")}
                     </Button>
                   </div>
                 ) : null}
@@ -198,9 +220,9 @@ export default function SyncPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <CardTitle className="text-base">Recent Sync Jobs</CardTitle>
+              <CardTitle className="text-base">{t("settings.sync.recentJobs", "Recent Sync Jobs")}</CardTitle>
               <CardDescription>
-                History of the last 20 sync operations
+                {t("settings.sync.recentJobsDescription", "History of the last 20 sync operations")}
               </CardDescription>
             </div>
             {recentJobs.length > 0 && (
@@ -216,16 +238,18 @@ export default function SyncPage() {
                     .delete()
                     .not("status", "in", '("pending","processing")' as never)
                   if (error) {
-                    toast.error("Failed to clear sync history")
+                    toast.error(t("settings.sync.clearFailed", "Failed to clear sync history"))
                   } else {
-                    toast.success("Sync history cleared")
+                    toast.success(t("settings.sync.clearSuccess", "Sync history cleared"))
                     fetchRecentJobs()
                   }
                   setClearing(false)
                 }}
               >
                 <Trash2 className="size-4" />
-                {clearing ? "Clearing..." : "Clear History"}
+                {clearing
+                  ? t("settings.sync.clearing", "Clearing...")
+                  : t("settings.sync.clearHistory", "Clear History")}
               </Button>
             )}
           </div>
@@ -237,7 +261,7 @@ export default function SyncPage() {
             </div>
           ) : recentJobs.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No sync jobs have been run yet
+              {t("settings.sync.noJobs", "No sync jobs have been run yet")}
             </p>
           ) : (
             <div className="space-y-2">
@@ -253,7 +277,7 @@ export default function SyncPage() {
                       <SyncStatusIcon status={job.status} />
                       <div className="space-y-0.5">
                         <p className="text-sm font-medium">
-                          {stepLabel ?? job.current_step ?? "Sync"}
+                          {stepLabel ?? job.current_step ?? t("settings.sync.fallbackSync", "Sync")}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {formatDateTime(job.created_at)}
@@ -268,10 +292,10 @@ export default function SyncPage() {
                     <div className="flex items-center gap-2">
                       {job.total_items > 0 && (
                         <span className="text-xs text-muted-foreground">
-                          {job.processed_items}/{job.total_items} items
+                          {job.processed_items}/{job.total_items} {t("common.items", "items")}
                         </span>
                       )}
-                      <SyncStatusBadge status={job.status} />
+                      <SyncStatusBadge status={job.status} t={t} />
                     </div>
                   </div>
                 )
@@ -297,15 +321,37 @@ function SyncStatusIcon({ status }: { status: SyncJob["status"] }) {
   }
 }
 
-function SyncStatusBadge({ status }: { status: SyncJob["status"] }) {
+function SyncStatusBadge({
+  status,
+  t,
+}: {
+  status: SyncJob["status"]
+  t: (key: string, fallback?: string) => string
+}) {
   switch (status) {
     case "completed":
-      return <Badge variant="outline" className="font-normal text-green-600">Completed</Badge>
+      return (
+        <Badge variant="outline" className="font-normal text-green-600">
+          {t("settings.sync.status.completed", "Completed")}
+        </Badge>
+      )
     case "failed":
-      return <Badge variant="destructive" className="font-normal">Failed</Badge>
+      return (
+        <Badge variant="destructive" className="font-normal">
+          {t("settings.sync.status.failed", "Failed")}
+        </Badge>
+      )
     case "processing":
-      return <Badge variant="secondary" className="font-normal">Processing</Badge>
+      return (
+        <Badge variant="secondary" className="font-normal">
+          {t("settings.sync.status.processing", "Processing")}
+        </Badge>
+      )
     default:
-      return <Badge variant="outline" className="font-normal">Pending</Badge>
+      return (
+        <Badge variant="outline" className="font-normal">
+          {t("settings.sync.status.pending", "Pending")}
+        </Badge>
+      )
   }
 }

@@ -7,6 +7,7 @@ import { system } from "@/config/system";
 import { navigation, type NavItem } from "@/config/navigation";
 import { useUser } from "@/hooks/use-user";
 import { useUserScopes } from "@/hooks/use-scope";
+import { useTranslation } from "@/hooks/use-translation";
 import { useSidebar } from "@/components/layout/sidebar";
 import { NavLink } from "@/components/app/nav-link";
 
@@ -44,8 +45,33 @@ function isItemVisible(
 
 function SidebarNav({ className }: SidebarNavProps) {
   const { user } = useUser();
+  const { t } = useTranslation();
   const { scopes } = useUserScopes();
   const { collapsed } = useSidebar();
+
+  function translateSectionTitle(title: string): string {
+    const keyByTitle: Record<string, string> = {
+      Management: "navigation.sections.management",
+      Analytics: "navigation.sections.analytics",
+      Administration: "navigation.sections.administration",
+    }
+
+    const key = keyByTitle[title]
+    return key ? t(key, title) : title
+  }
+
+  function translateItemLabel(label: string): string {
+    const keyByLabel: Record<string, string> = {
+      Home: "navigation.items.home",
+      Customers: "navigation.items.customers",
+      Contacts: "navigation.items.contacts",
+      Reports: "navigation.items.reports",
+      Settings: "navigation.items.settings",
+    }
+
+    const key = keyByLabel[label]
+    return key ? t(key, label) : label
+  }
 
   return (
     <div className={cn("flex flex-1 flex-col", className)}>
@@ -77,7 +103,7 @@ function SidebarNav({ className }: SidebarNavProps) {
             <div key={sectionIndex} className="space-y-1">
               {section.title && !collapsed && (
                 <p className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {section.title}
+                  {translateSectionTitle(section.title)}
                 </p>
               )}
               {collapsed && section.title && sectionIndex > 0 && (
@@ -88,7 +114,7 @@ function SidebarNav({ className }: SidebarNavProps) {
                   key={item.href}
                   href={item.href}
                   icon={item.icon}
-                  label={item.label}
+                  label={translateItemLabel(item.label)}
                   collapsed={collapsed}
                   badge={item.badge}
                 />

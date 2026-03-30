@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { useTranslation } from "@/hooks/use-translation"
 
 type PickerOption = {
   id: string
@@ -36,6 +37,7 @@ type ChatMessage = {
 }
 
 export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
+  const { t } = useTranslation()
   const [selectedCustomerId] = React.useState<string | null>(customers[0]?.id ?? null)
   const [selectedUserId] = React.useState<string | null>(users[0]?.id ?? null)
   const [question, setQuestion] = React.useState("")
@@ -56,12 +58,12 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     setMessages((prev) => [
       ...prev,
       userMessage,
-      {
-        id: assistantMessageId,
-        role: "assistant",
-        content: "Thinking...",
-      },
-    ])
+        {
+          id: assistantMessageId,
+          role: "assistant",
+          content: t("dashboard.ask.thinking", "Thinking..."),
+        },
+      ])
     setQuestion("")
     setLoading(true)
 
@@ -80,7 +82,10 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
 
       const data = (await response.json()) as AskQuestionResponse | AskQuestionErrorResponse
       if (!response.ok) {
-        const message = "error" in data ? (data.error ?? "Failed to ask question") : "Failed to ask question"
+        const message =
+          "error" in data
+            ? (data.error ?? t("dashboard.ask.failed", "Failed to ask question"))
+            : t("dashboard.ask.failed", "Failed to ask question")
         setMessages((prev) =>
           prev.map((item) =>
             item.id === assistantMessageId
@@ -111,7 +116,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
           item.id === assistantMessageId
             ? {
                 ...item,
-                content: "Failed to ask question",
+                content: t("dashboard.ask.failed", "Failed to ask question"),
               }
             : item
         )
@@ -126,7 +131,12 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
       <div className="space-y-3 text-sm">
         {messages.map((message) => (
           <p key={message.id}>
-            <span className="font-medium">{message.role === "user" ? "You" : "Assistant"}:</span>{" "}
+            <span className="font-medium">
+              {message.role === "user"
+                ? t("dashboard.ask.you", "You")
+                : t("dashboard.ask.assistant", "Assistant")}
+              :
+            </span>{" "}
             {message.content}
           </p>
         ))}
@@ -137,7 +147,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
           <Textarea
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Ask something..."
+            placeholder={t("dashboard.ask.placeholder", "Ask something...")}
             className="min-h-12 border"
           />
           <Button
@@ -149,10 +159,10 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
             {loading ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Sending...
+                {t("dashboard.ask.sending", "Sending...")}
               </>
             ) : (
-              "Send"
+              t("dashboard.ask.send", "Send")
             )}
           </Button>
         </div>

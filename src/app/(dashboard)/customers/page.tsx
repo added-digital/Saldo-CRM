@@ -28,104 +28,109 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
+import { useTranslation } from "@/hooks/use-translation"
 
-const columns: ColumnDef<CustomerWithRelations, unknown>[] = [
-  {
-    id: "name",
-    accessorKey: "name",
-    size: 250,
-    minSize: 120,
-    header: "Name",
-  },
-  {
-    id: "fortnox_customer_number",
-    accessorKey: "fortnox_customer_number",
-    size: 150,
-    minSize: 100,
-    header: "Customer No.",
-    cell: ({ row }) => row.getValue("fortnox_customer_number") || "—",
-  },
-  {
-    id: "org_number",
-    accessorKey: "org_number",
-    size: 140,
-    minSize: 100,
-    header: "Org Number",
-    cell: ({ row }) => row.getValue("org_number") || "—",
-  },
-  {
-    id: "contact_name",
-    accessorKey: "contact_name",
-    size: 180,
-    minSize: 100,
-    header: "Primary Contact",
-    cell: ({ row }) => row.getValue("contact_name") || "—",
-  },
-  {
-    id: "email",
-    accessorKey: "email",
-    size: 220,
-    minSize: 100,
-    header: "Email",
-    cell: ({ row }) => row.getValue("email") || "—",
-  },
-  {
-    id: "account_manager",
-    size: 180,
-    minSize: 100,
-    header: "Customer Manager",
-    cell: ({ row }) => {
-      const manager = row.original.account_manager
-      if (!manager) return <span className="text-muted-foreground">—</span>
-      return manager.full_name ?? manager.email
+function getCustomerColumns(
+  t: (key: string, fallback?: string) => string
+): ColumnDef<CustomerWithRelations, unknown>[] {
+  return [
+    {
+      id: "name",
+      accessorKey: "name",
+      size: 250,
+      minSize: 120,
+      header: t("customers.table.name", "Name"),
     },
-  },
-  {
-    id: "invoice_count",
-    accessorKey: "invoice_count",
-    size: 120,
-    minSize: 100,
-    header: "Invoices",
-    cell: ({ row }) => formatNumber(row.getValue("invoice_count") as number | null),
-  },
-  {
-    id: "contract_value",
-    accessorKey: "contract_value",
-    size: 170,
-    minSize: 120,
-    header: "Contract Value",
-    cell: ({ row }) => formatSek(row.getValue("contract_value") as number | null),
-  },
-  {
-    id: "segments",
-    size: 200,
-    minSize: 100,
-    header: "Segments",
-    cell: ({ row }) => {
-      const segments = row.original.segments
-      if (!segments || segments.length === 0) {
-        return <span className="text-muted-foreground">—</span>
-      }
-      return (
-        <div className="flex flex-wrap gap-1">
-          {segments.map((segment: Segment) => (
-            <Badge
-              key={segment.id}
-              variant="outline"
-              className="text-xs font-normal"
-              style={{
-                borderColor: segment.color,
-                color: segment.color,
-              }}
-            >
-              {segment.name}
-            </Badge>
-          ))}
-        </div>
-      )
+    {
+      id: "fortnox_customer_number",
+      accessorKey: "fortnox_customer_number",
+      size: 150,
+      minSize: 100,
+      header: t("customers.table.customerNo", "Customer No."),
+      cell: ({ row }) => row.getValue("fortnox_customer_number") || "—",
     },
-  },
-]
+    {
+      id: "org_number",
+      accessorKey: "org_number",
+      size: 140,
+      minSize: 100,
+      header: t("customers.table.orgNumber", "Org Number"),
+      cell: ({ row }) => row.getValue("org_number") || "—",
+    },
+    {
+      id: "contact_name",
+      accessorKey: "contact_name",
+      size: 180,
+      minSize: 100,
+      header: t("customers.table.primaryContact", "Primary Contact"),
+      cell: ({ row }) => row.getValue("contact_name") || "—",
+    },
+    {
+      id: "email",
+      accessorKey: "email",
+      size: 220,
+      minSize: 100,
+      header: t("customers.table.email", "Email"),
+      cell: ({ row }) => row.getValue("email") || "—",
+    },
+    {
+      id: "account_manager",
+      size: 180,
+      minSize: 100,
+      header: t("customers.table.customerManager", "Customer Manager"),
+      cell: ({ row }) => {
+        const manager = row.original.account_manager
+        if (!manager) return <span className="text-muted-foreground">—</span>
+        return manager.full_name ?? manager.email
+      },
+    },
+    {
+      id: "invoice_count",
+      accessorKey: "invoice_count",
+      size: 120,
+      minSize: 100,
+      header: t("customers.table.invoices", "Invoices"),
+      cell: ({ row }) => formatNumber(row.getValue("invoice_count") as number | null),
+    },
+    {
+      id: "contract_value",
+      accessorKey: "contract_value",
+      size: 170,
+      minSize: 120,
+      header: t("customers.table.contractValue", "Contract Value"),
+      cell: ({ row }) => formatSek(row.getValue("contract_value") as number | null),
+    },
+    {
+      id: "segments",
+      size: 200,
+      minSize: 100,
+      header: t("customers.table.segments", "Segments"),
+      cell: ({ row }) => {
+        const segments = row.original.segments
+        if (!segments || segments.length === 0) {
+          return <span className="text-muted-foreground">—</span>
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {segments.map((segment: Segment) => (
+              <Badge
+                key={segment.id}
+                variant="outline"
+                className="text-xs font-normal"
+                style={{
+                  borderColor: segment.color,
+                  color: segment.color,
+                }}
+              >
+                {segment.name}
+              </Badge>
+            ))}
+          </div>
+        )
+      },
+    },
+  ]
+}
 
 const sekFormatter = new Intl.NumberFormat("sv-SE", {
   style: "currency",
@@ -145,16 +150,23 @@ function formatNumber(value: number | null): string {
   return numberFormatter.format(value)
 }
 
-const customerListColumnDefinitions: Omit<CustomerListColumnOption, "visible">[] = [
-  { id: "name", label: "Customer Name", alwaysVisible: true },
-  { id: "fortnox_customer_number", label: "Customer No." },
-  { id: "org_number", label: "Org Number" },
-  { id: "contact_name", label: "Primary Contact" },
-  { id: "email", label: "Email" },
-  { id: "account_manager", label: "Customer Manager" },
-  { id: "invoice_count", label: "Invoices" },
-  { id: "contract_value", label: "Contract Value" },
-  { id: "segments", label: "Segments" },
+interface CustomerListColumnDefinition {
+  id: string
+  labelKey: string
+  fallbackLabel: string
+  alwaysVisible?: boolean
+}
+
+const customerListColumnDefinitions: CustomerListColumnDefinition[] = [
+  { id: "name", labelKey: "customers.columns.customerName", fallbackLabel: "Customer Name", alwaysVisible: true },
+  { id: "fortnox_customer_number", labelKey: "customers.columns.customerNo", fallbackLabel: "Customer No." },
+  { id: "org_number", labelKey: "customers.columns.orgNumber", fallbackLabel: "Org Number" },
+  { id: "contact_name", labelKey: "customers.columns.primaryContact", fallbackLabel: "Primary Contact" },
+  { id: "email", labelKey: "customers.columns.email", fallbackLabel: "Email" },
+  { id: "account_manager", labelKey: "customers.columns.customerManager", fallbackLabel: "Customer Manager" },
+  { id: "invoice_count", labelKey: "customers.columns.invoices", fallbackLabel: "Invoices" },
+  { id: "contract_value", labelKey: "customers.columns.contractValue", fallbackLabel: "Contract Value" },
+  { id: "segments", labelKey: "customers.columns.segments", fallbackLabel: "Segments" },
 ]
 
 const CUSTOMER_FILTERS_STORAGE_KEY = "saldo-crm:customers:filters"
@@ -193,6 +205,7 @@ function isCustomerFilterState(value: unknown): value is CustomerFilterState {
 
 export default function CustomersPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [customers, setCustomers] = React.useState<CustomerWithRelations[]>([])
   const [loading, setLoading] = React.useState(true)
   const [selectedCustomers, setSelectedCustomers] = React.useState<CustomerWithRelations[]>([])
@@ -207,18 +220,22 @@ export default function CustomersPage() {
   const [filters, setFilters] = React.useState<CustomerFilterState>(EMPTY_FILTERS)
   const [visibleListColumns, setVisibleListColumns] = React.useState<Record<string, boolean>>(() => getDefaultVisibleListColumns())
 
+  const columns = React.useMemo(() => getCustomerColumns(t), [t])
+
   const listColumns = React.useMemo<CustomerListColumnOption[]>(
     () =>
       customerListColumnDefinitions.map((column) => ({
-        ...column,
+        id: column.id,
+        label: t(column.labelKey, column.fallbackLabel),
+        alwaysVisible: column.alwaysVisible,
         visible: visibleListColumns[column.id] ?? true,
       })),
-    [visibleListColumns]
+    [t, visibleListColumns]
   )
 
   const visibleColumns = React.useMemo(
     () => columns.filter((column) => visibleListColumns[column.id ?? ""] ?? true),
-    [visibleListColumns]
+    [columns, visibleListColumns]
   )
 
   const filteredCustomers = React.useMemo(() => {
@@ -405,10 +422,12 @@ export default function CustomersPage() {
       .upsert(rows as never[], { onConflict: "customer_id,segment_id" })
 
     if (error) {
-      toast.error("Failed to assign segments")
+      toast.error(t("customers.toast.assignSegmentsFailed", "Failed to assign segments"))
     } else {
       toast.success(
-        `Segments assigned to ${selectedCustomers.length} customer${selectedCustomers.length !== 1 ? "s" : ""}`
+        selectedCustomers.length === 1
+          ? t("customers.toast.assignSegmentsSuccessOne", "Segment assigned to 1 customer")
+          : t("customers.toast.assignSegmentsSuccessMany", "Segments assigned to selected customers")
       )
       setSegmentsDialogOpen(false)
       clearSelectionRef.current?.()
@@ -432,7 +451,12 @@ export default function CustomersPage() {
     )
 
     if (recipients.length === 0) {
-      toast.error("No primary contact emails found for selected customers")
+      toast.error(
+        t(
+          "customers.toast.noPrimaryEmails",
+          "No primary contact emails found for selected customers"
+        )
+      )
       return
     }
 
@@ -462,7 +486,7 @@ export default function CustomersPage() {
   function handleSaveFilter() {
     window.localStorage.setItem(CUSTOMER_FILTERS_STORAGE_KEY, JSON.stringify(filters))
     window.localStorage.setItem(CUSTOMER_LIST_COLUMNS_STORAGE_KEY, JSON.stringify(visibleListColumns))
-    toast.success("Filters and list fields saved")
+    toast.success(t("customers.toast.filtersSaved", "Filters and list fields saved"))
   }
 
   const paginationControl = (
@@ -474,14 +498,14 @@ export default function CustomersPage() {
           setPageIndex(0)
         }}
         className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-        aria-label="Rows per page"
+        aria-label={t("customers.pagination.rowsPerPage", "Rows per page")}
       >
-        <option value={15}>15 / page</option>
-        <option value={30}>30 / page</option>
-        <option value={50}>50 / page</option>
+        <option value={15}>{t("customers.pagination.perPage15", "15 / page")}</option>
+        <option value={30}>{t("customers.pagination.perPage30", "30 / page")}</option>
+        <option value={50}>{t("customers.pagination.perPage50", "50 / page")}</option>
       </select>
       <span className="text-sm text-muted-foreground">
-        {pageIndex + 1} of {pageCount}
+        {pageIndex + 1} {t("customers.pagination.of", "of")} {pageCount}
       </span>
       <Button
         variant="outline"
@@ -509,7 +533,7 @@ export default function CustomersPage() {
       <SearchInput
         value={searchQuery}
         onChange={setSearchQuery}
-        placeholder="Search customers..."
+        placeholder={t("customers.searchPlaceholder", "Search customers...")}
         className="w-full lg:max-w-sm"
       />
       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
@@ -542,11 +566,13 @@ export default function CustomersPage() {
         onRowNavigate={(customer) => router.push(`/customers/${customer.id}`)}
         emptyState={{
           icon: Users,
-          title: "No customers",
-          description:
-            "Connect Fortnox in Settings → Integrations to sync your customer database.",
+          title: t("customers.empty.title", "No customers"),
+          description: t(
+            "customers.empty.description",
+            "Connect Fortnox in Settings → Integrations to sync your customer database."
+          ),
           action: {
-            label: "Go to Integrations",
+            label: t("customers.empty.goToIntegrations", "Go to Integrations"),
             onClick: () => router.push("/settings/integrations"),
           },
         }}
@@ -559,7 +585,7 @@ export default function CustomersPage() {
           ...(selectedCustomers.length === 1
             ? [
                 {
-                  label: "Open in Reports",
+                  label: t("customers.actions.openInReports", "Open in Reports"),
                   icon: BarChart3,
                   onClick: handleOpenInReports,
                   variant: "outline" as const,
@@ -567,12 +593,12 @@ export default function CustomersPage() {
               ]
             : []),
           {
-            label: "Send Mail",
+            label: t("customers.actions.sendMail", "Send Mail"),
             icon: Mail,
             onClick: handleSendMail,
           },
           {
-            label: "Add Segments",
+            label: t("customers.actions.addSegments", "Add Segments"),
             icon: Tags,
             onClick: handleOpenSegmentsDialog,
           },
@@ -582,16 +608,21 @@ export default function CustomersPage() {
       <Dialog open={segmentsDialogOpen} onOpenChange={setSegmentsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Segments</DialogTitle>
+            <DialogTitle>{t("customers.dialog.addSegments.title", "Add Segments")}</DialogTitle>
             <DialogDescription>
-              Select segments to assign to {selectedCustomers.length} customer
-              {selectedCustomers.length !== 1 ? "s" : ""}.
+              {t(
+                "customers.dialog.addSegments.description",
+                "Select segments to assign to selected customers."
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {allSegments.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No segments available. Create segments in Settings → Segments.
+                {t(
+                  "customers.dialog.addSegments.noneAvailable",
+                  "No segments available. Create segments in Settings → Segments."
+                )}
               </p>
             ) : (
               <div className="space-y-2">
@@ -628,13 +659,15 @@ export default function CustomersPage() {
                 variant="outline"
                 onClick={() => setSegmentsDialogOpen(false)}
               >
-                Cancel
+                {t("common.cancel", "Cancel")}
               </Button>
               <Button
                 onClick={handleAssignSegments}
                 disabled={checkedSegmentIds.size === 0 || assigning}
               >
-                {assigning ? "Assigning..." : "Assign Segments"}
+                {assigning
+                  ? t("customers.dialog.addSegments.assigning", "Assigning...")
+                  : t("customers.dialog.addSegments.assign", "Assign Segments")}
               </Button>
             </div>
           </div>

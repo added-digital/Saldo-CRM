@@ -15,6 +15,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useTranslation } from "@/hooks/use-translation"
 
 type CustomerStatusFilter = "active" | "archived"
 
@@ -42,11 +43,6 @@ const EMPTY_FILTERS: CustomerFilterState = {
   missingEmail: false,
   missingCustomerManager: false,
 }
-
-const STATUS_OPTIONS: { value: CustomerStatusFilter; label: string }[] = [
-  { value: "active", label: "Active" },
-  { value: "archived", label: "Archived" },
-]
 
 function hasActiveFilters(filters: CustomerFilterState): boolean {
   const isDefaultStatus =
@@ -158,7 +154,22 @@ function CustomerFilters({
   listColumns,
   onToggleListColumn,
 }: CustomerFiltersProps) {
+  const { t } = useTranslation()
   const [managerQuery, setManagerQuery] = React.useState("")
+
+  const statusOptions = React.useMemo(
+    () => [
+      {
+        value: "active" as const,
+        label: t("customers.filters.status.active", "Active"),
+      },
+      {
+        value: "archived" as const,
+        label: t("customers.filters.status.archived", "Archived"),
+      },
+    ],
+    [t]
+  )
 
   const segments = React.useMemo(() => {
     const map = new Map<string, Segment>()
@@ -244,7 +255,7 @@ function CustomerFilters({
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="h-8 gap-1.5">
           <Filter className="size-3.5" />
-          Filters
+          {t("customers.filters.button", "Filters")}
           {activeCount > 0 ? (
             <Badge variant="secondary" className="ml-0.5 h-5 min-w-5 px-1 text-xs">
               {activeCount}
@@ -254,16 +265,22 @@ function CustomerFilters({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[22rem] p-0">
         <div className="border-b px-4 py-3">
-          <p className="text-sm font-medium">Filters</p>
+          <p className="text-sm font-medium">{t("customers.filters.title", "Filters")}</p>
           <p className="text-xs text-muted-foreground">
-            Refine the customer list and choose what is showed in list.
+            {t(
+              "customers.filters.subtitle",
+              "Refine the customer list and choose what is shown in the list."
+            )}
           </p>
         </div>
 
         <div>
-          <FilterSection title="Status" count={filters.statuses.length}>
+          <FilterSection
+            title={t("customers.filters.section.status", "Status")}
+            count={filters.statuses.length}
+          >
             <div className="space-y-2">
-              {STATUS_OPTIONS.map((option) => {
+              {statusOptions.map((option) => {
                 const checked = filters.statuses.includes(option.value)
                 const id = `customer-filter-status-${option.value}`
 
@@ -285,7 +302,10 @@ function CustomerFilters({
             </div>
           </FilterSection>
 
-          <FilterSection title="Segments" count={filters.segmentIds.length}>
+          <FilterSection
+            title={t("customers.filters.section.segments", "Segments")}
+            count={filters.segmentIds.length}
+          >
             {segments.length > 0 ? (
               <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
                 {segments.map((segment) => {
@@ -315,17 +335,22 @@ function CustomerFilters({
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No segments available.</p>
+              <p className="text-sm text-muted-foreground">
+                {t("customers.filters.noSegments", "No segments available.")}
+              </p>
             )}
           </FilterSection>
 
-          <FilterSection title="Customer Manager" count={filters.managerIds.length}>
+          <FilterSection
+            title={t("customers.filters.section.customerManager", "Customer Manager")}
+            count={filters.managerIds.length}
+          >
             {managers.length > 0 ? (
               <div className="space-y-3">
                 <SearchInput
                   value={managerQuery}
                   onChange={setManagerQuery}
-                  placeholder="Search managers..."
+                  placeholder={t("customers.filters.searchManagers", "Search managers...")}
                   className="w-full"
                 />
                 <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
@@ -349,21 +374,38 @@ function CustomerFilters({
                   )
                   })}
                   {visibleManagers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No managers match your search.</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t("customers.filters.noManagersMatch", "No managers match your search.")}
+                    </p>
                   ) : null}
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No customer managers available.</p>
+              <p className="text-sm text-muted-foreground">
+                {t("customers.filters.noManagersAvailable", "No customer managers available.")}
+              </p>
             )}
           </FilterSection>
 
-          <FilterSection title="Missing fields" count={missingFieldsCount} defaultOpen>
+          <FilterSection
+            title={t("customers.filters.section.missingFields", "Missing fields")}
+            count={missingFieldsCount}
+            defaultOpen
+          >
             <div className="space-y-2">
               {[
-                { key: "missingPrimaryContact", label: "Primary Contact" },
-                { key: "missingEmail", label: "Email" },
-                { key: "missingCustomerManager", label: "Customer Manager" },
+                {
+                  key: "missingPrimaryContact",
+                  label: t("customers.filters.field.primaryContact", "Primary Contact"),
+                },
+                {
+                  key: "missingEmail",
+                  label: t("customers.filters.field.email", "Email"),
+                },
+                {
+                  key: "missingCustomerManager",
+                  label: t("customers.filters.field.customerManager", "Customer Manager"),
+                },
               ].map((item) => {
                 const id = `customer-filter-${item.key}`
                 const checked = filters[item.key as keyof CustomerFilterState] as boolean
@@ -395,7 +437,7 @@ function CustomerFilters({
 
           {listColumns && onToggleListColumn ? (
             <FilterSection
-              title="Showed in list"
+              title={t("customers.filters.section.shownInList", "Shown in list")}
               count={listColumns.filter((column) => column.visible).length}
             >
               <div className="space-y-2">
@@ -416,7 +458,9 @@ function CustomerFilters({
                       />
                       <span className={cn(column.alwaysVisible && "text-muted-foreground")}>
                         {column.label}
-                        {column.alwaysVisible ? " (always shown)" : ""}
+                        {column.alwaysVisible
+                          ? ` (${t("customers.filters.alwaysShown", "always shown")})`
+                          : ""}
                       </span>
                     </label>
                   )
@@ -435,11 +479,11 @@ function CustomerFilters({
               onClick={clearAll}
               disabled={!hasActiveFilters(filters)}
             >
-              Clear all filters
+              {t("customers.filters.clearAll", "Clear all filters")}
             </Button>
             {onSaveFilter ? (
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onSaveFilter}>
-                Save filter
+                {t("customers.filters.save", "Save filter")}
               </Button>
             ) : null}
           </div>

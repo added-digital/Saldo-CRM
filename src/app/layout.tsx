@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { system } from "@/config/system"
+import { LanguageProvider } from "@/hooks/use-language"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -33,10 +34,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <TooltipProvider delayDuration={300}>
-          {children}
-          <Toaster richColors closeButton position="bottom-right" />
-        </TooltipProvider>
+        <LanguageProvider>
+          <TooltipProvider delayDuration={300}>
+            {children}
+            <Toaster richColors closeButton position="bottom-right" />
+          </TooltipProvider>
+        </LanguageProvider>
       </body>
     </html>
   )

@@ -32,9 +32,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useUser } from "@/hooks/use-user"
+import { useTranslation } from "@/hooks/use-translation"
 import { getRoleLabel, formatDate } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -46,6 +48,7 @@ export default function SettingsTeamDetailPage({
   const { id } = use(params)
   const router = useRouter()
   const { user: currentUser, isAdmin, isTeamLead } = useUser()
+  const { t } = useTranslation()
 
   const [team, setTeam] = React.useState<Team | null>(null)
   const [members, setMembers] = React.useState<Profile[]>([])
@@ -57,6 +60,7 @@ export default function SettingsTeamDetailPage({
   const [removeTarget, setRemoveTarget] = React.useState<Profile | null>(null)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false)
   const [actionLoading, setActionLoading] = React.useState(false)
+  const [teamNameDraft, setTeamNameDraft] = React.useState("")
 
   const isTeamOwner =
     isAdmin || (isTeamLead && team?.lead_id === currentUser?.id)
@@ -122,9 +126,9 @@ export default function SettingsTeamDetailPage({
       .eq("id", selectedUserId)
 
     if (error) {
-      toast.error("Failed to add member")
+      toast.error(t("settings.teamDetail.toast.addMemberFailed", "Failed to add member"))
     } else {
-      toast.success("Member added")
+      toast.success(t("settings.teamDetail.toast.memberAdded", "Member added"))
       setAddDialogOpen(false)
       setSelectedUserId("")
       fetchTeam()
@@ -143,9 +147,9 @@ export default function SettingsTeamDetailPage({
       .eq("id", removeTarget.id)
 
     if (error) {
-      toast.error("Failed to remove member")
+      toast.error(t("settings.teamDetail.toast.removeMemberFailed", "Failed to remove member"))
     } else {
-      toast.success("Member removed")
+      toast.success(t("settings.teamDetail.toast.memberRemoved", "Member removed"))
       setRemoveTarget(null)
       fetchTeam()
     }
@@ -163,9 +167,9 @@ export default function SettingsTeamDetailPage({
       .eq("id", id)
 
     if (error) {
-      toast.error("Failed to update team lead")
+      toast.error(t("settings.teamDetail.toast.updateLeadFailed", "Failed to update team lead"))
     } else {
-      toast.success("Team lead updated")
+      toast.success(t("settings.teamDetail.toast.leadUpdated", "Team lead updated"))
       fetchTeam()
     }
     setActionLoading(false)
@@ -178,13 +182,42 @@ export default function SettingsTeamDetailPage({
     const { error } = await supabase.from("teams").delete().eq("id", id)
 
     if (error) {
-      toast.error("Failed to delete team. Ensure all members are removed first.")
+      toast.error(
+        t(
+          "settings.teamDetail.toast.deleteFailed",
+          "Failed to delete team. Ensure all members are removed first."
+        )
+      )
     } else {
-      toast.success("Team deleted")
+      toast.success(t("settings.teamDetail.toast.teamDeleted", "Team deleted"))
       router.push("/settings/teams")
     }
     setActionLoading(false)
   }
+
+  async function handleTeamNameSave() {
+    const trimmedName = teamNameDraft.trim()
+    if (!team || !trimmedName || trimmedName === team.name) return
+
+    setActionLoading(true)
+    const supabase = createClient()
+    const { error } = await supabase
+      .from("teams")
+      .update({ name: trimmedName } as never)
+      .eq("id", id)
+
+    if (error) {
+      toast.error(t("settings.teamDetail.toast.updateNameFailed", "Failed to update team name"))
+    } else {
+      toast.success(t("settings.teamDetail.toast.nameUpdated", "Team name updated"))
+      setTeam((current) => (current ? { ...current, name: trimmedName } : current))
+    }
+    setActionLoading(false)
+  }
+
+  React.useEffect(() => {
+    setTeamNameDraft(team?.name ?? "")
+  }, [team?.name])
 
   if (loading) {
     return (
@@ -198,10 +231,12 @@ export default function SettingsTeamDetailPage({
   if (!team) {
     return (
       <div className="space-y-6">
-        <p className="text-lg font-semibold">Team not found</p>
+        <p className="text-lg font-semibold">
+          {t("settings.teamDetail.notFound", "Team not found")}
+        </p>
         <Button variant="outline" onClick={() => router.push("/settings/teams")}>
           <ArrowLeft className="size-4" />
-          Back to teams
+          {t("settings.teamDetail.backToTeams", "Back to teams")}
         </Button>
       </div>
     )
@@ -220,7 +255,7 @@ export default function SettingsTeamDetailPage({
           onClick={() => router.push("/settings/teams")}
         >
           <ArrowLeft className="size-4" />
-          <span className="sr-only">Back</span>
+          <span className="sr-only">{t("common.back", "Back")}</span>
         </Button>
         <div className="flex flex-1 items-center justify-between">
           <div>
@@ -236,7 +271,7 @@ export default function SettingsTeamDetailPage({
               onClick={() => setDeleteConfirmOpen(true)}
               disabled={members.length > 0}
             >
-              Delete Team
+              {t("settings.teamDetail.deleteTeam", "Delete Team")}
             </Button>
           )}
         </div>
@@ -247,21 +282,26 @@ export default function SettingsTeamDetailPage({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">
-                Members ({members.length})
+                {t("settings.teamDetail.members", "Members")} ({members.length})
               </CardTitle>
               {isTeamOwner && (
                 <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">
                       <UserPlus className="size-4" />
-                      Add Member
+                      {t("settings.teamDetail.addMember", "Add Member")}
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Add Team Member</DialogTitle>
+                      <DialogTitle>
+                        {t("settings.teamDetail.addTeamMember", "Add Team Member")}
+                      </DialogTitle>
                       <DialogDescription>
-                        Select a user to add to {team.name}.
+                        {t(
+                          "settings.teamDetail.selectUserDescription",
+                          "Select a user to add to"
+                        )} {team.name}.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
@@ -270,12 +310,14 @@ export default function SettingsTeamDetailPage({
                         onValueChange={setSelectedUserId}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a user" />
+                          <SelectValue
+                            placeholder={t("settings.teamDetail.selectUser", "Select a user")}
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           {availableUsers.length === 0 ? (
                             <SelectItem value="none" disabled>
-                              No available users
+                              {t("settings.teamDetail.noAvailableUsers", "No available users")}
                             </SelectItem>
                           ) : (
                             availableUsers.map((u) => (
@@ -291,13 +333,13 @@ export default function SettingsTeamDetailPage({
                           variant="outline"
                           onClick={() => setAddDialogOpen(false)}
                         >
-                          Cancel
+                          {t("common.cancel", "Cancel")}
                         </Button>
                         <Button
                           onClick={handleAddMember}
                           disabled={!selectedUserId || actionLoading}
                         >
-                          Add
+                          {t("common.add", "Add")}
                         </Button>
                       </div>
                     </div>
@@ -309,8 +351,11 @@ export default function SettingsTeamDetailPage({
               {members.length === 0 ? (
                 <EmptyState
                   icon={UserPlus}
-                  title="No members"
-                  description="Add members to this team to get started."
+                  title={t("settings.teamDetail.empty.title", "No members")}
+                  description={t(
+                    "settings.teamDetail.empty.description",
+                    "Add members to this team to get started."
+                  )}
                 />
               ) : (
                 <div className="space-y-2">
@@ -331,7 +376,9 @@ export default function SettingsTeamDetailPage({
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {getRoleLabel(member.role)}
-                            {member.id === team.lead_id && " · Team Lead"}
+                            {member.id === team.lead_id
+                              ? ` · ${t("settings.teamDetail.teamLead", "Team Lead")}`
+                              : ""}
                           </p>
                         </div>
                       </div>
@@ -342,7 +389,7 @@ export default function SettingsTeamDetailPage({
                           onClick={() => setRemoveTarget(member)}
                         >
                           <X className="size-4" />
-                          <span className="sr-only">Remove</span>
+                          <span className="sr-only">{t("common.remove", "Remove")}</span>
                         </Button>
                       )}
                     </div>
@@ -356,22 +403,54 @@ export default function SettingsTeamDetailPage({
         <div>
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Team Details</CardTitle>
+              <CardTitle className="text-base">
+                {t("settings.teamDetail.details", "Team Details")}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {isTeamOwner && (
+                <div className="space-y-2">
+                  <Label>{t("settings.teamDetail.teamName", "Team Name")}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={teamNameDraft}
+                      onChange={(event) => setTeamNameDraft(event.target.value)}
+                      placeholder={t("settings.teamDetail.teamNamePlaceholder", "Team Name")}
+                      disabled={actionLoading}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleTeamNameSave}
+                      disabled={
+                        actionLoading ||
+                        teamNameDraft.trim().length === 0 ||
+                        teamNameDraft.trim() === (team.name ?? "")
+                      }
+                    >
+                      {t("common.save", "Save")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {isAdmin && (
                 <div className="space-y-2">
-                  <Label>Team Lead</Label>
+                  <Label>{t("settings.teamDetail.teamLead", "Team Lead")}</Label>
                   <Select
                     value={team.lead_id ?? "none"}
                     onValueChange={handleLeadChange}
                     disabled={actionLoading}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select lead" />
+                      <SelectValue
+                        placeholder={t("settings.teamDetail.selectLead", "Select lead")}
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No lead</SelectItem>
+                      <SelectItem value="none">
+                        {t("settings.teamDetail.noLead", "No lead")}
+                      </SelectItem>
                       {eligibleLeads.map((u) => (
                         <SelectItem key={u.id} value={u.id}>
                           {u.full_name ?? u.email}
@@ -386,11 +465,15 @@ export default function SettingsTeamDetailPage({
 
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Created</span>
+                  <span className="text-muted-foreground">
+                    {t("settings.teamDetail.created", "Created")}
+                  </span>
                   <span>{formatDate(team.created_at)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Members</span>
+                  <span className="text-muted-foreground">
+                    {t("settings.teamDetail.members", "Members")}
+                  </span>
                   <span>{members.length}</span>
                 </div>
               </div>
@@ -402,9 +485,9 @@ export default function SettingsTeamDetailPage({
       <ConfirmDialog
         open={!!removeTarget}
         onOpenChange={(open) => !open && setRemoveTarget(null)}
-        title="Remove member"
-        description={`Remove ${removeTarget?.full_name ?? removeTarget?.email ?? "this user"} from ${team.name}? They will be unassigned from the team.`}
-        confirmLabel="Remove"
+        title={t("settings.teamDetail.removeMember", "Remove member")}
+        description={`${t("settings.teamDetail.removePromptPrefix", "Remove")} ${removeTarget?.full_name ?? removeTarget?.email ?? t("settings.teamDetail.thisUser", "this user")} ${t("settings.teamDetail.removePromptFrom", "from")} ${team.name}? ${t("settings.teamDetail.removePromptSuffix", "They will be unassigned from the team.")}`}
+        confirmLabel={t("common.remove", "Remove")}
         variant="destructive"
         onConfirm={handleRemoveMember}
         loading={actionLoading}
@@ -413,9 +496,9 @@ export default function SettingsTeamDetailPage({
       <ConfirmDialog
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
-        title="Delete team"
-        description={`Permanently delete "${team.name}"? This action cannot be undone. All members must be removed first.`}
-        confirmLabel="Delete"
+        title={t("settings.teamDetail.deleteTeamTitle", "Delete team")}
+        description={`${t("settings.teamDetail.deletePromptPrefix", "Permanently delete")} "${team.name}"? ${t("settings.teamDetail.deletePromptSuffix", "This action cannot be undone. All members must be removed first.")}`}
+        confirmLabel={t("common.delete", "Delete")}
         variant="destructive"
         onConfirm={handleDeleteTeam}
         loading={actionLoading}

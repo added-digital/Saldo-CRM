@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/hooks/use-translation";
 
 const REPORTS_MANAGER_ALIAS: Record<string, string> = {
   "added@saldoredo.se": "Matias.a@saldoredo.se",
@@ -91,6 +92,29 @@ function toMonthKey(date: Date): string {
   return `${year}-${month}`;
 }
 
+const SWEDISH_MONTH_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Maj",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Dec",
+] as const;
+
+function formatSwedishMonthShort(date: Date): string {
+  return SWEDISH_MONTH_SHORT[date.getMonth()] ?? "";
+}
+
+function formatSwedishMonthYear(date: Date): string {
+  return `${formatSwedishMonthShort(date)} ${date.getFullYear()}`;
+}
+
 function parseMonthKey(monthKey: string): { year: number; month: number } {
   const [yearPart, monthPart] = monthKey.split("-");
   const year = Number(yearPart);
@@ -110,9 +134,6 @@ function parseMonthKey(monthKey: string): { year: number; month: number } {
 }
 
 function createMonthOptions(count: number): SelectOption[] {
-  const monthFormatter = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-  });
   const now = new Date();
   const minSelectableMonth = "2025-01";
   const options: SelectOption[] = [];
@@ -121,7 +142,7 @@ function createMonthOptions(count: number): SelectOption[] {
     const valueDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
     options.push({
       id: toMonthKey(valueDate),
-      label: `${monthFormatter.format(valueDate)} ${valueDate.getFullYear()}`,
+      label: formatSwedishMonthYear(valueDate),
     });
   }
 
@@ -139,12 +160,6 @@ type ReportingWindowMode =
   | "current-month"
   | "rolling-12-months"
   | "rolling-year";
-
-const REPORTING_WINDOW_OPTIONS: SelectOption[] = [
-  { id: "current-month", label: "Current month" },
-  { id: "rolling-12-months", label: "Rollback 12 months" },
-  { id: "rolling-year", label: "Rollback year" },
-];
 
 function getReportingWindowRange(
   selectedMonthKey: string,
@@ -165,19 +180,12 @@ function getReportingWindowRange(
       : mode === "rolling-year"
         ? new Date(year, 0, 1)
         : new Date(year, month - 12, 1);
-  const monthLabelFormatter = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-  });
-  const titleFormatter = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    year: "numeric",
-  });
   const months: RollingMonth[] = [];
 
   if (mode === "current-month") {
     months.push({
       key: toMonthKey(monthDate),
-      label: monthLabelFormatter.format(monthDate),
+      label: formatSwedishMonthShort(monthDate),
       year: monthDate.getFullYear(),
       month: monthDate.getMonth() + 1,
     });
@@ -186,7 +194,7 @@ function getReportingWindowRange(
       from: toMonthKey(startDate) + "-01",
       to: endDate.toISOString().slice(0, 10),
       months,
-      title: titleFormatter.format(monthDate),
+      title: formatSwedishMonthYear(monthDate),
     };
   }
 
@@ -200,7 +208,7 @@ function getReportingWindowRange(
     );
     months.push({
       key: toMonthKey(monthDate),
-      label: monthLabelFormatter.format(monthDate),
+      label: formatSwedishMonthShort(monthDate),
       year: monthDate.getFullYear(),
       month: monthDate.getMonth() + 1,
     });
@@ -213,7 +221,7 @@ function getReportingWindowRange(
     title:
       mode === "rolling-year"
         ? String(year)
-        : titleFormatter.format(new Date(year, month - 1, 1)),
+        : formatSwedishMonthYear(new Date(year, month - 1, 1)),
   };
 }
 
@@ -336,6 +344,7 @@ type SearchSelectProps = {
   disabled?: boolean;
   allLabel?: string;
   allowClear?: boolean;
+  noOptionsLabel?: string;
 };
 
 type MonthlyTimeReportingRow = {
@@ -493,10 +502,14 @@ function TurnoverTooltipContent({
   active,
   payload,
   label,
+  turnoverLabel = "Turnover",
+  invoicesLabel = "Invoices",
 }: {
   active?: boolean;
   payload?: TurnoverTooltipPayloadItem[];
   label?: string | number;
+  turnoverLabel?: string;
+  invoicesLabel?: string;
 }) {
   if (!active || !Array.isArray(payload) || payload.length === 0) {
     return null;
@@ -513,13 +526,13 @@ function TurnoverTooltipContent({
       ) : null}
       <div className="grid gap-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground">Turnover</span>
+          <span className="text-muted-foreground">{turnoverLabel}</span>
           <span className="font-medium tabular-nums">
             {turnover.toLocaleString("sv-SE")}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground">Invoices</span>
+          <span className="text-muted-foreground">{invoicesLabel}</span>
           <span className="font-medium tabular-nums">
             {invoiceCount.toLocaleString("sv-SE")}
           </span>
@@ -538,6 +551,7 @@ function SearchSelect({
   disabled = false,
   allLabel = "All",
   allowClear = true,
+  noOptionsLabel = "No options found.",
 }: SearchSelectProps) {
   const [open, setOpen] = React.useState(false);
   const selected = options.find((option) => option.id === value) ?? null;
@@ -586,7 +600,7 @@ function SearchSelect({
                   <span>{allLabel}</span>
                 </CommandItem>
               ) : null}
-              <CommandEmpty>No options found.</CommandEmpty>
+              <CommandEmpty>{noOptionsLabel}</CommandEmpty>
               {options.map((option) => (
                 <CommandItem
                   key={option.id}
@@ -627,6 +641,7 @@ function SearchSelect({
 
 export default function ReportsPage() {
   const { user, isAdmin } = useUser();
+  const { t } = useTranslation();
   const searchParams = useSearchParams();
 
   const [loading, setLoading] = React.useState(true);
@@ -724,6 +739,23 @@ export default function ReportsPage() {
     () => getReportingWindowRange(selectedMonth, selectedWindowMode),
     [selectedMonth, selectedWindowMode],
   );
+  const reportingWindowOptions = React.useMemo<SelectOption[]>(
+    () => [
+      {
+        id: "current-month",
+        label: t("reports.filters.window.currentMonth", "Current month"),
+      },
+      {
+        id: "rolling-12-months",
+        label: t("reports.filters.window.rolling12Months", "Rollback 12 months"),
+      },
+      {
+        id: "rolling-year",
+        label: t("reports.filters.window.rollingYear", "Rollback year"),
+      },
+    ],
+    [t],
+  );
 
   const teamOptions = React.useMemo<SelectOption[]>(
     () => teams.map((team) => ({ id: team.id, label: team.name })),
@@ -739,9 +771,9 @@ export default function ReportsPage() {
     () =>
       availableManagers.map((manager) => ({
         id: manager.id,
-        label: manager.full_name ?? "Unknown manager",
+        label: manager.full_name ?? t("reports.unknownManager", "Unknown manager"),
       })),
-    [availableManagers],
+    [availableManagers, t],
   );
 
   const teamScopedCustomers = React.useMemo(() => {
@@ -835,34 +867,42 @@ export default function ReportsPage() {
 
   const customerAllLabel = React.useMemo(() => {
     if (selectedManagerId === user.id) {
-      return "My customers";
+      return t("reports.filters.myCustomers", "My customers");
     }
 
     if (selectedManager) {
-      return toPossessiveLabel(
+      const possessive = toPossessive(
         selectedManager.full_name?.trim() || selectedManager.email,
       );
+      if (!possessive) {
+        return t("reports.filters.allCustomers", "All customers");
+      }
+      return `${possessive} ${t("reports.filters.customers", "customers")}`;
     }
 
     if (selectedTeam) {
-      return toPossessiveLabel(selectedTeam.name);
+      const possessive = toPossessive(selectedTeam.name);
+      if (!possessive) {
+        return t("reports.filters.allCustomers", "All customers");
+      }
+      return `${possessive} ${t("reports.filters.customers", "customers")}`;
     }
 
-    return "All customers";
-  }, [selectedManager, selectedManagerId, selectedTeam, user.id]);
+    return t("reports.filters.allCustomers", "All customers");
+  }, [selectedManager, selectedManagerId, selectedTeam, t, user.id]);
 
   const managerAllLabel = React.useMemo(() => {
     if (!selectedTeam) {
-      return "All customer managers";
+      return t("reports.filters.allCustomerManagers", "All customer managers");
     }
 
     const possessiveTeam = toPossessive(selectedTeam.name);
     if (!possessiveTeam) {
-      return "All customer managers";
+      return t("reports.filters.allCustomerManagers", "All customer managers");
     }
 
-    return `All ${possessiveTeam} customer managers`;
-  }, [selectedTeam]);
+    return `${t("reports.filters.all", "All")} ${possessiveTeam} ${t("reports.filters.customerManagers", "customer managers")}`;
+  }, [selectedTeam, t]);
 
   const teamNameById = React.useMemo(() => {
     return new Map(teams.map((team) => [team.id, team.name]));
@@ -1007,7 +1047,7 @@ export default function ReportsPage() {
               )
             )?.full_name ?? null)
           : null;
-        const baseContributorName = row.employee_name ?? "Unknown";
+        const baseContributorName = row.employee_name ?? t("reports.unknown", "Unknown");
         const displayContributorName = mappedContributorName
           ? mappedContributorName
           : normalizedEmployeeId
@@ -1051,10 +1091,10 @@ function renderTurnoverCell(
   showNotExVatLabel = false,
 ) {
   if (value == null) {
-    return <span className="text-muted-foreground">missing</span>;
+    return <span className="text-muted-foreground">{t("reports.missing", "missing")}</span>;
   }
 
-  const valueText = `${sekFormatter.format(value)}${showNotExVatLabel ? " (NOT ex VAT)" : ""}`;
+  const valueText = `${sekFormatter.format(value)}${showNotExVatLabel ? ` ${t("reports.notExVat", "(NOT ex VAT)")}` : ""}`;
 
   if (value === 0 || !onClick) {
     return <span>{valueText}</span>;
@@ -1650,7 +1690,7 @@ function renderTurnoverCell(
     setInvoiceDetailsLoading(true);
     setInvoiceDetailsRows([]);
     setInvoiceDetailsTitle(
-      `${selectedCustomer?.name ?? "Selected customer"} · ${row.monthLabel} · Turnover`,
+      `${selectedCustomer?.name ?? t("reports.selectedCustomer", "Selected customer")} · ${row.monthLabel} · ${t("reports.columns.turnover", "Turnover")}`,
     );
 
     const supabase = createClient();
@@ -1793,6 +1833,129 @@ function renderTurnoverCell(
 
     setContractDetailsRows((data ?? []) as ContractAccrual[]);
     setContractDetailsLoading(false);
+  }
+
+  async function openManagerCustomerInvoiceDetails(
+    row: ManagerCustomerSummaryRow,
+  ) {
+    setInvoiceDetailsOpen(true);
+    setInvoiceDetailsLoading(true);
+    setInvoiceDetailsRows([]);
+    setInvoiceDetailsTitle(
+      `${row.customerName} · ${rollingWindow.title} · ${t("reports.columns.turnover", "Turnover")}`,
+    );
+
+    const customer = customers.find((item) => item.id === row.customerId) ?? null;
+    const supabase = createClient();
+
+    const withCustomerScope = (query: ReturnType<typeof supabase.from>) => {
+      let scoped = query
+        .gte("invoice_date", rollingWindow.from)
+        .lte("invoice_date", rollingWindow.to);
+      if (customer?.fortnox_customer_number) {
+        scoped = scoped.or(
+          `customer_id.eq.${row.customerId},fortnox_customer_number.eq.${customer.fortnox_customer_number}`,
+        );
+      } else {
+        scoped = scoped.eq("customer_id", row.customerId);
+      }
+      return scoped.order("invoice_date", { ascending: false });
+    };
+
+    let dueDateAvailable = true;
+    let dueDateRows: Array<{
+      id: string;
+      document_number: string;
+      invoice_date: string | null;
+      due_date: string | null;
+      total_ex_vat: number | null;
+      total: number | null;
+      currency_code: string | null;
+    }> = [];
+
+    const withDueDate = await withCustomerScope(
+      supabase
+        .from("invoices")
+        .select(
+          "id, document_number, invoice_date, due_date, total_ex_vat, total, currency_code",
+        ),
+    );
+
+    if (withDueDate.error && withDueDate.error.message.includes("due_date")) {
+      dueDateAvailable = false;
+    } else if (withDueDate.error) {
+      setInvoiceDetailsRows([]);
+      setInvoiceDetailsLoading(false);
+      return;
+    } else {
+      dueDateRows = (withDueDate.data ?? []) as Array<{
+        id: string;
+        document_number: string;
+        invoice_date: string | null;
+        due_date: string | null;
+        total_ex_vat: number | null;
+        total: number | null;
+        currency_code: string | null;
+      }>;
+    }
+
+    if (!dueDateAvailable) {
+      const withoutDueDate = await withCustomerScope(
+        supabase
+          .from("invoices")
+          .select(
+            "id, document_number, invoice_date, total_ex_vat, total, currency_code",
+          ),
+      );
+
+      if (withoutDueDate.error) {
+        setInvoiceDetailsRows([]);
+        setInvoiceDetailsLoading(false);
+        return;
+      }
+
+      const rows = (withoutDueDate.data ?? []) as Array<{
+        id: string;
+        document_number: string;
+        invoice_date: string | null;
+        total_ex_vat: number | null;
+        total: number | null;
+        currency_code: string | null;
+      }>;
+
+      setInvoiceDetailsRows(
+        rows.map((invoice) => {
+          const turnover = invoiceTurnoverExVat(invoice);
+          return {
+            id: invoice.id,
+            documentNumber: invoice.document_number,
+            invoiceDate: invoice.invoice_date,
+            dueDate: null,
+            turnover: turnover.amount,
+            turnoverFromTotal: turnover.fromTotal,
+            currencyCode: invoice.currency_code ?? "SEK",
+          };
+        }),
+      );
+      setInvoiceDetailsLoading(false);
+      return;
+    }
+
+    setInvoiceDetailsRows(
+      dueDateRows.map((invoice) => {
+        const turnover = invoiceTurnoverExVat(invoice);
+        return {
+          id: invoice.id,
+          documentNumber: invoice.document_number,
+          invoiceDate: invoice.invoice_date,
+          dueDate: invoice.due_date,
+          turnover: turnover.amount,
+          turnoverFromTotal: turnover.fromTotal,
+          currencyCode: invoice.currency_code ?? "SEK",
+        };
+      }),
+    );
+    setInvoiceDetailsLoading(false);
   }
 
   React.useEffect(() => {
@@ -2381,7 +2544,7 @@ function renderTurnoverCell(
       for (const row of rows) {
         const manager = managerById.get(row.manager_profile_id);
         const displayContributorName =
-          manager?.full_name?.trim() || manager?.email || "Unknown";
+          manager?.full_name?.trim() || manager?.email || t("reports.unknown", "Unknown");
         const contributorId =
           normalizeIdentifier(manager?.fortnox_user_id) ||
           normalizeIdentifier(manager?.fortnox_employee_id) ||
@@ -2442,6 +2605,7 @@ function renderTurnoverCell(
     rollingWindow,
     selectedCustomerId,
     selectedManagerId,
+    t,
     teamNameById,
   ]);
 
@@ -2497,7 +2661,7 @@ function renderTurnoverCell(
 
         const manager = managerById.get(row.customer_manager_profile_id);
         const managerName =
-          manager?.full_name?.trim() || manager?.email || "Unknown";
+          manager?.full_name?.trim() || manager?.email || t("reports.unknown", "Unknown");
         const groupName =
           manager?.fortnox_group_name ??
           (manager?.team_id ? (teamNameById.get(manager.team_id) ?? "-") : "-");
@@ -2550,6 +2714,7 @@ function renderTurnoverCell(
     rollingWindow,
     selectedCustomerId,
     selectedManagerId,
+    t,
     teamNameById,
   ]);
 
@@ -2584,6 +2749,15 @@ function renderTurnoverCell(
         filteredCustomers.map((customer) => [customer.id, customer.name]),
       );
       const totalsByCustomer = new Map<string, ManagerCustomerSummaryRow>();
+      const createEmptySummaryRow = (customerId: string): ManagerCustomerSummaryRow => ({
+        customerId,
+        customerName: customerNameById.get(customerId) ?? customerId,
+        turnover: 0,
+        invoiceCount: 0,
+        contractValue: 0,
+        workloadPercentage: 0,
+        customerHours: 0,
+      });
 
       for (const idChunk of customerIdChunks) {
         if (cancelled) return;
@@ -2591,7 +2765,7 @@ function renderTurnoverCell(
         const { data, error } = await supabase
           .from("customer_kpis")
           .select(
-            "customer_id, period_year, period_month, total_turnover, invoice_count, customer_hours",
+            "customer_id, period_year, period_month, invoice_count, customer_hours",
           )
           .in("customer_id", idChunk)
           .eq("period_type", "month")
@@ -2608,7 +2782,6 @@ function renderTurnoverCell(
           customer_id: string;
           period_year: number;
           period_month: number;
-          total_turnover: number | null;
           invoice_count: number | null;
           customer_hours: number | null;
         }>;
@@ -2617,22 +2790,111 @@ function renderTurnoverCell(
           const monthKey = `${row.period_year}-${String(row.period_month).padStart(2, "0")}`;
           if (!monthKeys.has(monthKey)) continue;
 
-          const current = totalsByCustomer.get(row.customer_id) ?? {
-            customerId: row.customer_id,
-            customerName:
-              customerNameById.get(row.customer_id) ?? row.customer_id,
-            turnover: 0,
-            invoiceCount: 0,
-            contractValue: 0,
-            workloadPercentage: 0,
-            customerHours: 0,
-          };
+          const current =
+            totalsByCustomer.get(row.customer_id) ??
+            createEmptySummaryRow(row.customer_id);
 
-          current.turnover += Number(row.total_turnover ?? 0);
           current.invoiceCount += Number(row.invoice_count ?? 0);
           current.customerHours += Number(row.customer_hours ?? 0);
 
           totalsByCustomer.set(row.customer_id, current);
+        }
+      }
+
+      const invoicesSeen = new Set<string>();
+      const customerNumberById = new Map(
+        filteredCustomers
+          .filter((customer) => Boolean(customer.fortnox_customer_number))
+          .map((customer) => [customer.id, customer.fortnox_customer_number as string]),
+      );
+      const customerIdsByNumber = new Map<string, string[]>();
+      for (const [customerId, customerNumber] of customerNumberById.entries()) {
+        const existing = customerIdsByNumber.get(customerNumber) ?? [];
+        existing.push(customerId);
+        customerIdsByNumber.set(customerNumber, existing);
+      }
+
+      for (const idChunk of customerIdChunks) {
+        if (cancelled) return;
+
+        const { data, error } = await supabase
+          .from("invoices")
+          .select("id, customer_id, total_ex_vat")
+          .in("customer_id", idChunk)
+          .gte("invoice_date", rollingWindow.from)
+          .lte("invoice_date", rollingWindow.to);
+
+        if (error) {
+          setManagerCustomerSummaryRows([]);
+          setManagerCustomerSummaryLoading(false);
+          return;
+        }
+
+        const rows = (data ?? []) as Array<{
+          id: string;
+          customer_id: string | null;
+          total_ex_vat: number | null;
+        }>;
+
+        for (const row of rows) {
+          if (!row.customer_id) continue;
+          invoicesSeen.add(row.id);
+
+          const current =
+            totalsByCustomer.get(row.customer_id) ??
+            createEmptySummaryRow(row.customer_id);
+          current.turnover += Number(row.total_ex_vat ?? 0);
+          totalsByCustomer.set(row.customer_id, current);
+        }
+      }
+
+      const customerNumberChunks = chunkArray(
+        Array.from(customerIdsByNumber.keys()),
+        200,
+      );
+
+      for (const numberChunk of customerNumberChunks) {
+        if (cancelled) return;
+
+        const { data, error } = await supabase
+          .from("invoices")
+          .select("id, customer_id, fortnox_customer_number, total_ex_vat")
+          .in("fortnox_customer_number", numberChunk)
+          .gte("invoice_date", rollingWindow.from)
+          .lte("invoice_date", rollingWindow.to);
+
+        if (error) {
+          setManagerCustomerSummaryRows([]);
+          setManagerCustomerSummaryLoading(false);
+          return;
+        }
+
+        const rows = (data ?? []) as Array<{
+          id: string;
+          customer_id: string | null;
+          fortnox_customer_number: string | null;
+          total_ex_vat: number | null;
+        }>;
+
+        for (const row of rows) {
+          if (invoicesSeen.has(row.id)) continue;
+          invoicesSeen.add(row.id);
+
+          const customerNumber = row.fortnox_customer_number;
+          if (!customerNumber) continue;
+
+          const targetCustomerIds = customerIdsByNumber.get(customerNumber);
+          if (!targetCustomerIds || targetCustomerIds.length === 0) continue;
+
+          const amount = Number(row.total_ex_vat ?? 0);
+
+          for (const customerId of targetCustomerIds) {
+            const current =
+              totalsByCustomer.get(customerId) ??
+              createEmptySummaryRow(customerId);
+            current.turnover += amount;
+            totalsByCustomer.set(customerId, current);
+          }
         }
       }
 
@@ -2688,15 +2950,9 @@ function renderTurnoverCell(
           );
 
           for (const customerId of targetCustomerIds) {
-            const current = totalsByCustomer.get(customerId) ?? {
-              customerId,
-              customerName: customerNameById.get(customerId) ?? customerId,
-              turnover: 0,
-              invoiceCount: 0,
-              contractValue: 0,
-              workloadPercentage: 0,
-              customerHours: 0,
-            };
+            const current =
+              totalsByCustomer.get(customerId) ??
+              createEmptySummaryRow(customerId);
 
             current.contractValue += annualized;
             totalsByCustomer.set(customerId, current);
@@ -2789,8 +3045,8 @@ function renderTurnoverCell(
         const contributorName = row.employee_name?.trim()
           ? row.employee_name.trim()
           : normalizedEmployeeId
-            ? `Unknown (ID: ${normalizedEmployeeId})`
-            : "Unknown";
+            ? `${t("reports.unknown", "Unknown")} (ID: ${normalizedEmployeeId})`
+            : t("reports.unknown", "Unknown");
         const byUserId = normalizedEmployeeId
           ? managerByFortnoxUserId.get(normalizedEmployeeId)
           : undefined;
@@ -2862,6 +3118,7 @@ function renderTurnoverCell(
     managerByFortnoxUserId,
     managerByFortnoxEmployeeId,
     managerByName,
+    t,
     teamNameById,
   ]);
 
@@ -3037,7 +3294,7 @@ function renderTurnoverCell(
 
       const averageRow: CustomerMonthlyEconomicsRow = {
         monthKey: "average",
-        monthLabel: "Average",
+        monthLabel: t("reports.average", "Average"),
         turnover: averageTurnover,
         turnoverFromTotal: hasFallbackTurnover,
         hours: averageHours,
@@ -3061,7 +3318,7 @@ function renderTurnoverCell(
     return () => {
       cancelled = true;
     };
-  }, [selectedCustomerId, selectedCustomer, rollingWindow]);
+  }, [selectedCustomerId, selectedCustomer, rollingWindow, t]);
 
   const monthlyTimeReportingColumns: ColumnDef<
     MonthlyTimeReportingRow,
@@ -3070,7 +3327,7 @@ function renderTurnoverCell(
     {
       id: "monthLabel",
       accessorFn: (row) => row.monthKey,
-      header: "Month",
+      header: t("reports.columns.month", "Month"),
       size: 160,
       enableSorting: true,
       sortingFn: (rowA, rowB) =>
@@ -3080,7 +3337,7 @@ function renderTurnoverCell(
     {
       id: "customerHours",
       accessorKey: "customerHours",
-      header: "Customer Hours",
+      header: t("reports.columns.customerHours", "Customer Hours"),
       size: 180,
       enableSorting: false,
       cell: ({ row }) =>
@@ -3095,7 +3352,7 @@ function renderTurnoverCell(
       {
         id: "absenceHours",
         accessorKey: "absenceHours",
-        header: "Absence",
+        header: t("reports.columns.absence", "Absence"),
         size: 140,
         enableSorting: false,
         cell: ({ row }) =>
@@ -3106,7 +3363,7 @@ function renderTurnoverCell(
       {
         id: "internalHours",
         accessorKey: "internalHours",
-        header: "Internal",
+        header: t("reports.columns.internal", "Internal"),
         size: 140,
         enableSorting: false,
         cell: ({ row }) =>
@@ -3117,7 +3374,7 @@ function renderTurnoverCell(
       {
         id: "totalHours",
         accessorKey: "totalHours",
-        header: "Total",
+        header: t("reports.columns.total", "Total"),
         size: 140,
         enableSorting: false,
         cell: ({ row }) =>
@@ -3135,21 +3392,21 @@ function renderTurnoverCell(
     {
       id: "contributorName",
       accessorKey: "contributorName",
-      header: "Customer Manager",
+      header: t("reports.columns.customerManager", "Customer Manager"),
       size: 220,
       enableSorting: false,
     },
     {
       id: "groupName",
       accessorKey: "groupName",
-      header: "Group",
+      header: t("reports.columns.group", "Group"),
       size: 180,
       enableSorting: false,
     },
     {
       id: "customerHours",
       accessorKey: "customerHours",
-      header: "Customer Hours",
+      header: t("reports.columns.customerHours", "Customer Hours"),
       size: 180,
       enableSorting: false,
       cell: ({ row }) =>
@@ -3160,7 +3417,7 @@ function renderTurnoverCell(
     {
       id: "workloadPercentage",
       accessorKey: "workloadPercentage",
-      header: "Workload Share",
+      header: t("reports.columns.workloadShare", "Workload Share"),
       size: 160,
       enableSorting: false,
       cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
@@ -3174,21 +3431,21 @@ function renderTurnoverCell(
     {
       id: "contributorName",
       accessorKey: "contributorName",
-      header: "Customer Manager",
+      header: t("reports.columns.customerManager", "Customer Manager"),
       size: 220,
       enableSorting: false,
     },
     {
       id: "groupName",
       accessorKey: "groupName",
-      header: "Group",
+      header: t("reports.columns.group", "Group"),
       size: 180,
       enableSorting: false,
     },
     {
       id: "customerHours",
       accessorKey: "customerHours",
-      header: "Customer Hours",
+      header: t("reports.columns.customerHours", "Customer Hours"),
       size: 180,
       enableSorting: false,
       cell: ({ row }) =>
@@ -3199,7 +3456,7 @@ function renderTurnoverCell(
     {
       id: "workloadPercentage",
       accessorKey: "workloadPercentage",
-      header: "Workload Share",
+      header: t("reports.columns.workloadShare", "Workload Share"),
       size: 160,
       enableSorting: false,
       cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
@@ -3213,22 +3470,25 @@ function renderTurnoverCell(
     {
       id: "customerName",
       accessorKey: "customerName",
-      header: "Customer name",
+      header: t("reports.columns.customerName", "Customer name"),
       size: 260,
       enableSorting: false,
     },
     {
       id: "turnover",
       accessorKey: "turnover",
-      header: "Turnover",
+      header: t("reports.columns.turnover", "Turnover"),
       size: 180,
       enableSorting: false,
-      cell: ({ row }) => sekFormatter.format(row.original.turnover),
+      cell: ({ row }) =>
+        renderTurnoverCell(row.original.turnover, () =>
+          openManagerCustomerInvoiceDetails(row.original),
+        ),
     },
     {
       id: "invoiceCount",
       accessorKey: "invoiceCount",
-      header: "Invoices",
+      header: t("reports.columns.invoices", "Invoices"),
       size: 140,
       enableSorting: false,
       cell: ({ row }) => row.original.invoiceCount.toLocaleString("sv-SE"),
@@ -3236,7 +3496,7 @@ function renderTurnoverCell(
     {
       id: "contractValue",
       accessorKey: "contractValue",
-      header: "Contract value",
+      header: t("reports.columns.contractValue", "Contract value"),
       size: 180,
       enableSorting: false,
       cell: ({ row }) =>
@@ -3247,7 +3507,7 @@ function renderTurnoverCell(
     {
       id: "workloadPercentage",
       accessorKey: "workloadPercentage",
-      header: "Workload",
+      header: t("reports.columns.workload", "Workload"),
       size: 140,
       enableSorting: false,
       cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
@@ -3265,7 +3525,7 @@ function renderTurnoverCell(
               size="icon"
               className="size-8"
               onClick={() => setSelectedCustomerId(row.original.customerId)}
-              aria-label={`Open ${row.original.customerName} in report`}
+              aria-label={`${t("reports.actions.open", "Open")} ${row.original.customerName} ${t("reports.actions.inReport", "in report")}`}
             >
               <ChevronRight className="size-4" />
             </Button>
@@ -3281,21 +3541,21 @@ function renderTurnoverCell(
     {
       id: "managerName",
       accessorKey: "managerName",
-      header: "Customer manager",
+      header: t("reports.columns.customerManager", "Customer manager"),
       size: 240,
       enableSorting: false,
     },
     {
       id: "groupName",
       accessorKey: "groupName",
-      header: "Group",
+      header: t("reports.columns.group", "Group"),
       size: 180,
       enableSorting: false,
     },
     {
       id: "customerHours",
       accessorKey: "customerHours",
-      header: "Customer Hours",
+      header: t("reports.columns.customerHours", "Customer Hours"),
       size: 180,
       enableSorting: false,
       cell: ({ row }) =>
@@ -3306,7 +3566,7 @@ function renderTurnoverCell(
     {
       id: "workloadPercentage",
       accessorKey: "workloadPercentage",
-      header: "Workload",
+      header: t("reports.columns.workload", "Workload"),
       size: 140,
       enableSorting: false,
       cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
@@ -3320,7 +3580,7 @@ function renderTurnoverCell(
     {
       id: "monthLabel",
       accessorFn: (row) => row.monthKey,
-      header: "Month",
+      header: t("reports.columns.month", "Month"),
       size: 180,
       enableSorting: true,
       sortingFn: (rowA, rowB) =>
@@ -3330,7 +3590,7 @@ function renderTurnoverCell(
     {
       id: "turnover",
       accessorKey: "turnover",
-      header: "Turnover",
+      header: t("reports.columns.turnover", "Turnover"),
       size: 180,
       enableSorting: false,
       cell: ({ row }) =>
@@ -3345,7 +3605,7 @@ function renderTurnoverCell(
     {
       id: "hours",
       accessorKey: "hours",
-      header: "Hours",
+      header: t("reports.columns.hours", "Hours"),
       size: 140,
       enableSorting: false,
       cell: ({ row }) =>
@@ -3370,12 +3630,12 @@ function renderTurnoverCell(
     {
       id: "turnoverPerHour",
       accessorKey: "turnoverPerHour",
-      header: "Turnover / Hours",
+      header: t("reports.columns.turnoverPerHours", "Turnover / Hours"),
       size: 220,
       enableSorting: false,
       cell: ({ row }) => {
         if (row.original.turnover == null) {
-          return "missing";
+          return t("reports.missing", "missing");
         }
         if (row.original.hours <= 0) {
           return "-";
@@ -3391,14 +3651,14 @@ function renderTurnoverCell(
     {
       id: "contract_number",
       accessorKey: "contract_number",
-      header: "Contract",
+      header: t("reports.columns.contract", "Contract"),
       size: 140,
       enableSorting: false,
     },
     {
       id: "description",
       accessorKey: "description",
-      header: "Description",
+      header: t("reports.columns.description", "Description"),
       size: 220,
       enableSorting: false,
       cell: ({ row }) => row.original.description ?? "-",
@@ -3406,7 +3666,7 @@ function renderTurnoverCell(
     {
       id: "period",
       accessorKey: "period",
-      header: "Period",
+      header: t("reports.columns.period", "Period"),
       size: 100,
       enableSorting: false,
       cell: ({ row }) => row.original.period ?? "-",
@@ -3414,7 +3674,7 @@ function renderTurnoverCell(
     {
       id: "start_date",
       accessorKey: "start_date",
-      header: "Start",
+      header: t("reports.columns.start", "Start"),
       size: 120,
       enableSorting: false,
       cell: ({ row }) => row.original.start_date ?? "-",
@@ -3422,7 +3682,7 @@ function renderTurnoverCell(
     {
       id: "end_date",
       accessorKey: "end_date",
-      header: "End",
+      header: t("reports.columns.end", "End"),
       size: 120,
       enableSorting: false,
       cell: ({ row }) => row.original.end_date ?? "-",
@@ -3430,7 +3690,7 @@ function renderTurnoverCell(
     {
       id: "total",
       accessorKey: "total",
-      header: "Total",
+      header: t("reports.columns.total", "Total"),
       size: 140,
       enableSorting: false,
       cell: ({ row }) =>
@@ -3440,7 +3700,7 @@ function renderTurnoverCell(
     },
     {
       id: "annualized",
-      header: "Annualized",
+      header: t("reports.columns.annualized", "Annualized"),
       size: 160,
       enableSorting: false,
       cell: ({ row }) =>
@@ -3454,7 +3714,7 @@ function renderTurnoverCell(
     {
       id: "is_active",
       accessorKey: "is_active",
-      header: "Status",
+      header: t("reports.columns.status", "Status"),
       size: 120,
       enableSorting: false,
       cell: ({ row }) => (row.original.is_active ? "Active" : "Inactive"),
@@ -3465,7 +3725,7 @@ function renderTurnoverCell(
     {
       id: "reportDate",
       accessorKey: "reportDate",
-      header: "Date",
+      header: t("reports.columns.date", "Date"),
       size: 120,
       enableSorting: false,
       cell: ({ row }) => row.original.reportDate ?? "-",
@@ -3473,7 +3733,7 @@ function renderTurnoverCell(
     {
       id: "customerName",
       accessorKey: "customerName",
-      header: "Customer",
+      header: t("reports.columns.customer", "Customer"),
       size: 220,
       enableSorting: false,
       cell: ({ row }) => row.original.customerName ?? "-",
@@ -3481,7 +3741,7 @@ function renderTurnoverCell(
     {
       id: "employeeName",
       accessorKey: "employeeName",
-      header: "Cost center",
+      header: t("reports.columns.costCenter", "Cost center"),
       size: 180,
       enableSorting: false,
       cell: ({ row }) => row.original.employeeName ?? "-",
@@ -3489,7 +3749,7 @@ function renderTurnoverCell(
     {
       id: "entryType",
       accessorKey: "entryType",
-      header: "Type",
+      header: t("reports.columns.type", "Type"),
       size: 140,
       enableSorting: false,
       cell: ({ row }) => row.original.entryType ?? "-",
@@ -3497,7 +3757,7 @@ function renderTurnoverCell(
     {
       id: "hours",
       accessorKey: "hours",
-      header: "Hours",
+      header: t("reports.columns.hours", "Hours"),
       size: 110,
       enableSorting: false,
       cell: ({ row }) => hoursFormatter.format(row.original.hours),
@@ -3505,7 +3765,7 @@ function renderTurnoverCell(
     {
       id: "projectName",
       accessorKey: "projectName",
-      header: "Project",
+      header: t("reports.columns.project", "Project"),
       size: 200,
       enableSorting: false,
       cell: ({ row }) => row.original.projectName ?? "-",
@@ -3513,7 +3773,7 @@ function renderTurnoverCell(
     {
       id: "activity",
       accessorKey: "activity",
-      header: "Activity",
+      header: t("reports.columns.activity", "Activity"),
       size: 180,
       enableSorting: false,
       cell: ({ row }) => row.original.activity ?? "-",
@@ -3521,7 +3781,7 @@ function renderTurnoverCell(
     {
       id: "description",
       accessorKey: "description",
-      header: "Description",
+      header: t("reports.columns.description", "Description"),
       size: 260,
       enableSorting: false,
       cell: ({ row }) => row.original.description ?? "-",
@@ -3532,14 +3792,14 @@ function renderTurnoverCell(
     {
       id: "documentNumber",
       accessorKey: "documentNumber",
-      header: "Invoice #",
+      header: t("reports.columns.invoiceNumber", "Invoice #"),
       size: 160,
       enableSorting: false,
     },
     {
       id: "invoiceDate",
       accessorKey: "invoiceDate",
-      header: "Date",
+      header: t("reports.columns.date", "Date"),
       size: 120,
       enableSorting: false,
       cell: ({ row }) => row.original.invoiceDate ?? "-",
@@ -3547,7 +3807,7 @@ function renderTurnoverCell(
     {
       id: "dueDate",
       accessorKey: "dueDate",
-      header: "Due date",
+      header: t("reports.columns.dueDate", "Due date"),
       size: 120,
       enableSorting: false,
       cell: ({ row }) => row.original.dueDate ?? "-",
@@ -3555,7 +3815,7 @@ function renderTurnoverCell(
     {
       id: "turnover",
       accessorKey: "turnover",
-      header: "Turnover",
+      header: t("reports.columns.turnover", "Turnover"),
       size: 180,
       enableSorting: false,
       cell: ({ row }) =>
@@ -3568,7 +3828,7 @@ function renderTurnoverCell(
     {
       id: "currencyCode",
       accessorKey: "currencyCode",
-      header: "Currency",
+      header: t("reports.columns.currency", "Currency"),
       size: 100,
       enableSorting: false,
     },
@@ -3580,8 +3840,8 @@ function renderTurnoverCell(
         <div className={cn("grid gap-4 lg:flex-1", filterGridClass)}>
           {showTeamFilter ? (
             <SearchSelect
-              placeholder="All teams"
-              searchPlaceholder="Search teams..."
+              placeholder={t("reports.filters.allTeams", "All teams")}
+              searchPlaceholder={t("reports.filters.searchTeams", "Search teams...")}
               options={teamOptions}
               value={selectedTeamId}
               onChange={(value) => {
@@ -3590,13 +3850,17 @@ function renderTurnoverCell(
                 setSelectedCustomerId(null);
               }}
               disabled={teamFilterDisabled}
-              allLabel="All teams"
+              allLabel={t("reports.filters.allTeams", "All teams")}
+              noOptionsLabel={t("reports.filters.noOptions", "No options found.")}
             />
           ) : null}
 
           <SearchSelect
             placeholder={managerAllLabel}
-            searchPlaceholder="Search customer managers..."
+            searchPlaceholder={t(
+              "reports.filters.searchCustomerManagers",
+              "Search customer managers...",
+            )}
             options={managerOptions}
             value={selectedManagerId}
             onChange={(value) => {
@@ -3605,33 +3869,36 @@ function renderTurnoverCell(
             }}
             disabled={loading || managerOptions.length === 0 || user.role === "user"}
             allLabel={managerAllLabel}
+            noOptionsLabel={t("reports.filters.noOptions", "No options found.")}
           />
 
           <SearchSelect
             placeholder={customerAllLabel}
-            searchPlaceholder="Search customers..."
+            searchPlaceholder={t("reports.filters.searchCustomers", "Search customers...")}
             options={customerOptions}
             value={selectedCustomerId}
             onChange={setSelectedCustomerId}
             disabled={loading || customerOptions.length === 0}
             allLabel={customerAllLabel}
+            noOptionsLabel={t("reports.filters.noOptions", "No options found.")}
           />
 
           <SearchSelect
-            placeholder="Select month"
-            searchPlaceholder="Search month..."
+            placeholder={t("reports.filters.selectMonth", "Select month")}
+            searchPlaceholder={t("reports.filters.searchMonth", "Search month...")}
             options={monthOptions}
             value={selectedMonth}
             onChange={(value) =>
               setSelectedMonth(value ?? toMonthKey(new Date()))
             }
             allowClear={false}
+            noOptionsLabel={t("reports.filters.noOptions", "No options found.")}
           />
 
           <SearchSelect
-            placeholder="Select period"
-            searchPlaceholder="Search period..."
-            options={REPORTING_WINDOW_OPTIONS}
+            placeholder={t("reports.filters.selectPeriod", "Select period")}
+            searchPlaceholder={t("reports.filters.searchPeriod", "Search period...")}
+            options={reportingWindowOptions}
             value={selectedWindowMode}
             onChange={(value) =>
               setSelectedWindowMode(
@@ -3639,14 +3906,18 @@ function renderTurnoverCell(
               )
             }
             allowClear={false}
+            noOptionsLabel={t("reports.filters.noOptions", "No options found.")}
           />
         </div>
 
         <div className="inline-flex h-10 items-center px-1 text-sm font-medium text-muted-foreground lg:shrink-0">
           <span className="text-[#d4af37]">{filteredCustomers.length}</span>
           <span>
-            &nbsp;customer{filteredCustomers.length === 1 ? "" : "s"} in current
-            filter
+            &nbsp;
+            {filteredCustomers.length === 1
+              ? t("reports.filters.customerSingular", "customer")
+              : t("reports.filters.customerPlural", "customers")}{" "}
+            {t("reports.filters.inCurrentFilter", "in current filter")}
           </span>
         </div>
       </div>
@@ -3679,8 +3950,11 @@ function renderTurnoverCell(
       ) : filteredCustomers.length === 0 ? (
         <EmptyState
           icon={Filter}
-          title="No customers match this filter"
-          description="Adjust team, customer manager, or customer selection to view KPIs."
+          title={t("reports.empty.noCustomers.title", "No customers match this filter")}
+          description={t(
+            "reports.empty.noCustomers.description",
+            "Adjust team, customer manager, or customer selection to view KPIs.",
+          )}
         />
       ) : (
         <div className="space-y-10">
@@ -3694,15 +3968,22 @@ function renderTurnoverCell(
                 }
               />
             {kpiLoading ? (
-              <p className="text-sm text-muted-foreground">Updating KPIs...</p>
+              <p className="text-sm text-muted-foreground">
+                {t("reports.kpis.updating", "Updating KPIs...")}
+              </p>
             ) : null}
           </div>
 
           <section className="space-y-3">
             <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
-              <h3 className="text-base font-semibold">Turnover per month</h3>
+              <h3 className="text-base font-semibold">
+                {t("reports.sections.turnoverPerMonth.title", "Turnover per month")}
+              </h3>
               <p className="text-sm text-muted-foreground">
-                Based on current filters and rolling 12-month window.
+                {t(
+                  "reports.sections.turnoverPerMonth.description",
+                  "Based on current filters and rolling 12-month window.",
+                )}
               </p>
             </div>
             {kpiLoading ? (
@@ -3741,7 +4022,12 @@ function renderTurnoverCell(
                   />
                   <ChartTooltip
                     cursor={false}
-                    content={<TurnoverTooltipContent />}
+                    content={
+                      <TurnoverTooltipContent
+                        turnoverLabel={t("reports.columns.turnover", "Turnover")}
+                        invoicesLabel={t("reports.columns.invoices", "Invoices")}
+                      />
+                    }
                   />
                   <Bar
                     dataKey="turnover"
@@ -3770,13 +4056,24 @@ function renderTurnoverCell(
 
           <section className="space-y-3">
             <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
-              <h3 className="text-base font-semibold">Time reporting</h3>
+              <h3 className="text-base font-semibold">
+                {t("reports.sections.timeReporting.title", "Time reporting")}
+              </h3>
               <p className="text-sm text-muted-foreground">
                 {selectedWindowMode === "current-month"
-                  ? "Current month view based on selected month."
+                  ? t(
+                      "reports.sections.timeReporting.currentMonthDescription",
+                      "Current month view based on selected month.",
+                    )
                   : selectedWindowMode === "rolling-year"
-                    ? "Calendar year view based on selected month year."
-                    : "Rolling 12-month view based on selected month."}
+                    ? t(
+                        "reports.sections.timeReporting.rollingYearDescription",
+                        "Calendar year view based on selected month year.",
+                      )
+                    : t(
+                        "reports.sections.timeReporting.rolling12MonthsDescription",
+                        "Rolling 12-month view based on selected month.",
+                      )}
               </p>
             </div>
             {!selectedCustomerId ? (
@@ -3789,8 +4086,11 @@ function renderTurnoverCell(
                 sortingStorageKey="reports.monthly-time-reporting.sort"
                 emptyState={{
                   icon: Filter,
-                  title: "No time reporting data",
-                  description: "No time reporting data found for this scope.",
+                  title: t("reports.empty.noTimeReportingData.title", "No time reporting data"),
+                  description: t(
+                    "reports.empty.noTimeReportingData.description",
+                    "No time reporting data found for this scope.",
+                  ),
                 }}
               />
             ) : (
@@ -3802,9 +4102,11 @@ function renderTurnoverCell(
                 pageSize={12}
                 emptyState={{
                   icon: Filter,
-                  title: "No customer-hour entries",
-                  description:
+                  title: t("reports.empty.noCustomerHourEntries.title", "No customer-hour entries"),
+                  description: t(
+                    "reports.empty.noCustomerHourEntries.description",
                     "No customer-hour entries found for this customer in the selected rolling window.",
+                  ),
                 }}
               />
             )}
@@ -3813,11 +4115,16 @@ function renderTurnoverCell(
               <div className="mt-8 space-y-3">
                 <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
                   <h4 className="text-sm font-semibold">
-                    Other customer managers on selected manager customers
+                    {t(
+                      "reports.sections.otherManagersOnSelected.title",
+                      "Other customer managers on selected manager customers",
+                    )}
                   </h4>
                   <p className="text-sm text-muted-foreground">
-                    Customer-hour time reported by other customer managers on
-                    the selected manager customer scope.
+                    {t(
+                      "reports.sections.otherManagersOnSelected.description",
+                      "Customer-hour time reported by other customer managers on the selected manager customer scope.",
+                    )}
                   </p>
                 </div>
 
@@ -3829,9 +4136,11 @@ function renderTurnoverCell(
                   pageSize={12}
                   emptyState={{
                     icon: Filter,
-                    title: "No other manager reports",
-                    description:
+                    title: t("reports.empty.noOtherManagerReports.title", "No other manager reports"),
+                    description: t(
+                      "reports.empty.noOtherManagerReports.description",
                       "No customer-hour entries from other customer managers were found for this scope.",
+                    ),
                   }}
                 />
               </div>
@@ -3841,11 +4150,16 @@ function renderTurnoverCell(
               <div className="mt-8 space-y-3">
                 <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
                   <h4 className="text-sm font-semibold">
-                    Customer managers helped most by selected manager
+                    {t(
+                      "reports.sections.helpedManagers.title",
+                      "Customer managers helped most by selected manager",
+                    )}
                   </h4>
                   <p className="text-sm text-muted-foreground">
-                    Customer-hour entries where the selected customer manager
-                    has worked on customers owned by other customer managers.
+                    {t(
+                      "reports.sections.helpedManagers.description",
+                      "Customer-hour entries where the selected customer manager has worked on customers owned by other customer managers.",
+                    )}
                   </p>
                 </div>
 
@@ -3857,9 +4171,11 @@ function renderTurnoverCell(
                   pageSize={12}
                   emptyState={{
                     icon: Filter,
-                    title: "No helped manager rows",
-                    description:
+                    title: t("reports.empty.noHelpedManagerRows.title", "No helped manager rows"),
+                    description: t(
+                      "reports.empty.noHelpedManagerRows.description",
                       "No customer-hour entries were found where this manager worked on other managers' customer scope.",
+                    ),
                   }}
                 />
               </div>
@@ -3870,13 +4186,15 @@ function renderTurnoverCell(
             <section className="space-y-3">
               <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
                 <h3 className="text-base font-semibold">
-                  Customers in cost center{" "}
+                  {t("reports.sections.customersInCostCenter.title", "Customers in cost center")}{" "}
                   {selectedManager?.fortnox_cost_center ?? "-"} -{" "}
-                  {selectedManager?.full_name ?? "Selected customer manager"}
+                  {selectedManager?.full_name ?? t("reports.selectedCustomerManager", "Selected customer manager")}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Period summary for customers in the selected customer manager
-                  scope.
+                  {t(
+                    "reports.sections.customersInCostCenter.description",
+                    "Period summary for customers in the selected customer manager scope.",
+                  )}
                 </p>
               </div>
 
@@ -3888,9 +4206,11 @@ function renderTurnoverCell(
                 pageSize={12}
                 emptyState={{
                   icon: Filter,
-                  title: "No customer summary rows",
-                  description:
+                  title: t("reports.empty.noCustomerSummaryRows.title", "No customer summary rows"),
+                  description: t(
+                    "reports.empty.noCustomerSummaryRows.description",
                     "No customer KPI rows were found for this manager and period.",
+                  ),
                 }}
               />
             </section>
@@ -3900,9 +4220,11 @@ function renderTurnoverCell(
             <div className="space-y-10">
               <section className="space-y-3">
                 <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
-                  <h3 className="text-base font-semibold">Customer Accruals</h3>
+                  <h3 className="text-base font-semibold">
+                    {t("reports.sections.customerAccruals.title", "Customer Accruals")}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
-                    {selectedCustomer?.name ?? "Selected customer"}
+                    {selectedCustomer?.name ?? t("reports.selectedCustomer", "Selected customer")}
                   </p>
                 </div>
                 <DataTable
@@ -3913,9 +4235,11 @@ function renderTurnoverCell(
                   pageSize={12}
                   emptyState={{
                     icon: Filter,
-                    title: "No contract accruals",
-                    description:
+                    title: t("reports.empty.noContractAccruals.title", "No contract accruals"),
+                    description: t(
+                      "reports.empty.noContractAccruals.description",
                       "No contract accruals found for this customer.",
+                    ),
                   }}
                 />
               </section>
@@ -3923,10 +4247,10 @@ function renderTurnoverCell(
               <section className="space-y-3">
                 <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
                   <h3 className="text-base font-semibold">
-                    Monthly turnover and hours
+                    {t("reports.sections.monthlyTurnoverAndHours.title", "Monthly turnover and hours")}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {selectedCustomer?.name ?? "Selected customer"} ·{" "}
+                    {selectedCustomer?.name ?? t("reports.selectedCustomer", "Selected customer")} ·{" "}
                     {rollingWindow.title}
                   </p>
                 </div>
@@ -3934,8 +4258,10 @@ function renderTurnoverCell(
                   <Skeleton className="h-[420px] w-full" />
                 ) : customerMonthlyEconomicsRows.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No turnover or hour data found for this customer in the
-                    selected range.
+                    {t(
+                      "reports.empty.noTurnoverOrHourData",
+                      "No turnover or hour data found for this customer in the selected range.",
+                    )}
                   </p>
                 ) : (
                   <DataTable
@@ -3947,9 +4273,11 @@ function renderTurnoverCell(
                     sortingStorageKey="reports.monthly-turnover-hours.sort"
                     emptyState={{
                       icon: Filter,
-                      title: "No monthly economics",
-                      description:
+                      title: t("reports.empty.noMonthlyEconomics.title", "No monthly economics"),
+                      description: t(
+                        "reports.empty.noTurnoverOrHourData",
                         "No turnover or hour data found for this customer in the selected range.",
+                      ),
                     }}
                   />
                 )}
@@ -3973,8 +4301,8 @@ function renderTurnoverCell(
               pageSize={20}
               emptyState={{
                 icon: Filter,
-                title: "No matching rows",
-                description: "No matching rows found.",
+                title: t("reports.empty.noMatchingRows.title", "No matching rows"),
+                description: t("reports.empty.noMatchingRows.description", "No matching rows found."),
               }}
             />
           </div>
@@ -3995,8 +4323,11 @@ function renderTurnoverCell(
               pageSize={20}
               emptyState={{
                 icon: Filter,
-                title: "No matching invoices",
-                description: "No matching invoices found for this month.",
+                title: t("reports.empty.noMatchingInvoices.title", "No matching invoices"),
+                description: t(
+                  "reports.empty.noMatchingInvoices.description",
+                  "No matching invoices found for this month.",
+                ),
               }}
             />
           </div>
@@ -4017,8 +4348,11 @@ function renderTurnoverCell(
               pageSize={20}
               emptyState={{
                 icon: Filter,
-                title: "No contract accruals",
-                description: "No contract accrual rows found for this customer.",
+                title: t("reports.empty.noContractAccruals.title", "No contract accruals"),
+                description: t(
+                  "reports.empty.noContractAccrualRows.description",
+                  "No contract accrual rows found for this customer.",
+                ),
               }}
             />
           </div>
