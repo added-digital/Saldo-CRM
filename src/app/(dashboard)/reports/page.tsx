@@ -4752,7 +4752,7 @@ function renderWorkloadShareCell(percentage: number) {
       )}
 
       <Dialog open={timeDetailsOpen} onOpenChange={setTimeDetailsOpen}>
-        <DialogContent className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] w-[calc(100vw-4rem)] max-w-none flex-col sm:max-w-none">
+        <DialogContent className="flex h-[calc(100vh-8rem)] max-h-[calc(100vh-8rem)] w-[calc(100vw-8rem)] max-w-none flex-col sm:max-w-none">
           <DialogHeader>
             <DialogTitle>{timeDetailsTitle}</DialogTitle>
           </DialogHeader>
@@ -4762,7 +4762,7 @@ function renderWorkloadShareCell(percentage: number) {
               columns={timeDetailsColumns}
               data={timeDetailsRows}
               loading={timeDetailsLoading}
-              pageSize={20}
+              pageSize={15}
               emptyState={{
                 icon: Filter,
                 title: t("reports.empty.noMatchingRows.title", "No matching rows"),
@@ -4774,7 +4774,7 @@ function renderWorkloadShareCell(percentage: number) {
       </Dialog>
 
       <Dialog open={invoiceDetailsOpen} onOpenChange={setInvoiceDetailsOpen}>
-        <DialogContent className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] w-[calc(100vw-4rem)] max-w-none flex-col sm:max-w-none">
+        <DialogContent className="flex h-[calc(100vh-8rem)] max-h-[calc(100vh-8rem)] w-[calc(100vw-8rem)] max-w-none flex-col sm:max-w-none">
           <DialogHeader>
             <DialogTitle>{invoiceDetailsTitle}</DialogTitle>
           </DialogHeader>
@@ -4784,7 +4784,7 @@ function renderWorkloadShareCell(percentage: number) {
               columns={invoiceDetailsColumns}
               data={invoiceDetailsRows}
               loading={invoiceDetailsLoading}
-              pageSize={20}
+              pageSize={15}
               emptyState={{
                 icon: Filter,
                 title: t("reports.empty.noMatchingInvoices.title", "No matching invoices"),
@@ -4799,7 +4799,7 @@ function renderWorkloadShareCell(percentage: number) {
       </Dialog>
 
       <Dialog open={contractDetailsOpen} onOpenChange={setContractDetailsOpen}>
-        <DialogContent className="flex h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] w-[calc(100vw-4rem)] max-w-none flex-col sm:max-w-none">
+        <DialogContent className="flex h-[calc(100vh-8rem)] max-h-[calc(100vh-8rem)] w-[calc(100vw-8rem)] max-w-none flex-col sm:max-w-none">
           <DialogHeader>
             <DialogTitle>{contractDetailsTitle}</DialogTitle>
           </DialogHeader>
@@ -4809,7 +4809,7 @@ function renderWorkloadShareCell(percentage: number) {
               columns={customerAccrualColumns}
               data={contractDetailsRows}
               loading={contractDetailsLoading}
-              pageSize={20}
+              pageSize={15}
               emptyState={{
                 icon: Filter,
                 title: t("reports.empty.noContractAccruals.title", "No contract accruals"),
