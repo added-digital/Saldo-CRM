@@ -26,17 +26,25 @@ const dictionaries = {
     "settings.sync.step.timeReports": "Time Reports",
     "settings.sync.step.contracts": "Contracts",
     "settings.sync.step.generateKpis": "Generate KPIs",
-    "settings.sync.desc.customers": "Sync customer data, cost centers, and link account managers",
-    "settings.sync.desc.employees": "Sync employees, create user accounts, and link cost centers",
-    "settings.sync.desc.invoices": "Sync invoice headers and compute turnover KPIs per customer",
-    "settings.sync.desc.articles": "Sync Fortnox time articles into the article registry",
-    "settings.sync.desc.timeReports": "Sync attendance transactions and compute reported hours",
-    "settings.sync.desc.contracts": "Sync contracts and compute contract value per customer",
-    "settings.sync.desc.generateKpis": "Recompute all customer KPI fields from existing invoices, time reports, and contracts",
+    "settings.sync.desc.customers":
+      "Sync customer data, cost centers, and link account managers",
+    "settings.sync.desc.employees":
+      "Sync employees, create user accounts, and link cost centers",
+    "settings.sync.desc.invoices":
+      "Sync invoice headers and compute turnover KPIs per customer",
+    "settings.sync.desc.articles":
+      "Sync Fortnox time articles into the article registry",
+    "settings.sync.desc.timeReports":
+      "Sync attendance transactions and compute reported hours",
+    "settings.sync.desc.contracts":
+      "Sync contracts and compute contract value per customer",
+    "settings.sync.desc.generateKpis":
+      "Recompute all customer KPI fields from existing invoices, time reports, and contracts",
     "settings.sync.syncIncomplete": "Sync incomplete",
     "settings.sync.syncFull": "Sync full",
     "settings.sync.recentJobs": "Recent Sync Jobs",
-    "settings.sync.recentJobsDescription": "History of the last 20 sync operations",
+    "settings.sync.recentJobsDescription":
+      "History of the last 20 sync operations",
     "settings.sync.clearHistory": "Clear History",
     "settings.sync.clearing": "Clearing...",
     "settings.sync.noJobs": "No sync jobs have been run yet",
@@ -48,7 +56,8 @@ const dictionaries = {
     "settings.sync.clearFailed": "Failed to clear sync history",
     "settings.sync.clearSuccess": "Sync history cleared",
     "settings.header.title": "Settings",
-    "settings.header.description": "Manage your account and system configuration",
+    "settings.header.description":
+      "Manage your account and system configuration",
     "settings.navigation.ariaLabel": "Settings navigation",
     "settings.tabs.profile": "Profile",
     "settings.tabs.users": "Users",
@@ -82,14 +91,17 @@ const dictionaries = {
     "customers.pagination.perPage30": "30 / page",
     "customers.pagination.perPage50": "50 / page",
     "customers.empty.title": "No customers",
-    "customers.empty.description": "Connect Fortnox in Settings → Integrations to sync your customer database.",
+    "customers.empty.description":
+      "Connect Fortnox in Settings → Integrations to sync your customer database.",
     "customers.empty.goToIntegrations": "Go to Integrations",
     "customers.actions.openInReports": "Open in Reports",
     "customers.actions.sendMail": "Send Mail",
     "customers.actions.addSegments": "Add Segments",
     "customers.dialog.addSegments.title": "Add Segments",
-    "customers.dialog.addSegments.description": "Select segments to assign to selected customers.",
-    "customers.dialog.addSegments.noneAvailable": "No segments available. Create segments in Settings → Segments.",
+    "customers.dialog.addSegments.description":
+      "Select segments to assign to selected customers.",
+    "customers.dialog.addSegments.noneAvailable":
+      "No segments available. Create segments in Settings → Segments.",
     "common.cancel": "Cancel",
     "common.back": "Back",
     "common.add": "Add",
@@ -97,18 +109,23 @@ const dictionaries = {
     "common.delete": "Delete",
     "common.save": "Save",
     "common.collapse": "Collapse",
+    "common.expand": "Expand",
     "common.yes": "Yes",
     "common.no": "No",
     "customers.dialog.addSegments.assigning": "Assigning...",
     "customers.dialog.addSegments.assign": "Assign Segments",
     "customers.toast.assignSegmentsFailed": "Failed to assign segments",
-    "customers.toast.assignSegmentsSuccessOne": "Segment assigned to 1 customer",
-    "customers.toast.assignSegmentsSuccessMany": "Segments assigned to selected customers",
-    "customers.toast.noPrimaryEmails": "No primary contact emails found for selected customers",
+    "customers.toast.assignSegmentsSuccessOne":
+      "Segment assigned to 1 customer",
+    "customers.toast.assignSegmentsSuccessMany":
+      "Segments assigned to selected customers",
+    "customers.toast.noPrimaryEmails":
+      "No primary contact emails found for selected customers",
     "customers.toast.filtersSaved": "Filters and list fields saved",
     "customers.filters.button": "Filters",
     "customers.filters.title": "Filters",
-    "customers.filters.subtitle": "Refine the customer list and choose what is shown in the list.",
+    "customers.filters.subtitle":
+      "Refine the customer list and choose what is shown in the list.",
     "customers.filters.section.status": "Status",
     "customers.filters.status.active": "Active",
     "customers.filters.status.archived": "Archived",
@@ -148,25 +165,40 @@ const dictionaries = {
     "reports.filters.customerPlural": "customers",
     "reports.filters.inCurrentFilter": "in current filter",
     "reports.empty.noCustomers.title": "No customers match this filter",
-    "reports.empty.noCustomers.description": "Adjust team, customer manager, or customer selection to view KPIs.",
+    "reports.empty.noCustomers.description":
+      "Adjust team, customer manager, or customer selection to view KPIs.",
     "reports.kpis.updating": "Updating KPIs...",
     "reports.sections.turnoverPerMonth.title": "Turnover per month",
-    "reports.sections.turnoverPerMonth.description": "Based on current filters and rolling 12-month window.",
+    "reports.sections.turnoverPerMonth.description":
+      "Based on current filters and rolling 12-month window.",
     "reports.sections.timeReporting.title": "Time reporting",
-    "reports.sections.timeReporting.currentMonthDescription": "Current month view based on selected month.",
-    "reports.sections.timeReporting.rollingYearDescription": "Calendar year view based on selected month year.",
-    "reports.sections.timeReporting.rolling12MonthsDescription": "Rolling 12-month view based on selected month.",
-    "reports.sections.otherManagersOnSelected.title": "Other customer managers on selected manager customers",
-    "reports.sections.otherManagersOnSelected.description": "Customer-hour time reported by other customer managers on the selected manager customer scope.",
-    "reports.sections.helpedManagers.title": "Customer managers helped most by selected manager",
-    "reports.sections.helpedManagers.description": "Customer-hour entries where the selected customer manager has worked on customers owned by other customer managers.",
+    "reports.sections.timeReporting.currentMonthDescription":
+      "Current month view based on selected month.",
+    "reports.sections.timeReporting.rollingYearDescription":
+      "Calendar year view based on selected month year.",
+    "reports.sections.timeReporting.rolling12MonthsDescription":
+      "Rolling 12-month view based on selected month.",
+    "reports.sections.otherManagersOnSelected.title":
+      "Other customer managers on selected manager customers",
+    "reports.sections.otherManagersOnSelected.description":
+      "Customer-hour time reported by other customer managers on the selected manager customer scope.",
+    "reports.sections.helpedManagers.title":
+      "Customer managers helped most by selected manager",
+    "reports.sections.helpedManagers.description":
+      "Customer-hour entries where the selected customer manager has worked on customers owned by other customer managers.",
     "reports.sections.customersInCostCenter.title": "Customers in cost center",
-    "reports.sections.customersInCostCenter.description": "Period summary for customers in the selected customer manager scope.",
+    "reports.sections.customersInCostCenter.description":
+      "Period summary for customers in the selected customer manager scope.",
     "reports.sections.customerAccruals.title": "Customer Accruals",
-    "reports.sections.monthlyTurnoverAndHours.title": "Monthly turnover and hours",
+    "reports.sections.monthlyTurnoverAndHours.title":
+      "Monthly turnover and hours",
+    "reports.sections.articleGroups.title": "Article groups",
+    "reports.sections.articleGroups.description":
+      "Mapped follow-up per article group for current selection.",
     "reports.selectedCustomer": "Selected customer",
     "reports.selectedCustomerManager": "Selected customer manager",
-    "reports.empty.noTurnoverOrHourData": "No turnover or hour data found for this customer in the selected range.",
+    "reports.empty.noTurnoverOrHourData":
+      "No turnover or hour data found for this customer in the selected range.",
     "reports.average": "Average",
     "reports.columns.month": "Month",
     "reports.columns.customerHours": "Customer Hours",
@@ -202,27 +234,46 @@ const dictionaries = {
     "reports.actions.open": "Open",
     "reports.actions.inReport": "in report",
     "reports.empty.noTimeReportingData.title": "No time reporting data",
-    "reports.empty.noTimeReportingData.description": "No time reporting data found for this scope.",
+    "reports.empty.noTimeReportingData.description":
+      "No time reporting data found for this scope.",
     "reports.empty.noCustomerHourEntries.title": "No customer-hour entries",
-    "reports.empty.noCustomerHourEntries.description": "No customer-hour entries found for this customer in the selected rolling window.",
+    "reports.empty.noCustomerHourEntries.description":
+      "No customer-hour entries found for this customer in the selected rolling window.",
     "reports.empty.noOtherManagerReports.title": "No other manager reports",
-    "reports.empty.noOtherManagerReports.description": "No customer-hour entries from other customer managers were found for this scope.",
+    "reports.empty.noOtherManagerReports.description":
+      "No customer-hour entries from other customer managers were found for this scope.",
     "reports.empty.noHelpedManagerRows.title": "No helped manager rows",
-    "reports.empty.noHelpedManagerRows.description": "No customer-hour entries were found where this manager worked on other managers' customer scope.",
+    "reports.empty.noHelpedManagerRows.description":
+      "No customer-hour entries were found where this manager worked on other managers' customer scope.",
     "reports.empty.noCustomerSummaryRows.title": "No customer summary rows",
-    "reports.empty.noCustomerSummaryRows.description": "No customer KPI rows were found for this manager and period.",
+    "reports.empty.noCustomerSummaryRows.description":
+      "No customer KPI rows were found for this manager and period.",
     "reports.empty.noContractAccruals.title": "No contract accruals",
-    "reports.empty.noContractAccruals.description": "No contract accruals found for this customer.",
+    "reports.empty.noContractAccruals.description":
+      "No contract accruals found for this customer.",
     "reports.empty.noMonthlyEconomics.title": "No monthly economics",
     "reports.empty.noMatchingRows.title": "No matching rows",
     "reports.empty.noMatchingRows.description": "No matching rows found.",
     "reports.empty.noMatchingInvoices.title": "No matching invoices",
-    "reports.empty.noMatchingInvoices.description": "No matching invoices found for this month.",
-    "reports.empty.noContractAccrualRows.description": "No contract accrual rows found for this customer.",
+    "reports.empty.noMatchingInvoices.description":
+      "No matching invoices found for this month.",
+    "reports.empty.noContractAccrualRows.description":
+      "No contract accrual rows found for this customer.",
+    "reports.empty.noArticleGroups":
+      "No article group rows found for this customer in the selected range.",
     "reports.unknownManager": "Unknown manager",
     "reports.unknown": "Unknown",
     "reports.missing": "missing",
     "reports.notExVat": "(NOT ex VAT)",
+    "reports.articleGroups.group": "Group",
+    "reports.articleGroups.turnoverExVat": "Turnover ex. VAT",
+    "reports.articleGroups.articles": "Articles",
+    "reports.articleGroups.count": "Count",
+    "reports.articleGroups.quantity": "Quantity",
+    "reports.articleGroups.share": "Share",
+    "reports.articleGroups.articleNumber": "Article #",
+    "reports.articleGroups.name": "Name",
+    "reports.articleGroups.unmapped": "Unmapped",
     "kpi.labels.turnover": "Turnover (kr)",
     "kpi.labels.invoices": "Invoices (pcs)",
     "kpi.labels.hours": "Hours (h)",
@@ -238,14 +289,16 @@ const dictionaries = {
     "settings.teams.description": "Description",
     "settings.teams.descriptionPlaceholder": "What does this team do?",
     "settings.teams.empty.title": "No teams",
-    "settings.teams.empty.description": "Create your first team to organize your users.",
+    "settings.teams.empty.description":
+      "Create your first team to organize your users.",
     "settings.teams.lead": "Lead",
     "settings.teams.noLeadAssigned": "No lead assigned",
     "settings.teams.memberSingular": "member",
     "settings.teams.memberPlural": "members",
     "settings.mail.defaults.title": "Headline",
     "settings.mail.defaults.previewText": "Quick update from Saldo",
-    "settings.mail.defaults.paragraphs": "This is a preview of your custom email content.",
+    "settings.mail.defaults.paragraphs":
+      "This is a preview of your custom email content.",
     "settings.mail.defaults.ctaLabel": "Call to action",
     "settings.mail.toast.recipientRequired": "Recipient email is required",
     "settings.mail.toast.sendFailed": "Failed to send email",
@@ -253,16 +306,19 @@ const dictionaries = {
     "settings.mail.toast.separateEmailSingular": "separate email",
     "settings.mail.toast.separateEmailPlural": "separate emails",
     "settings.mail.title": "Mail composer",
-    "settings.mail.description": "Choose recipient and customize template content.",
+    "settings.mail.description":
+      "Choose recipient and customize template content.",
     "settings.mail.sendTo": "Send to",
     "settings.mail.sendToPlaceholder": "name@example.com\nsecond@example.com",
-    "settings.mail.sendToHelp": "Add one email per line (or separate with comma/semicolon).",
+    "settings.mail.sendToHelp":
+      "Add one email per line (or separate with comma/semicolon).",
     "settings.mail.subject": "Subject",
     "settings.mail.brandName": "Brand name",
     "settings.mail.emailTitle": "Title",
     "settings.mail.previewText": "Preview text",
     "settings.mail.greeting": "Greeting",
-    "settings.mail.contentParagraphs": "Content paragraphs (one line per paragraph)",
+    "settings.mail.contentParagraphs":
+      "Content paragraphs (one line per paragraph)",
     "settings.mail.ctaLabel": "CTA label",
     "settings.mail.ctaUrl": "CTA URL",
     "settings.mail.footnote": "Footnote",
@@ -276,7 +332,8 @@ const dictionaries = {
     "settings.teamDetail.toast.memberRemoved": "Member removed",
     "settings.teamDetail.toast.updateLeadFailed": "Failed to update team lead",
     "settings.teamDetail.toast.leadUpdated": "Team lead updated",
-    "settings.teamDetail.toast.deleteFailed": "Failed to delete team. Ensure all members are removed first.",
+    "settings.teamDetail.toast.deleteFailed":
+      "Failed to delete team. Ensure all members are removed first.",
     "settings.teamDetail.toast.teamDeleted": "Team deleted",
     "settings.teamDetail.notFound": "Team not found",
     "settings.teamDetail.backToTeams": "Back to teams",
@@ -288,7 +345,8 @@ const dictionaries = {
     "settings.teamDetail.selectUser": "Select a user",
     "settings.teamDetail.noAvailableUsers": "No available users",
     "settings.teamDetail.empty.title": "No members",
-    "settings.teamDetail.empty.description": "Add members to this team to get started.",
+    "settings.teamDetail.empty.description":
+      "Add members to this team to get started.",
     "settings.teamDetail.teamLead": "Team Lead",
     "settings.teamDetail.details": "Team Details",
     "settings.teamDetail.selectLead": "Select lead",
@@ -298,18 +356,22 @@ const dictionaries = {
     "settings.teamDetail.removePromptPrefix": "Remove",
     "settings.teamDetail.thisUser": "this user",
     "settings.teamDetail.removePromptFrom": "from",
-    "settings.teamDetail.removePromptSuffix": "They will be unassigned from the team.",
+    "settings.teamDetail.removePromptSuffix":
+      "They will be unassigned from the team.",
     "settings.teamDetail.deleteTeamTitle": "Delete team",
     "settings.teamDetail.deletePromptPrefix": "Permanently delete",
-    "settings.teamDetail.deletePromptSuffix": "This action cannot be undone. All members must be removed first.",
+    "settings.teamDetail.deletePromptSuffix":
+      "This action cannot be undone. All members must be removed first.",
     "settings.integrations.toast.disconnectFailed": "Failed to disconnect",
     "settings.integrations.toast.disconnected": "Fortnox disconnected",
     "settings.integrations.toast.loadDebugFailed": "Failed to load debug dump",
     "settings.integrations.userDump.userIdRequired": "User ID is required",
-    "settings.integrations.userDump.loadFailed": "Failed to load Fortnox user dump",
+    "settings.integrations.userDump.loadFailed":
+      "Failed to load Fortnox user dump",
     "settings.integrations.connected": "Connected",
     "settings.integrations.notConnected": "Not connected",
-    "settings.integrations.description": "Sync customer data from your Fortnox account",
+    "settings.integrations.description":
+      "Sync customer data from your Fortnox account",
     "settings.integrations.connectedAt": "Connected",
     "settings.integrations.lastSync": "Last Sync",
     "settings.integrations.syncStatus": "Sync Status",
@@ -319,11 +381,14 @@ const dictionaries = {
     "settings.integrations.disconnect": "Disconnect",
     "settings.integrations.connectFortnox": "Connect Fortnox",
     "settings.integrations.disconnectTitle": "Disconnect Fortnox",
-    "settings.integrations.disconnectDescription": "This will remove the Fortnox connection. Customer data will remain but will no longer sync. You can reconnect at any time.",
+    "settings.integrations.disconnectDescription":
+      "This will remove the Fortnox connection. Customer data will remain but will no longer sync. You can reconnect at any time.",
     "settings.integrations.debug": "Debug",
-    "settings.integrations.debugDescription": "Live Fortnox sample for validating employee ID mapping.",
+    "settings.integrations.debugDescription":
+      "Live Fortnox sample for validating employee ID mapping.",
     "settings.integrations.loadingFortnoxDump": "Loading Fortnox dump...",
-    "settings.integrations.loadFortnoxDump": "Load Fortnox dump (10 time rows + 10 employees)",
+    "settings.integrations.loadFortnoxDump":
+      "Load Fortnox dump (10 time rows + 10 employees)",
     "settings.integrations.timeReports": "Time reports",
     "settings.integrations.employeeId": "Employee ID",
     "settings.integrations.employeeName": "Employee Name",
@@ -361,39 +426,52 @@ const dictionaries = {
     "settings.teamDetail.toast.updateNameFailed": "Failed to update team name",
     "settings.teamDetail.toast.nameUpdated": "Team name updated",
     "settings.contacts.toast.loadFailed": "Failed to load contacts",
-    "settings.contacts.toast.syncPrimaryFailed": "Failed to sync primary contact fields to Fortnox",
+    "settings.contacts.toast.syncPrimaryFailed":
+      "Failed to sync primary contact fields to Fortnox",
     "settings.contacts.toast.updateFailed": "Failed to update contact",
-    "settings.contacts.toast.validatePrimaryFailed": "Failed to validate primary contacts",
-    "settings.contacts.toast.removeRelationsFailed": "Failed to remove customer relations",
-    "settings.contacts.toast.addRelationsFailed": "Failed to add customer relations",
-    "settings.contacts.toast.updatePrimaryStatusFailed": "Failed to update primary status",
-    "settings.contacts.toast.replacePrimaryFailed": "Failed to replace existing primary contacts",
-    "settings.contacts.toast.validateReplacedFailed": "Failed to validate replaced contacts",
-    "settings.contacts.toast.cleanupReplacedFailed": "Failed to clean up replaced primary contact",
+    "settings.contacts.toast.validatePrimaryFailed":
+      "Failed to validate primary contacts",
+    "settings.contacts.toast.removeRelationsFailed":
+      "Failed to remove customer relations",
+    "settings.contacts.toast.addRelationsFailed":
+      "Failed to add customer relations",
+    "settings.contacts.toast.updatePrimaryStatusFailed":
+      "Failed to update primary status",
+    "settings.contacts.toast.replacePrimaryFailed":
+      "Failed to replace existing primary contacts",
+    "settings.contacts.toast.validateReplacedFailed":
+      "Failed to validate replaced contacts",
+    "settings.contacts.toast.cleanupReplacedFailed":
+      "Failed to clean up replaced primary contact",
     "settings.contacts.toast.updated": "Contact updated",
     "settings.contacts.toast.deleteFailed": "Failed to delete contact",
     "settings.contacts.toast.deleted": "Contact deleted",
     "settings.contacts.searchPlaceholder": "Search contacts or customers...",
     "settings.contacts.filters": "Filters",
     "settings.contacts.advancedFiltering": "Advanced filtering",
-    "settings.contacts.advancedFilteringDescription": "Refine contacts with checkbox-based filters.",
+    "settings.contacts.advancedFilteringDescription":
+      "Refine contacts with checkbox-based filters.",
     "settings.contacts.filter.duplicates": "Duplicates",
     "settings.contacts.filter.missingMail": "Missing Mail",
     "settings.contacts.filter.missingPhone": "Missing Phone",
-    "settings.contacts.filter.showArchivedCustomerContacts": "Show contacts for archived customers",
+    "settings.contacts.filter.showArchivedCustomerContacts":
+      "Show contacts for archived customers",
     "settings.contacts.clearFilters": "Clear filters",
     "settings.contacts.showing": "Showing",
     "settings.contacts.of": "of",
     "settings.contacts.contacts": "contacts",
     "settings.contacts.empty.title": "No contacts",
-    "settings.contacts.empty.description": "Contacts linked to customers will appear here.",
+    "settings.contacts.empty.description":
+      "Contacts linked to customers will appear here.",
     "settings.contacts.editContact": "Edit contact",
     "settings.contacts.deleteContact": "Delete contact",
     "settings.contacts.primaryContactFor": "Primary contact for:",
     "settings.contacts.contactFor": "Contact for:",
     "settings.contacts.deleteDialog.title": "Delete Contact",
-    "settings.contacts.deleteDialog.descriptionPrefix": "Are you sure you want to delete",
-    "settings.contacts.deleteDialog.descriptionSuffix": "This action cannot be undone.",
+    "settings.contacts.deleteDialog.descriptionPrefix":
+      "Are you sure you want to delete",
+    "settings.contacts.deleteDialog.descriptionSuffix":
+      "This action cannot be undone.",
     "settings.contacts.deleting": "Deleting...",
     "users.toast.inviteFailed": "Failed to invite user",
     "users.toast.invitationSentTo": "Invitation sent to",
@@ -439,13 +517,15 @@ const dictionaries = {
     "users.fields.fortnoxUserId": "Fortnox user ID",
     "users.fields.enterFortnoxUserId": "Enter Fortnox user ID",
     "users.fields.scopes": "Scopes",
-    "users.scopes.description": "Scopes determine which features this user can access.",
+    "users.scopes.description":
+      "Scopes determine which features this user can access.",
     "users.scopes.adminDefault": "Admins have all scopes by default.",
     "users.fields.joined": "Joined",
     "users.deactivateDialog.title": "Deactivate user",
     "users.reactivateDialog.title": "Reactivate user",
     "users.deactivateDialog.prefix": "Deactivate",
-    "users.deactivateDialog.description": "They will no longer be able to sign in.",
+    "users.deactivateDialog.description":
+      "They will no longer be able to sign in.",
     "users.reactivateDialog.prefix": "Reactivate",
     "users.reactivateDialog.description": "They will be able to sign in again.",
     "users.thisUser": "this user",
@@ -477,17 +557,25 @@ const dictionaries = {
     "settings.sync.step.timeReports": "Tidsrapporter",
     "settings.sync.step.contracts": "Avtal",
     "settings.sync.step.generateKpis": "Generera KPI:er",
-    "settings.sync.desc.customers": "Synka kunddata, kostnadsställen och koppla kundansvariga",
-    "settings.sync.desc.employees": "Synka medarbetare, skapa användare och koppla kostnadsställen",
-    "settings.sync.desc.invoices": "Synka fakturahuvuden och beräkna omsättnings-KPI per kund",
-    "settings.sync.desc.articles": "Synka Fortnox tidsartiklar till artikelregistret",
-    "settings.sync.desc.timeReports": "Synka närvarotransaktioner och beräkna rapporterade timmar",
-    "settings.sync.desc.contracts": "Synka avtal och beräkna avtalsvärde per kund",
-    "settings.sync.desc.generateKpis": "Räkna om alla kund-KPI:er från fakturor, tidrapporter och avtal",
+    "settings.sync.desc.customers":
+      "Synka kunddata, kostnadsställen och koppla kundansvariga",
+    "settings.sync.desc.employees":
+      "Synka medarbetare, skapa användare och koppla kostnadsställen",
+    "settings.sync.desc.invoices":
+      "Synka fakturahuvuden och beräkna omsättnings-KPI per kund",
+    "settings.sync.desc.articles":
+      "Synka Fortnox tidsartiklar till artikelregistret",
+    "settings.sync.desc.timeReports":
+      "Synka närvarotransaktioner och beräkna rapporterade timmar",
+    "settings.sync.desc.contracts":
+      "Synka avtal och beräkna avtalsvärde per kund",
+    "settings.sync.desc.generateKpis":
+      "Räkna om alla kund-KPI:er från fakturor, tidrapporter och avtal",
     "settings.sync.syncIncomplete": "Synka ofullständiga",
     "settings.sync.syncFull": "Synka allt",
     "settings.sync.recentJobs": "Senaste synkjobb",
-    "settings.sync.recentJobsDescription": "Historik över de senaste 20 synkoperationerna",
+    "settings.sync.recentJobsDescription":
+      "Historik över de senaste 20 synkoperationerna",
     "settings.sync.clearHistory": "Rensa historik",
     "settings.sync.clearing": "Rensar...",
     "settings.sync.noJobs": "Inga synkjobb har körts ännu",
@@ -533,14 +621,17 @@ const dictionaries = {
     "customers.pagination.perPage30": "30 / sida",
     "customers.pagination.perPage50": "50 / sida",
     "customers.empty.title": "Inga kunder",
-    "customers.empty.description": "Koppla Fortnox i Inställningar → Integrationer för att synka kundregistret.",
+    "customers.empty.description":
+      "Koppla Fortnox i Inställningar → Integrationer för att synka kundregistret.",
     "customers.empty.goToIntegrations": "Gå till integrationer",
     "customers.actions.openInReports": "Öppna i rapporter",
     "customers.actions.sendMail": "Skicka e-post",
     "customers.actions.addSegments": "Lägg till segment",
     "customers.dialog.addSegments.title": "Lägg till segment",
-    "customers.dialog.addSegments.description": "Välj segment att tilldela valda kunder.",
-    "customers.dialog.addSegments.noneAvailable": "Inga segment tillgängliga. Skapa segment i Inställningar → Segment.",
+    "customers.dialog.addSegments.description":
+      "Välj segment att tilldela valda kunder.",
+    "customers.dialog.addSegments.noneAvailable":
+      "Inga segment tillgängliga. Skapa segment i Inställningar → Segment.",
     "common.cancel": "Avbryt",
     "common.back": "Tillbaka",
     "common.add": "Lägg till",
@@ -548,18 +639,22 @@ const dictionaries = {
     "common.delete": "Radera",
     "common.save": "Spara",
     "common.collapse": "Fäll ihop",
+    "common.expand": "Expandera",
     "common.yes": "Ja",
     "common.no": "Nej",
     "customers.dialog.addSegments.assigning": "Tilldelar...",
     "customers.dialog.addSegments.assign": "Tilldela segment",
     "customers.toast.assignSegmentsFailed": "Kunde inte tilldela segment",
     "customers.toast.assignSegmentsSuccessOne": "Segment tilldelat till 1 kund",
-    "customers.toast.assignSegmentsSuccessMany": "Segment tilldelade till valda kunder",
-    "customers.toast.noPrimaryEmails": "Inga e-postadresser för primär kontakt hittades för valda kunder",
+    "customers.toast.assignSegmentsSuccessMany":
+      "Segment tilldelade till valda kunder",
+    "customers.toast.noPrimaryEmails":
+      "Inga e-postadresser för primär kontakt hittades för valda kunder",
     "customers.toast.filtersSaved": "Filter och listfält sparade",
     "customers.filters.button": "Filter",
     "customers.filters.title": "Filter",
-    "customers.filters.subtitle": "Förfina kundlistan och välj vad som visas i listan.",
+    "customers.filters.subtitle":
+      "Förfina kundlistan och välj vad som visas i listan.",
     "customers.filters.section.status": "Status",
     "customers.filters.status.active": "Aktiv",
     "customers.filters.status.archived": "Arkiverad",
@@ -567,7 +662,8 @@ const dictionaries = {
     "customers.filters.noSegments": "Inga segment tillgängliga.",
     "customers.filters.section.customerManager": "Kundansvarig",
     "customers.filters.searchManagers": "Sök kundansvariga...",
-    "customers.filters.noManagersMatch": "Inga kundansvariga matchar din sökning.",
+    "customers.filters.noManagersMatch":
+      "Inga kundansvariga matchar din sökning.",
     "customers.filters.noManagersAvailable": "Inga kundansvariga tillgängliga.",
     "customers.filters.section.missingFields": "Saknade fält",
     "customers.filters.field.primaryContact": "Primär kontakt",
@@ -599,25 +695,40 @@ const dictionaries = {
     "reports.filters.customerPlural": "kunder",
     "reports.filters.inCurrentFilter": "i aktuellt filter",
     "reports.empty.noCustomers.title": "Inga kunder matchar filtret",
-    "reports.empty.noCustomers.description": "Justera team, kundansvarig eller kundval för att visa KPI:er.",
+    "reports.empty.noCustomers.description":
+      "Justera team, kundansvarig eller kundval för att visa KPI:er.",
     "reports.kpis.updating": "Uppdaterar KPI:er...",
     "reports.sections.turnoverPerMonth.title": "Omsättning per månad",
-    "reports.sections.turnoverPerMonth.description": "Baserat på aktuella filter och rullande 12-månadersfönster.",
+    "reports.sections.turnoverPerMonth.description":
+      "Baserat på aktuella filter och rullande 12-månadersfönster.",
     "reports.sections.timeReporting.title": "Tidsrapportering",
-    "reports.sections.timeReporting.currentMonthDescription": "Visning för aktuell månad baserad på vald månad.",
-    "reports.sections.timeReporting.rollingYearDescription": "Visning för kalenderår baserad på valt månadsår.",
-    "reports.sections.timeReporting.rolling12MonthsDescription": "Rullande 12-månadersvisning baserad på vald månad.",
-    "reports.sections.otherManagersOnSelected.title": "Andra kundansvariga på vald kundansvarigs kunder",
-    "reports.sections.otherManagersOnSelected.description": "Kundtid rapporterad av andra kundansvariga inom vald kundansvarigs kundomfång.",
-    "reports.sections.helpedManagers.title": "Kundansvariga som hjälpts mest av vald kundansvarig",
-    "reports.sections.helpedManagers.description": "Kundtid där vald kundansvarig arbetat på kunder som ägs av andra kundansvariga.",
+    "reports.sections.timeReporting.currentMonthDescription":
+      "Visning för aktuell månad baserad på vald månad.",
+    "reports.sections.timeReporting.rollingYearDescription":
+      "Visning för kalenderår baserad på valt månadsår.",
+    "reports.sections.timeReporting.rolling12MonthsDescription":
+      "Rullande 12-månadersvisning baserad på vald månad.",
+    "reports.sections.otherManagersOnSelected.title":
+      "Andra kundansvariga på vald kundansvarigs kunder",
+    "reports.sections.otherManagersOnSelected.description":
+      "Kundtid rapporterad av andra kundansvariga inom vald kundansvarigs kundomfång.",
+    "reports.sections.helpedManagers.title":
+      "Kundansvariga som hjälpts mest av vald kundansvarig",
+    "reports.sections.helpedManagers.description":
+      "Kundtid där vald kundansvarig arbetat på kunder som ägs av andra kundansvariga.",
     "reports.sections.customersInCostCenter.title": "Kunder i kostnadsställe",
-    "reports.sections.customersInCostCenter.description": "Periodsammanfattning för kunder inom vald kundansvarigs omfång.",
-    "reports.sections.customerAccruals.title": "Kundperiodiseringar",
-    "reports.sections.monthlyTurnoverAndHours.title": "Månatlig omsättning och timmar",
+    "reports.sections.customersInCostCenter.description":
+      "Periodsammanfattning för kunder inom vald kundansvarigs omfång.",
+    "reports.sections.customerAccruals.title": "Kundavtal",
+    "reports.sections.monthlyTurnoverAndHours.title":
+      "Månatlig omsättning och timmar",
+    "reports.sections.articleGroups.title": "Artikelgrupper",
+    "reports.sections.articleGroups.description":
+      "Mappad uppföljning per artikelgrupp för aktuellt urval.",
     "reports.selectedCustomer": "Vald kund",
     "reports.selectedCustomerManager": "Vald kundansvarig",
-    "reports.empty.noTurnoverOrHourData": "Ingen omsättnings- eller timdata hittades för denna kund i valt intervall.",
+    "reports.empty.noTurnoverOrHourData":
+      "Ingen omsättnings- eller timdata hittades för denna kund i valt intervall.",
     "reports.average": "Genomsnitt",
     "reports.columns.month": "Månad",
     "reports.columns.customerHours": "Kundtid",
@@ -653,27 +764,50 @@ const dictionaries = {
     "reports.actions.open": "Öppna",
     "reports.actions.inReport": "i rapport",
     "reports.empty.noTimeReportingData.title": "Ingen tidsrapporteringsdata",
-    "reports.empty.noTimeReportingData.description": "Ingen tidsrapporteringsdata hittades för detta urval.",
+    "reports.empty.noTimeReportingData.description":
+      "Ingen tidsrapporteringsdata hittades för detta urval.",
     "reports.empty.noCustomerHourEntries.title": "Inga kundtidsrader",
-    "reports.empty.noCustomerHourEntries.description": "Inga kundtidsrader hittades för denna kund i valt rullande fönster.",
-    "reports.empty.noOtherManagerReports.title": "Inga rapporter från andra kundansvariga",
-    "reports.empty.noOtherManagerReports.description": "Inga kundtidsrader från andra kundansvariga hittades för detta urval.",
-    "reports.empty.noHelpedManagerRows.title": "Inga hjälpta kundansvariga-rader",
-    "reports.empty.noHelpedManagerRows.description": "Inga kundtidsrader hittades där denna kundansvariga arbetat på andra kundansvarigas kundomfång.",
-    "reports.empty.noCustomerSummaryRows.title": "Inga kundsammanfattningsrader",
-    "reports.empty.noCustomerSummaryRows.description": "Inga kund-KPI-rader hittades för denna kundansvariga och period.",
-    "reports.empty.noContractAccruals.title": "Inga avtalsperiodiseringar",
-    "reports.empty.noContractAccruals.description": "Inga avtalsperiodiseringar hittades för denna kund.",
+    "reports.empty.noCustomerHourEntries.description":
+      "Inga kundtidsrader hittades för denna kund i valt rullande fönster.",
+    "reports.empty.noOtherManagerReports.title":
+      "Inga rapporter från andra kundansvariga",
+    "reports.empty.noOtherManagerReports.description":
+      "Inga kundtidsrader från andra kundansvariga hittades för detta urval.",
+    "reports.empty.noHelpedManagerRows.title":
+      "Inga hjälpta kundansvariga-rader",
+    "reports.empty.noHelpedManagerRows.description":
+      "Inga kundtidsrader hittades där denna kundansvariga arbetat på andra kundansvarigas kundomfång.",
+    "reports.empty.noCustomerSummaryRows.title":
+      "Inga kundsammanfattningsrader",
+    "reports.empty.noCustomerSummaryRows.description":
+      "Inga kund-KPI-rader hittades för denna kundansvariga och period.",
+    "reports.empty.noContractAccruals.title": "Inga kundavtal",
+    "reports.empty.noContractAccruals.description":
+      "Inga kundavtal hittades för denna kund.",
     "reports.empty.noMonthlyEconomics.title": "Ingen månadsekonomi",
     "reports.empty.noMatchingRows.title": "Inga matchande rader",
-    "reports.empty.noMatchingRows.description": "Inga matchande rader hittades.",
+    "reports.empty.noMatchingRows.description":
+      "Inga matchande rader hittades.",
     "reports.empty.noMatchingInvoices.title": "Inga matchande fakturor",
-    "reports.empty.noMatchingInvoices.description": "Inga matchande fakturor hittades för denna månad.",
-    "reports.empty.noContractAccrualRows.description": "Inga avtalsperiodiseringsrader hittades för denna kund.",
+    "reports.empty.noMatchingInvoices.description":
+      "Inga matchande fakturor hittades för denna månad.",
+    "reports.empty.noContractAccrualRows.description":
+      "Inga kundavtalsrader hittades för denna kund.",
+    "reports.empty.noArticleGroups":
+      "Inga artikelgrupprader hittades för denna kund i valt intervall.",
     "reports.unknownManager": "Okänd kundansvarig",
     "reports.unknown": "Okänd",
     "reports.missing": "saknas",
     "reports.notExVat": "(EJ exkl. moms)",
+    "reports.articleGroups.group": "Grupp",
+    "reports.articleGroups.turnoverExVat": "Omsättning exkl. moms",
+    "reports.articleGroups.articles": "Artiklar",
+    "reports.articleGroups.count": "Antal",
+    "reports.articleGroups.quantity": "Mängd",
+    "reports.articleGroups.share": "Andel",
+    "reports.articleGroups.articleNumber": "Artikelnr",
+    "reports.articleGroups.name": "Benämning",
+    "reports.articleGroups.unmapped": "Omappad",
     "kpi.labels.turnover": "Omsättning (kr)",
     "kpi.labels.invoices": "Fakturor (st)",
     "kpi.labels.hours": "Timmar (h)",
@@ -683,20 +817,23 @@ const dictionaries = {
     "settings.teams.toast.created": "Team skapat",
     "settings.teams.newTeam": "Nytt team",
     "settings.teams.createTitle": "Skapa team",
-    "settings.teams.createDescription": "Lägg till ett nytt team i organisationen.",
+    "settings.teams.createDescription":
+      "Lägg till ett nytt team i organisationen.",
     "settings.teams.teamName": "Teamnamn",
     "settings.teams.teamNamePlaceholder": "Säljteam",
     "settings.teams.description": "Beskrivning",
     "settings.teams.descriptionPlaceholder": "Vad gör teamet?",
     "settings.teams.empty.title": "Inga team",
-    "settings.teams.empty.description": "Skapa ditt första team för att organisera användare.",
+    "settings.teams.empty.description":
+      "Skapa ditt första team för att organisera användare.",
     "settings.teams.lead": "Teamlead",
     "settings.teams.noLeadAssigned": "Ingen lead tilldelad",
     "settings.teams.memberSingular": "medlem",
     "settings.teams.memberPlural": "medlemmar",
     "settings.mail.defaults.title": "Rubrik",
     "settings.mail.defaults.previewText": "Snabb uppdatering från Saldo",
-    "settings.mail.defaults.paragraphs": "Detta är en förhandsvisning av ditt anpassade e-postinnehåll.",
+    "settings.mail.defaults.paragraphs":
+      "Detta är en förhandsvisning av ditt anpassade e-postinnehåll.",
     "settings.mail.defaults.ctaLabel": "Uppmaning till handling",
     "settings.mail.toast.recipientRequired": "Mottagarens e-post krävs",
     "settings.mail.toast.sendFailed": "Kunde inte skicka e-post",
@@ -707,7 +844,8 @@ const dictionaries = {
     "settings.mail.description": "Välj mottagare och anpassa mallens innehåll.",
     "settings.mail.sendTo": "Skicka till",
     "settings.mail.sendToPlaceholder": "namn@exempel.se\nandra@exempel.se",
-    "settings.mail.sendToHelp": "Lägg till en e-postadress per rad (eller separera med komma/semikolon).",
+    "settings.mail.sendToHelp":
+      "Lägg till en e-postadress per rad (eller separera med komma/semikolon).",
     "settings.mail.subject": "Ämne",
     "settings.mail.brandName": "Varumärkesnamn",
     "settings.mail.emailTitle": "Titel",
@@ -725,9 +863,11 @@ const dictionaries = {
     "settings.teamDetail.toast.memberAdded": "Medlem tillagd",
     "settings.teamDetail.toast.removeMemberFailed": "Kunde inte ta bort medlem",
     "settings.teamDetail.toast.memberRemoved": "Medlem borttagen",
-    "settings.teamDetail.toast.updateLeadFailed": "Kunde inte uppdatera teamlead",
+    "settings.teamDetail.toast.updateLeadFailed":
+      "Kunde inte uppdatera teamlead",
     "settings.teamDetail.toast.leadUpdated": "Teamlead uppdaterad",
-    "settings.teamDetail.toast.deleteFailed": "Kunde inte radera teamet. Säkerställ att alla medlemmar är borttagna först.",
+    "settings.teamDetail.toast.deleteFailed":
+      "Kunde inte radera teamet. Säkerställ att alla medlemmar är borttagna först.",
     "settings.teamDetail.toast.teamDeleted": "Team raderat",
     "settings.teamDetail.notFound": "Team hittades inte",
     "settings.teamDetail.backToTeams": "Tillbaka till team",
@@ -735,11 +875,13 @@ const dictionaries = {
     "settings.teamDetail.members": "Medlemmar",
     "settings.teamDetail.addMember": "Lägg till medlem",
     "settings.teamDetail.addTeamMember": "Lägg till teammedlem",
-    "settings.teamDetail.selectUserDescription": "Välj en användare att lägga till i",
+    "settings.teamDetail.selectUserDescription":
+      "Välj en användare att lägga till i",
     "settings.teamDetail.selectUser": "Välj en användare",
     "settings.teamDetail.noAvailableUsers": "Inga tillgängliga användare",
     "settings.teamDetail.empty.title": "Inga medlemmar",
-    "settings.teamDetail.empty.description": "Lägg till medlemmar i teamet för att komma igång.",
+    "settings.teamDetail.empty.description":
+      "Lägg till medlemmar i teamet för att komma igång.",
     "settings.teamDetail.teamLead": "Teamlead",
     "settings.teamDetail.details": "Teamdetaljer",
     "settings.teamDetail.selectLead": "Välj teamlead",
@@ -749,18 +891,23 @@ const dictionaries = {
     "settings.teamDetail.removePromptPrefix": "Ta bort",
     "settings.teamDetail.thisUser": "den här användaren",
     "settings.teamDetail.removePromptFrom": "från",
-    "settings.teamDetail.removePromptSuffix": "De kommer att avkopplas från teamet.",
+    "settings.teamDetail.removePromptSuffix":
+      "De kommer att avkopplas från teamet.",
     "settings.teamDetail.deleteTeamTitle": "Radera team",
     "settings.teamDetail.deletePromptPrefix": "Radera permanent",
-    "settings.teamDetail.deletePromptSuffix": "Denna åtgärd kan inte ångras. Alla medlemmar måste tas bort först.",
+    "settings.teamDetail.deletePromptSuffix":
+      "Denna åtgärd kan inte ångras. Alla medlemmar måste tas bort först.",
     "settings.integrations.toast.disconnectFailed": "Kunde inte koppla från",
     "settings.integrations.toast.disconnected": "Fortnox frånkopplad",
-    "settings.integrations.toast.loadDebugFailed": "Kunde inte ladda debug-data",
+    "settings.integrations.toast.loadDebugFailed":
+      "Kunde inte ladda debug-data",
     "settings.integrations.userDump.userIdRequired": "Användar-ID krävs",
-    "settings.integrations.userDump.loadFailed": "Kunde inte ladda Fortnox-användardump",
+    "settings.integrations.userDump.loadFailed":
+      "Kunde inte ladda Fortnox-användardump",
     "settings.integrations.connected": "Ansluten",
     "settings.integrations.notConnected": "Inte ansluten",
-    "settings.integrations.description": "Synka kunddata från ditt Fortnox-konto",
+    "settings.integrations.description":
+      "Synka kunddata från ditt Fortnox-konto",
     "settings.integrations.connectedAt": "Ansluten",
     "settings.integrations.lastSync": "Senaste synk",
     "settings.integrations.syncStatus": "Synkstatus",
@@ -770,11 +917,14 @@ const dictionaries = {
     "settings.integrations.disconnect": "Koppla från",
     "settings.integrations.connectFortnox": "Anslut Fortnox",
     "settings.integrations.disconnectTitle": "Koppla från Fortnox",
-    "settings.integrations.disconnectDescription": "Detta tar bort Fortnox-anslutningen. Kunddata finns kvar men synkas inte längre. Du kan ansluta igen när som helst.",
+    "settings.integrations.disconnectDescription":
+      "Detta tar bort Fortnox-anslutningen. Kunddata finns kvar men synkas inte längre. Du kan ansluta igen när som helst.",
     "settings.integrations.debug": "Debug",
-    "settings.integrations.debugDescription": "Live-sample från Fortnox för validering av employee ID-mappning.",
+    "settings.integrations.debugDescription":
+      "Live-sample från Fortnox för validering av employee ID-mappning.",
     "settings.integrations.loadingFortnoxDump": "Laddar Fortnox-dump...",
-    "settings.integrations.loadFortnoxDump": "Ladda Fortnox-dump (10 tidsrader + 10 anställda)",
+    "settings.integrations.loadFortnoxDump":
+      "Ladda Fortnox-dump (10 tidsrader + 10 anställda)",
     "settings.integrations.timeReports": "Tidsrapporter",
     "settings.integrations.employeeId": "Anställnings-ID",
     "settings.integrations.employeeName": "Anställd",
@@ -784,7 +934,8 @@ const dictionaries = {
     "settings.integrations.lastName": "Efternamn",
     "settings.integrations.active": "Aktiv",
     "settings.integrations.fortnoxUserDump": "Fortnox-användardump",
-    "settings.integrations.userOrEmployeeId": "Fortnox användar-/anställnings-ID",
+    "settings.integrations.userOrEmployeeId":
+      "Fortnox användar-/anställnings-ID",
     "settings.integrations.loadingUserDump": "Laddar användardump...",
     "settings.integrations.loadUserDump": "Ladda användardump",
     "settings.integrations.lookupId": "Uppslags-ID",
@@ -809,48 +960,63 @@ const dictionaries = {
     "dashboard.ask.send": "Skicka",
     "settings.teamDetail.teamName": "Teamnamn",
     "settings.teamDetail.teamNamePlaceholder": "Teamnamn",
-    "settings.teamDetail.toast.updateNameFailed": "Kunde inte uppdatera teamnamn",
+    "settings.teamDetail.toast.updateNameFailed":
+      "Kunde inte uppdatera teamnamn",
     "settings.teamDetail.toast.nameUpdated": "Teamnamn uppdaterat",
     "settings.contacts.toast.loadFailed": "Kunde inte ladda kontakter",
-    "settings.contacts.toast.syncPrimaryFailed": "Kunde inte synka primärkontaktfält till Fortnox",
+    "settings.contacts.toast.syncPrimaryFailed":
+      "Kunde inte synka primärkontaktfält till Fortnox",
     "settings.contacts.toast.updateFailed": "Kunde inte uppdatera kontakt",
-    "settings.contacts.toast.validatePrimaryFailed": "Kunde inte validera primärkontakter",
-    "settings.contacts.toast.removeRelationsFailed": "Kunde inte ta bort kundrelationer",
-    "settings.contacts.toast.addRelationsFailed": "Kunde inte lägga till kundrelationer",
-    "settings.contacts.toast.updatePrimaryStatusFailed": "Kunde inte uppdatera primärstatus",
-    "settings.contacts.toast.replacePrimaryFailed": "Kunde inte ersätta befintliga primärkontakter",
-    "settings.contacts.toast.validateReplacedFailed": "Kunde inte validera ersatta kontakter",
-    "settings.contacts.toast.cleanupReplacedFailed": "Kunde inte städa upp ersatt primärkontakt",
+    "settings.contacts.toast.validatePrimaryFailed":
+      "Kunde inte validera primärkontakter",
+    "settings.contacts.toast.removeRelationsFailed":
+      "Kunde inte ta bort kundrelationer",
+    "settings.contacts.toast.addRelationsFailed":
+      "Kunde inte lägga till kundrelationer",
+    "settings.contacts.toast.updatePrimaryStatusFailed":
+      "Kunde inte uppdatera primärstatus",
+    "settings.contacts.toast.replacePrimaryFailed":
+      "Kunde inte ersätta befintliga primärkontakter",
+    "settings.contacts.toast.validateReplacedFailed":
+      "Kunde inte validera ersatta kontakter",
+    "settings.contacts.toast.cleanupReplacedFailed":
+      "Kunde inte städa upp ersatt primärkontakt",
     "settings.contacts.toast.updated": "Kontakt uppdaterad",
     "settings.contacts.toast.deleteFailed": "Kunde inte ta bort kontakt",
     "settings.contacts.toast.deleted": "Kontakt borttagen",
     "settings.contacts.searchPlaceholder": "Sök kontakter eller kunder...",
     "settings.contacts.filters": "Filter",
     "settings.contacts.advancedFiltering": "Avancerad filtrering",
-    "settings.contacts.advancedFilteringDescription": "Förfina kontakter med kryssrute-filter.",
+    "settings.contacts.advancedFilteringDescription":
+      "Förfina kontakter med kryssrute-filter.",
     "settings.contacts.filter.duplicates": "Dubbletter",
     "settings.contacts.filter.missingMail": "Saknar e-post",
     "settings.contacts.filter.missingPhone": "Saknar telefon",
-    "settings.contacts.filter.showArchivedCustomerContacts": "Visa kontakter för arkiverade kunder",
+    "settings.contacts.filter.showArchivedCustomerContacts":
+      "Visa kontakter för arkiverade kunder",
     "settings.contacts.clearFilters": "Rensa filter",
     "settings.contacts.showing": "Visar",
     "settings.contacts.of": "av",
     "settings.contacts.contacts": "kontakter",
     "settings.contacts.empty.title": "Inga kontakter",
-    "settings.contacts.empty.description": "Kontakter som är kopplade till kunder visas här.",
+    "settings.contacts.empty.description":
+      "Kontakter som är kopplade till kunder visas här.",
     "settings.contacts.editContact": "Redigera kontakt",
     "settings.contacts.deleteContact": "Ta bort kontakt",
     "settings.contacts.primaryContactFor": "Primär kontakt för:",
     "settings.contacts.contactFor": "Kontakt för:",
     "settings.contacts.deleteDialog.title": "Ta bort kontakt",
-    "settings.contacts.deleteDialog.descriptionPrefix": "Är du säker på att du vill ta bort",
-    "settings.contacts.deleteDialog.descriptionSuffix": "Den här åtgärden kan inte ångras.",
+    "settings.contacts.deleteDialog.descriptionPrefix":
+      "Är du säker på att du vill ta bort",
+    "settings.contacts.deleteDialog.descriptionSuffix":
+      "Den här åtgärden kan inte ångras.",
     "settings.contacts.deleting": "Tar bort...",
     "users.toast.inviteFailed": "Kunde inte bjuda in användare",
     "users.toast.invitationSentTo": "Inbjudan skickad till",
     "users.toast.updateRoleFailed": "Kunde inte uppdatera roll",
     "users.toast.roleUpdated": "Roll uppdaterad",
-    "users.toast.updateFortnoxUserIdFailed": "Kunde inte uppdatera Fortnox användar-ID",
+    "users.toast.updateFortnoxUserIdFailed":
+      "Kunde inte uppdatera Fortnox användar-ID",
     "users.toast.fortnoxUserIdUpdated": "Fortnox användar-ID uppdaterat",
     "users.toast.updateTeamFailed": "Kunde inte uppdatera team",
     "users.toast.teamUpdated": "Team uppdaterat",
@@ -870,7 +1036,8 @@ const dictionaries = {
     "users.actions.deactivate": "Inaktivera",
     "users.actions.reactivate": "Återaktivera",
     "users.header.title": "Användare",
-    "users.header.description": "Hantera användarkonton, roller och behörigheter",
+    "users.header.description":
+      "Hantera användarkonton, roller och behörigheter",
     "users.invite.button": "Bjud in användare",
     "users.invite.title": "Bjud in användare",
     "users.invite.description": "Skicka en inbjudan till en ny användare.",
@@ -879,7 +1046,8 @@ const dictionaries = {
     "users.invite.sendInvitation": "Skicka inbjudan",
     "users.searchPlaceholder": "Sök användare...",
     "users.empty.title": "Inga användare",
-    "users.empty.description": "Bjud in din första teammedlem för att komma igång.",
+    "users.empty.description":
+      "Bjud in din första teammedlem för att komma igång.",
     "users.userFallback": "Användare",
     "users.fields.role": "Roll",
     "users.role.user": "Användare",
@@ -890,25 +1058,32 @@ const dictionaries = {
     "users.fields.fortnoxUserId": "Fortnox användar-ID",
     "users.fields.enterFortnoxUserId": "Ange Fortnox användar-ID",
     "users.fields.scopes": "Omfång",
-    "users.scopes.description": "Omfång avgör vilka funktioner denna användare har tillgång till.",
+    "users.scopes.description":
+      "Omfång avgör vilka funktioner denna användare har tillgång till.",
     "users.scopes.adminDefault": "Admins har alla omfång som standard.",
     "users.fields.joined": "Gick med",
     "users.deactivateDialog.title": "Inaktivera användare",
     "users.reactivateDialog.title": "Återaktivera användare",
     "users.deactivateDialog.prefix": "Inaktivera",
-    "users.deactivateDialog.description": "De kommer inte längre kunna logga in.",
+    "users.deactivateDialog.description":
+      "De kommer inte längre kunna logga in.",
     "users.reactivateDialog.prefix": "Återaktivera",
     "users.reactivateDialog.description": "De kommer kunna logga in igen.",
     "users.thisUser": "den här användaren",
   },
-} as const
+} as const;
 
-function translate(language: "en" | "sv", key: string, fallback?: string): string {
-  const value = dictionaries[language][key as keyof (typeof dictionaries)["en"]]
+function translate(
+  language: "en" | "sv",
+  key: string,
+  fallback?: string,
+): string {
+  const value =
+    dictionaries[language][key as keyof (typeof dictionaries)["en"]];
   if (typeof value === "string") {
-    return value
+    return value;
   }
-  return fallback ?? key
+  return fallback ?? key;
 }
 
-export { dictionaries, translate }
+export { dictionaries, translate };

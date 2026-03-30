@@ -50,6 +50,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/use-translation";
 
@@ -393,6 +401,25 @@ type ManagerCustomerSummaryRow = {
   customerHours: number;
 };
 
+type ArticleGroupItemRow = {
+  articleNumber: string | null;
+  articleName: string;
+  turnoverExVat: number;
+  rowCount: number;
+  quantity: number;
+  shareOfGroup: number;
+};
+
+type ArticleGroupSummaryRow = {
+  groupName: string;
+  turnoverExVat: number;
+  articleCount: number;
+  rowCount: number;
+  quantity: number;
+  shareOfTotal: number;
+  articles: ArticleGroupItemRow[];
+};
+
 type TurnoverMonthRow = {
   monthKey: string;
   monthLabel: string;
@@ -700,6 +727,13 @@ export default function ReportsPage() {
     React.useState(false);
   const [managerCustomerSummaryRows, setManagerCustomerSummaryRows] =
     React.useState<ManagerCustomerSummaryRow[]>([]);
+  const [articleGroupsLoading, setArticleGroupsLoading] = React.useState(false);
+  const [articleGroupRows, setArticleGroupRows] = React.useState<
+    ArticleGroupSummaryRow[]
+  >([]);
+  const [openArticleGroups, setOpenArticleGroups] = React.useState<
+    Record<string, boolean>
+  >({});
   const [timeDetailsOpen, setTimeDetailsOpen] = React.useState(false);
   const [timeDetailsLoading, setTimeDetailsLoading] = React.useState(false);
   const [timeDetailsTitle, setTimeDetailsTitle] = React.useState("");
@@ -1108,6 +1142,23 @@ function renderTurnoverCell(
     >
       {valueText}
     </button>
+  );
+}
+
+function renderWorkloadShareCell(percentage: number) {
+  const clamped = Math.min(Math.max(percentage, 0), 100);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <span
+          className="block h-full rounded-full bg-[oklch(0.62_0.15_252)]"
+          style={{ width: `${clamped}%` }}
+        />
+      </span>
+      <span className="w-10 text-right text-muted-foreground">
+        {Math.round(clamped)}%
+      </span>
+    </div>
   );
 }
 
@@ -3320,6 +3371,277 @@ function renderTurnoverCell(
     };
   }, [selectedCustomerId, selectedCustomer, rollingWindow, t]);
 
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function fetchArticleGroups() {
+      if (!selectedCustomerId && !selectedManagerId) {
+        setArticleGroupRows([]);
+        setArticleGroupsLoading(false);
+        return;
+      }
+
+      const scopedCustomers = filteredCustomers;
+      if (scopedCustomers.length === 0) {
+        setArticleGroupRows([]);
+        setArticleGroupsLoading(false);
+        return;
+      }
+
+      setArticleGroupsLoading(true);
+      const supabase = createClient();
+
+      const customerIds = scopedCustomers.map((customer) => customer.id);
+      const customerIdChunks = chunkArray(customerIds, 200);
+      const customerNumbers = Array.from(
+        new Set(
+          scopedCustomers
+            .map((customer) => customer.fortnox_customer_number)
+            .filter(
+              (value): value is string =>
+                Boolean(value && value.trim().length > 0),
+            ),
+        ),
+      );
+      const customerNumberChunks = chunkArray(customerNumbers, 200);
+
+      const invoiceNumbersSet = new Set<string>();
+      const seenInvoiceIds = new Set<string>();
+
+      for (const idChunk of customerIdChunks) {
+        const { data, error } = await supabase
+          .from("invoices")
+          .select("id, document_number")
+          .in("customer_id", idChunk)
+          .gte("invoice_date", rollingWindow.from)
+          .lte("invoice_date", rollingWindow.to);
+
+        if (cancelled) return;
+
+        if (error) {
+          setArticleGroupRows([]);
+          setArticleGroupsLoading(false);
+          return;
+        }
+
+        for (const row of (data ?? []) as Array<{ id: string; document_number: string | null }>) {
+          seenInvoiceIds.add(row.id);
+          const documentNumber = row.document_number?.trim();
+          if (!documentNumber) continue;
+          invoiceNumbersSet.add(documentNumber);
+        }
+      }
+
+      for (const numberChunk of customerNumberChunks) {
+        const { data, error } = await supabase
+          .from("invoices")
+          .select("id, document_number")
+          .in("fortnox_customer_number", numberChunk)
+          .gte("invoice_date", rollingWindow.from)
+          .lte("invoice_date", rollingWindow.to);
+
+        if (cancelled) return;
+
+        if (error) {
+          setArticleGroupRows([]);
+          setArticleGroupsLoading(false);
+          return;
+        }
+
+        for (const row of (data ?? []) as Array<{ id: string; document_number: string | null }>) {
+          if (seenInvoiceIds.has(row.id)) continue;
+          seenInvoiceIds.add(row.id);
+
+          const documentNumber = row.document_number?.trim();
+          if (!documentNumber) continue;
+          invoiceNumbersSet.add(documentNumber);
+        }
+      }
+
+      const invoiceNumbers = Array.from(invoiceNumbersSet);
+
+      if (invoiceNumbers.length === 0) {
+        setArticleGroupRows([]);
+        setArticleGroupsLoading(false);
+        return;
+      }
+
+      const { data: mappingsData } = await supabase
+        .from("article_group_mappings")
+        .select("article_number, group_name, article_name, active");
+
+      if (cancelled) return;
+
+      const mappingByArticleNumber = new Map<
+        string,
+        { groupName: string; articleName: string | null }
+      >();
+      for (const row of (mappingsData ?? []) as Array<{
+        article_number: string | null;
+        group_name: string | null;
+        article_name: string | null;
+        active: boolean | null;
+      }>) {
+        if (row.active === false) continue;
+        const articleNumber = row.article_number?.trim();
+        const groupName = row.group_name?.trim();
+        if (!articleNumber || !groupName) continue;
+        mappingByArticleNumber.set(articleNumber, {
+          groupName,
+          articleName: row.article_name?.trim() || null,
+        });
+      }
+
+      const invoiceNumberChunks = chunkArray(invoiceNumbers, 200);
+
+      const groupMap = new Map<
+        string,
+        {
+          turnoverExVat: number;
+          rowCount: number;
+          quantity: number;
+          articles: Map<
+            string,
+            {
+              articleNumber: string | null;
+              articleName: string;
+              turnoverExVat: number;
+              rowCount: number;
+              quantity: number;
+            }
+          >;
+        }
+      >();
+
+      let totalTurnoverExVat = 0;
+
+      for (const chunk of invoiceNumberChunks) {
+        const { data: invoiceRowsData, error: invoiceRowsError } = await supabase
+          .from("invoice_rows")
+          .select("article_number, article_name, quantity, total_ex_vat, total")
+          .in("invoice_number", chunk);
+
+        if (cancelled) return;
+
+        if (invoiceRowsError) {
+          setArticleGroupRows([]);
+          setArticleGroupsLoading(false);
+          return;
+        }
+
+        for (const row of (invoiceRowsData ?? []) as Array<{
+          article_number: string | null;
+          article_name: string | null;
+          quantity: number | null;
+          total_ex_vat: number | null;
+          total: number | null;
+        }>) {
+          const articleNumber = row.article_number?.trim() || null;
+          const mapping = articleNumber
+            ? mappingByArticleNumber.get(articleNumber)
+            : null;
+          const articleName =
+            mapping?.articleName ||
+            row.article_name?.trim() ||
+            t("reports.unknown", "Unknown");
+          const groupName = (mapping?.groupName ?? null) ??
+            t("reports.articleGroups.unmapped", "Unmapped");
+          const turnoverExVat = Number(row.total_ex_vat ?? row.total ?? 0);
+          const quantity = Number(row.quantity ?? 0);
+
+          totalTurnoverExVat += turnoverExVat;
+
+          const currentGroup =
+            groupMap.get(groupName) ??
+            {
+              turnoverExVat: 0,
+              rowCount: 0,
+              quantity: 0,
+              articles: new Map(),
+            };
+
+          currentGroup.turnoverExVat += turnoverExVat;
+          currentGroup.rowCount += 1;
+          currentGroup.quantity += quantity;
+
+          const articleKey = articleNumber ?? `name:${articleName}`;
+          const currentArticle =
+            currentGroup.articles.get(articleKey) ??
+            {
+              articleNumber,
+              articleName,
+              turnoverExVat: 0,
+              rowCount: 0,
+              quantity: 0,
+            };
+
+          currentArticle.turnoverExVat += turnoverExVat;
+          currentArticle.rowCount += 1;
+          currentArticle.quantity += quantity;
+
+          currentGroup.articles.set(articleKey, currentArticle);
+          groupMap.set(groupName, currentGroup);
+        }
+      }
+
+      const rows: ArticleGroupSummaryRow[] = Array.from(groupMap.entries())
+        .map(([groupName, group]) => {
+          const articles = Array.from(group.articles.values())
+            .map((article) => ({
+              articleNumber: article.articleNumber,
+              articleName: article.articleName,
+              turnoverExVat: article.turnoverExVat,
+              rowCount: article.rowCount,
+              quantity: article.quantity,
+              shareOfGroup:
+                group.turnoverExVat > 0
+                  ? (article.turnoverExVat / group.turnoverExVat) * 100
+                  : 0,
+            }))
+            .sort((a, b) => b.turnoverExVat - a.turnoverExVat);
+
+          return {
+            groupName,
+            turnoverExVat: group.turnoverExVat,
+            articleCount: articles.length,
+            rowCount: group.rowCount,
+            quantity: group.quantity,
+            shareOfTotal:
+              totalTurnoverExVat > 0
+                ? (group.turnoverExVat / totalTurnoverExVat) * 100
+                : 0,
+            articles,
+          };
+        })
+        .sort((a, b) => b.turnoverExVat - a.turnoverExVat);
+
+      setArticleGroupRows(rows);
+      setOpenArticleGroups((current) => {
+        if (rows.length === 0) return {};
+        if (Object.keys(current).length > 0) return current;
+        return { [rows[0].groupName]: true };
+      });
+      setArticleGroupsLoading(false);
+    }
+
+    fetchArticleGroups().catch(() => {
+      if (!cancelled) {
+        setArticleGroupRows([]);
+        setArticleGroupsLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    filteredCustomers,
+    rollingWindow,
+    selectedCustomerId,
+    selectedManagerId,
+    t,
+  ]);
+
   const monthlyTimeReportingColumns: ColumnDef<
     MonthlyTimeReportingRow,
     unknown
@@ -3420,7 +3742,7 @@ function renderTurnoverCell(
       header: t("reports.columns.workloadShare", "Workload Share"),
       size: 160,
       enableSorting: false,
-      cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
+      cell: ({ row }) => renderWorkloadShareCell(row.original.workloadPercentage),
     },
   ];
 
@@ -3459,7 +3781,7 @@ function renderTurnoverCell(
       header: t("reports.columns.workloadShare", "Workload Share"),
       size: 160,
       enableSorting: false,
-      cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
+      cell: ({ row }) => renderWorkloadShareCell(row.original.workloadPercentage),
     },
   ];
 
@@ -3510,7 +3832,7 @@ function renderTurnoverCell(
       header: t("reports.columns.workload", "Workload"),
       size: 140,
       enableSorting: false,
-      cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
+      cell: ({ row }) => renderWorkloadShareCell(row.original.workloadPercentage),
     },
     {
       id: "openCustomer",
@@ -3569,7 +3891,7 @@ function renderTurnoverCell(
       header: t("reports.columns.workload", "Workload"),
       size: 140,
       enableSorting: false,
-      cell: ({ row }) => `${row.original.workloadPercentage.toFixed(1)}%`,
+      cell: ({ row }) => renderWorkloadShareCell(row.original.workloadPercentage),
     },
   ];
 
@@ -3833,6 +4155,144 @@ function renderTurnoverCell(
       enableSorting: false,
     },
   ];
+
+  function renderArticleGroupsSection() {
+    return (
+      <section className="space-y-3">
+        <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
+          <h3 className="text-base font-semibold">
+            {t("reports.sections.articleGroups.title", "Article groups")} ({articleGroupRows.length})
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {t(
+              "reports.sections.articleGroups.description",
+              "Mapped follow-up per article group for current selection.",
+            )}
+          </p>
+        </div>
+
+        {articleGroupsLoading ? (
+          <Skeleton className="h-[280px] w-full" />
+        ) : articleGroupRows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t(
+              "reports.empty.noArticleGroups",
+              "No article group rows found for this customer in the selected range.",
+            )}
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-md border">
+            <Table className="table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[20%]">{t("reports.articleGroups.group", "Group")}</TableHead>
+                  <TableHead className="w-[18%]">{t("reports.articleGroups.turnoverExVat", "Turnover ex. VAT")}</TableHead>
+                  <TableHead className="w-[10%]">{t("reports.articleGroups.articles", "Articles")}</TableHead>
+                  <TableHead className="w-[10%]">{t("reports.articleGroups.count", "Count")}</TableHead>
+                  <TableHead className="w-[10%]">{t("reports.articleGroups.quantity", "Quantity")}</TableHead>
+                  <TableHead className="w-[32%]">{t("reports.articleGroups.share", "Share")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {articleGroupRows.map((group) => {
+                  const isOpen = openArticleGroups[group.groupName] ?? false;
+                  return (
+                    <React.Fragment key={group.groupName}>
+                      <TableRow>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1 px-1"
+                            onClick={() =>
+                              setOpenArticleGroups((current) => ({
+                                ...current,
+                                [group.groupName]: !isOpen,
+                              }))
+                            }
+                          >
+                            {isOpen ? (
+                              <ChevronDown className="size-4" />
+                            ) : (
+                              <ChevronRight className="size-4" />
+                            )}
+                            <span className="font-medium">{group.groupName}</span>
+                          </Button>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {sekFormatter.format(group.turnoverExVat)}
+                        </TableCell>
+                        <TableCell>{group.articleCount}</TableCell>
+                        <TableCell>{group.rowCount}</TableCell>
+                        <TableCell>{hoursFormatter.format(group.quantity)}</TableCell>
+                        <TableCell>{renderWorkloadShareCell(group.shareOfTotal)}</TableCell>
+                      </TableRow>
+
+                      {isOpen ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="p-0">
+                            <Table className="table-fixed">
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-[14%]">
+                                    {t("reports.articleGroups.articleNumber", "Article #")}
+                                  </TableHead>
+                                  <TableHead className="w-[30%]">
+                                    {t("reports.articleGroups.name", "Name")}
+                                  </TableHead>
+                                  <TableHead className="w-[18%]">
+                                    {t("reports.articleGroups.turnoverExVat", "Turnover ex. VAT")}
+                                  </TableHead>
+                                  <TableHead className="w-[10%]">
+                                    {t("reports.articleGroups.count", "Count")}
+                                  </TableHead>
+                                  <TableHead className="w-[10%]">
+                                    {t("reports.articleGroups.quantity", "Quantity")}
+                                  </TableHead>
+                                  <TableHead className="w-[18%]">
+                                    {t("reports.articleGroups.share", "Share")}
+                                  </TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {group.articles.map((article) => (
+                                  <TableRow
+                                    key={`${group.groupName}:${article.articleNumber ?? article.articleName}`}
+                                  >
+                                    <TableCell className="text-muted-foreground">
+                                      {article.articleNumber ?? "—"}
+                                    </TableCell>
+                                    <TableCell>{article.articleName}</TableCell>
+                                    <TableCell className="font-medium">
+                                      {sekFormatter.format(article.turnoverExVat)}
+                                    </TableCell>
+                                    <TableCell>{article.rowCount}</TableCell>
+                                    <TableCell>
+                                      {hoursFormatter.format(article.quantity)}
+                                    </TableCell>
+                                    <TableCell>
+                                      <span className="text-muted-foreground">
+                                        {Math.round(article.shareOfGroup)}%
+                                      </span>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableCell>
+                        </TableRow>
+                      ) : null}
+                    </React.Fragment>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -4216,6 +4676,8 @@ function renderTurnoverCell(
             </section>
           ) : null}
 
+          {selectedManagerId && !selectedCustomerId ? renderArticleGroupsSection() : null}
+
           {selectedCustomerId ? (
             <div className="space-y-10">
               <section className="space-y-3">
@@ -4282,6 +4744,8 @@ function renderTurnoverCell(
                   />
                 )}
               </section>
+
+              {renderArticleGroupsSection()}
             </div>
           ) : null}
         </div>
