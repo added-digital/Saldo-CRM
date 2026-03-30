@@ -21,7 +21,7 @@ function isItemVisible(
   scopes: string[],
 ): boolean {
   if (item.href === "/reports" || item.href === "/settings") {
-    return true
+    return true;
   }
 
   if (item.minRole) {
@@ -54,10 +54,10 @@ function SidebarNav({ className }: SidebarNavProps) {
       Management: "navigation.sections.management",
       Analytics: "navigation.sections.analytics",
       Administration: "navigation.sections.administration",
-    }
+    };
 
-    const key = keyByTitle[title]
-    return key ? t(key, title) : title
+    const key = keyByTitle[title];
+    return key ? t(key, title) : title;
   }
 
   function translateItemLabel(label: string): string {
@@ -67,10 +67,10 @@ function SidebarNav({ className }: SidebarNavProps) {
       Contacts: "navigation.items.contacts",
       Reports: "navigation.items.reports",
       Settings: "navigation.items.settings",
-    }
+    };
 
-    const key = keyByLabel[label]
-    return key ? t(key, label) : label
+    const key = keyByLabel[label];
+    return key ? t(key, label) : label;
   }
 
   return (
@@ -123,12 +123,6 @@ function SidebarNav({ className }: SidebarNavProps) {
           );
         })}
       </nav>
-
-      {!collapsed && (
-        <div className="border-t px-4 py-3">
-          <p className="text-xs text-muted-foreground">{system.shortName}</p>
-        </div>
-      )}
     </div>
   );
 }

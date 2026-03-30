@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useMediaQuery } from "@/hooks/use-media-query"
+import { useTranslation } from "@/hooks/use-translation"
 
 interface SidebarContextValue {
   collapsed: boolean
@@ -58,6 +59,7 @@ function Sidebar({
   className?: string
 }) {
   const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebar()
+  const { t } = useTranslation()
   const isDesktop = useMediaQuery("(min-width: 768px)")
 
   if (!isDesktop) {
@@ -94,7 +96,7 @@ function Sidebar({
           ) : (
             <>
               <PanelLeftClose className="size-4" />
-              <span className="ml-2">Collapse</span>
+              <span className="ml-2">{t("common.collapse", "Collapse")}</span>
             </>
           )}
         </Button>
