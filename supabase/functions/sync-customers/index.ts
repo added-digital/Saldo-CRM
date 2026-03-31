@@ -8,6 +8,16 @@ declare const Deno: {
 const RATE_LIMIT_DELAY_MS = 350
 const BATCH_SIZE = 75
 const LIST_PAGE_SIZE = 500
+const CLEANUP_BATCH_SIZE = 200
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  if (items.length === 0) return []
+  const chunks: T[][] = []
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size))
+  }
+  return chunks
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -189,8 +199,177 @@ Deno.serve(async (req) => {
     if (phase === "finalize") {
       if (jobId) {
         await updateSyncJob(supabase, jobId, {
-          current_step: "Linking cost centers to profiles...",
+          current_step: "Cleaning up stale customers...",
           progress: 96,
+        })
+      }
+
+      let syncedCustomerNumbers: string[] = []
+      if (jobId) {
+        const { data: jobRow } = await supabase
+          .from("sync_jobs")
+          .select("payload")
+          .eq("id", jobId)
+          .single()
+
+        const payload = (jobRow as unknown as { payload: Record<string, unknown> } | null)?.payload
+        syncedCustomerNumbers = ((payload?.customer_numbers as string[]) ?? []).filter(
+          (value): value is string => typeof value === "string" && value.length > 0,
+        )
+      }
+
+      const syncedNumberSet = new Set(syncedCustomerNumbers)
+      const staleCustomerIds: string[] = []
+      const staleCustomerNumbers: string[] = []
+      let customerScanOffset = 0
+      const customerScanPageSize = 1000
+
+      while (true) {
+        const { data: customerRows, error: customerScanError } = await supabase
+          .from("customers")
+          .select("id, fortnox_customer_number")
+          .not("fortnox_customer_number", "is", null)
+          .order("id", { ascending: true })
+          .range(customerScanOffset, customerScanOffset + customerScanPageSize - 1)
+
+        if (customerScanError) {
+          throw new Error(`Failed to scan customers for cleanup: ${customerScanError.message}`)
+        }
+
+        const rows = (customerRows ?? []) as Array<{ id: string; fortnox_customer_number: string | null }>
+        if (rows.length === 0) break
+
+        for (const row of rows) {
+          if (!row.fortnox_customer_number) continue
+          if (!syncedNumberSet.has(row.fortnox_customer_number)) {
+            staleCustomerIds.push(row.id)
+            staleCustomerNumbers.push(row.fortnox_customer_number)
+          }
+        }
+
+        if (rows.length < customerScanPageSize) break
+        customerScanOffset += customerScanPageSize
+      }
+
+      let removedInvoiceRows = 0
+      let removedInvoices = 0
+      let removedTimeReports = 0
+      let removedContractAccruals = 0
+      let removedCustomers = 0
+
+      if (staleCustomerIds.length > 0) {
+        if (jobId) {
+          await updateSyncJob(supabase, jobId, {
+            current_step: `Removing stale data for ${staleCustomerIds.length} customers...`,
+            progress: 97,
+          })
+        }
+
+        const staleInvoiceNumbers: string[] = []
+        for (const customerNumberChunk of chunkArray(staleCustomerNumbers, CLEANUP_BATCH_SIZE)) {
+          const { data: invoiceRows, error: invoiceScanError } = await supabase
+            .from("invoices")
+            .select("document_number")
+            .in("fortnox_customer_number", customerNumberChunk as never)
+
+          if (invoiceScanError) {
+            throw new Error(`Failed to scan stale invoices: ${invoiceScanError.message}`)
+          }
+
+          for (const invoice of (invoiceRows ?? []) as Array<{ document_number: string }>) {
+            if (invoice.document_number) staleInvoiceNumbers.push(invoice.document_number)
+          }
+        }
+
+        for (const invoiceNumberChunk of chunkArray(staleInvoiceNumbers, CLEANUP_BATCH_SIZE)) {
+          const { count, error } = await supabase
+            .from("invoice_rows")
+            .delete({ count: "exact" })
+            .in("invoice_number", invoiceNumberChunk as never)
+
+          if (error) {
+            throw new Error(`Failed to delete stale invoice rows: ${error.message}`)
+          }
+          removedInvoiceRows += count ?? 0
+        }
+
+        for (const customerNumberChunk of chunkArray(staleCustomerNumbers, CLEANUP_BATCH_SIZE)) {
+          const { count, error } = await supabase
+            .from("invoices")
+            .delete({ count: "exact" })
+            .in("fortnox_customer_number", customerNumberChunk as never)
+
+          if (error) {
+            throw new Error(`Failed to delete stale invoices by customer number: ${error.message}`)
+          }
+          removedInvoices += count ?? 0
+        }
+
+        for (const customerIdChunk of chunkArray(staleCustomerIds, CLEANUP_BATCH_SIZE)) {
+          const { count, error } = await supabase
+            .from("invoices")
+            .delete({ count: "exact" })
+            .in("customer_id", customerIdChunk as never)
+
+          if (error) {
+            throw new Error(`Failed to delete stale invoices by customer id: ${error.message}`)
+          }
+          removedInvoices += count ?? 0
+        }
+
+        for (const customerNumberChunk of chunkArray(staleCustomerNumbers, CLEANUP_BATCH_SIZE)) {
+          const { count, error } = await supabase
+            .from("time_reports")
+            .delete({ count: "exact" })
+            .in("fortnox_customer_number", customerNumberChunk as never)
+
+          if (error) {
+            throw new Error(`Failed to delete stale time reports by customer number: ${error.message}`)
+          }
+          removedTimeReports += count ?? 0
+        }
+
+        for (const customerIdChunk of chunkArray(staleCustomerIds, CLEANUP_BATCH_SIZE)) {
+          const { count, error } = await supabase
+            .from("time_reports")
+            .delete({ count: "exact" })
+            .in("customer_id", customerIdChunk as never)
+
+          if (error) {
+            throw new Error(`Failed to delete stale time reports by customer id: ${error.message}`)
+          }
+          removedTimeReports += count ?? 0
+        }
+
+        for (const customerNumberChunk of chunkArray(staleCustomerNumbers, CLEANUP_BATCH_SIZE)) {
+          const { count, error } = await supabase
+            .from("contract_accruals")
+            .delete({ count: "exact" })
+            .in("fortnox_customer_number", customerNumberChunk as never)
+
+          if (error) {
+            throw new Error(`Failed to delete stale contract accruals: ${error.message}`)
+          }
+          removedContractAccruals += count ?? 0
+        }
+
+        for (const customerIdChunk of chunkArray(staleCustomerIds, CLEANUP_BATCH_SIZE)) {
+          const { count, error } = await supabase
+            .from("customers")
+            .delete({ count: "exact" })
+            .in("id", customerIdChunk as never)
+
+          if (error) {
+            throw new Error(`Failed to delete stale customers: ${error.message}`)
+          }
+          removedCustomers += count ?? 0
+        }
+      }
+
+      if (jobId) {
+        await updateSyncJob(supabase, jobId, {
+          current_step: "Linking cost centers to profiles...",
+          progress: 98,
         })
       }
 
@@ -254,7 +433,18 @@ Deno.serve(async (req) => {
           progress: 100,
           current_step: "Done",
           processed_items: finalTotal,
-          payload: { step_name: "customers", step_label: "Customers", synced: finalSynced, errors: finalErrors, total: finalTotal },
+          payload: {
+            step_name: "customers",
+            step_label: "Customers",
+            synced: finalSynced,
+            errors: finalErrors,
+            total: finalTotal,
+            stale_customers_removed: removedCustomers,
+            stale_invoice_rows_removed: removedInvoiceRows,
+            stale_invoices_removed: removedInvoices,
+            stale_time_reports_removed: removedTimeReports,
+            stale_contract_accruals_removed: removedContractAccruals,
+          },
           batch_phase: null,
           dispatch_lock: false,
         })
