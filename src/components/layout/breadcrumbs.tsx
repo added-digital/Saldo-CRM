@@ -114,8 +114,8 @@ function Breadcrumbs({ className }: BreadcrumbsProps) {
   ]
 
   return (
-    <nav aria-label="Breadcrumb" className={cn("flex items-center", className)}>
-      <ol className="flex items-center gap-1 text-sm">
+    <nav aria-label="Breadcrumb" className={cn("min-w-0 overflow-x-auto", className)}>
+      <ol className="flex w-max items-center gap-1 whitespace-nowrap text-sm">
         {breadcrumbs.map((crumb, index) => {
           const isLast = index === breadcrumbs.length - 1
           const isRoot = index === 0
@@ -134,12 +134,12 @@ function Breadcrumbs({ className }: BreadcrumbsProps) {
                     <House className="size-4" aria-hidden="true" />
                   </span>
                 ) : (
-                  <span className="font-medium text-foreground">{crumb.label}</span>
+                  <span className="max-w-40 truncate font-medium text-foreground">{crumb.label}</span>
                 )
               ) : (
                 <Link
                   href={crumb.href}
-                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  className="max-w-40 truncate text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {isRoot ? <House className="size-4" aria-hidden="true" /> : crumb.label}
                 </Link>

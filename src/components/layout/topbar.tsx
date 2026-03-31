@@ -57,7 +57,7 @@ function Topbar({ className }: TopbarProps) {
         <span className="sr-only">{t("common.openMenu", "Open menu")}</span>
       </Button>
 
-      <Breadcrumbs className="flex-1" />
+      <Breadcrumbs className="min-w-0 flex-1" />
 
       <Separator orientation="vertical" className="h-6" />
 
