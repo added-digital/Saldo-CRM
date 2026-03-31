@@ -36,7 +36,11 @@ function readNumberField(
 }
 
 function resolveExVatTotal(record: Record<string, unknown>): number | null {
-  return readNumberField(record, [
+  const explicitExVat = readNumberField(record, [
+    "PriceExcludingVAT",
+    "PriceExcludingVat",
+    "RowAmountExcludingVAT",
+    "RowAmountExcludingVat",
     "TotalExcludingVAT",
     "TotalExcludingVat",
     "TotalExVAT",
@@ -45,6 +49,12 @@ function resolveExVatTotal(record: Record<string, unknown>): number | null {
     "NetAmount",
     "TotalNet",
   ])
+
+  if (explicitExVat != null) {
+    return explicitExVat
+  }
+
+  return readNumberField(record, ["Price", "UnitPrice"])
 }
 
 function toInvoiceRows(
@@ -56,7 +66,14 @@ function toInvoiceRows(
 
   return rawRows
     .filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object"))
-    .map((row) => ({
+    .map((row) => {
+      const price = readNumberField(row, ["Price", "UnitPrice"])
+
+      if (price === 0) {
+        return null
+      }
+
+      return {
       invoice_number: invoiceNumber,
       article_number: row.ArticleNumber != null ? String(row.ArticleNumber) : (row.ArticleNo != null ? String(row.ArticleNo) : null),
       article_name: row.ArticleName != null ? String(row.ArticleName) : null,
@@ -64,12 +81,12 @@ function toInvoiceRows(
       quantity: row.DeliveredQuantity != null
         ? Number(row.DeliveredQuantity)
         : (row.Quantity != null ? Number(row.Quantity) : null),
-      unit_price: row.Price != null
-        ? Number(row.Price)
-        : (row.UnitPrice != null ? Number(row.UnitPrice) : null),
-      total_ex_vat: resolveExVatTotal(row) ?? (row.Total != null ? Number(row.Total) : null),
+      unit_price: price,
+      total_ex_vat: resolveExVatTotal(row),
       total: row.Total != null ? Number(row.Total) : null,
-    }))
+    }
+    })
+    .filter((row): row is InvoiceRowInsert => row !== null)
 }
 
 Deno.serve(async (req) => {

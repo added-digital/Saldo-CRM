@@ -31,6 +31,22 @@ type InvoiceRowInsert = {
   total: number | null;
 };
 
+type InvoiceInsert = {
+  document_number: string;
+  customer_id: string | null;
+  fortnox_customer_number: string;
+  customer_name: string | null;
+  invoice_date: string | null;
+  due_date: string | null;
+  final_pay_date: string | null;
+  booked: boolean;
+  total_vat: number | null;
+  total_ex_vat: number | null;
+  total: number | null;
+  balance: number | null;
+  currency_code: string;
+};
+
 function logSyncEvent(event: string, context: Record<string, unknown>) {
   console.log(
     JSON.stringify({
@@ -70,8 +86,31 @@ function readNumberField(
   return null;
 }
 
-function resolveExVatTotal(record: Record<string, unknown>): number | null {
+function resolveInvoiceTotals(record: Record<string, unknown>): {
+  total: number | null;
+  totalVat: number | null;
+  totalExVat: number | null;
+} {
+  const total = readNumberField(record, ["Total", "TotalToPay", "TotalAmount"]);
+  const totalVat = readNumberField(record, ["TotalVAT", "TotalVat", "VatTotal", "VATTotal"]);
+
+  const totalExVat = total != null && totalVat != null
+    ? total - totalVat
+    : null;
+
+  return {
+    total,
+    totalVat,
+    totalExVat,
+  };
+}
+
+function resolveInvoiceRowExVatTotal(record: Record<string, unknown>): number | null {
   const explicitExVat = readNumberField(record, [
+    "PriceExcludingVAT",
+    "PriceExcludingVat",
+    "RowAmountExcludingVAT",
+    "RowAmountExcludingVat",
     "TotalExcludingVAT",
     "TotalExcludingVat",
     "TotalExVAT",
@@ -85,39 +124,15 @@ function resolveExVatTotal(record: Record<string, unknown>): number | null {
     return explicitExVat;
   }
 
-  const total = readNumberField(record, ["Total", "TotalToPay", "TotalAmount"]);
-  const totalVat = readNumberField(record, [
-    "TotalVAT",
-    "TotalVat",
-    "VatTotal",
-    "VATTotal",
-  ]);
-
-  if (total != null && totalVat != null) {
-    return Math.max(0, total - totalVat);
-  }
-
-  return null;
+  const price = readNumberField(record, ["Price", "UnitPrice"]);
+  return price;
 }
 
 function toMappedInvoice(input: {
   invoiceDetail: Record<string, unknown>;
   customerMap: Map<string, string>;
 }): {
-  mapped: {
-    document_number: string;
-    customer_id: string | null;
-    fortnox_customer_number: string;
-    customer_name: string | null;
-    invoice_date: string | null;
-    due_date: string | null;
-    final_pay_date: string | null;
-    booked: boolean;
-    total_ex_vat: number | null;
-    total: number | null;
-    balance: number | null;
-    currency_code: string;
-  } | null;
+  mapped: InvoiceInsert | null;
   skipped: boolean;
   skipReason: "missing_document_number" | "missing_customer_mapping" | null;
 } {
@@ -142,7 +157,9 @@ function toMappedInvoice(input: {
     };
   }
 
-  const mapped = {
+  const totals = resolveInvoiceTotals(detail);
+
+  const mapped: InvoiceInsert = {
     document_number: documentNumber,
     customer_id: input.customerMap.get(customerNumber) ?? null,
     fortnox_customer_number: customerNumber,
@@ -154,10 +171,9 @@ function toMappedInvoice(input: {
     final_pay_date:
       detail.FinalPayDate != null ? String(detail.FinalPayDate) : null,
     booked: detail.Booked != null ? Boolean(detail.Booked) : false,
-    total_ex_vat:
-      resolveExVatTotal(detail) ??
-      (detail.Total != null ? Number(detail.Total) : null),
-    total: detail.Total != null ? Number(detail.Total) : null,
+    total_vat: totals.totalVat,
+    total_ex_vat: totals.totalExVat,
+    total: totals.total,
     balance: detail.Balance != null ? Number(detail.Balance) : null,
     currency_code: detail.Currency != null ? String(detail.Currency) : "SEK",
   };
@@ -176,7 +192,13 @@ function toInvoiceRows(
     .filter(
       (row): row is Record<string, unknown> => Boolean(row && typeof row === "object"),
     )
-    .map((row) => ({
+    .map((row) => {
+      const price = readNumberField(row, ["Price", "UnitPrice"]);
+      if (price === 0) {
+        return null;
+      }
+
+      return {
       invoice_number: invoiceNumber,
       article_number:
         row.ArticleNumber != null
@@ -192,15 +214,12 @@ function toInvoiceRows(
           : row.Quantity != null
             ? Number(row.Quantity)
             : null,
-      unit_price:
-        row.Price != null
-          ? Number(row.Price)
-          : row.UnitPrice != null
-            ? Number(row.UnitPrice)
-            : null,
-      total_ex_vat: resolveExVatTotal(row) ?? (row.Total != null ? Number(row.Total) : null),
+      unit_price: price,
+      total_ex_vat: resolveInvoiceRowExVatTotal(row),
       total: row.Total != null ? Number(row.Total) : null,
-    }));
+    };
+    })
+    .filter((row): row is InvoiceRowInsert => row !== null);
 }
 
 Deno.serve(async (req) => {
@@ -476,6 +495,7 @@ Deno.serve(async (req) => {
             due_date: string | null;
             final_pay_date: string | null;
             booked: boolean;
+            total_vat: number | null;
             total_ex_vat: number | null;
             total: number | null;
             balance: number | null;
@@ -802,7 +822,7 @@ Deno.serve(async (req) => {
       while (true) {
         const { data: kpiRows, error: kpiError } = await supabase
           .from("invoices")
-          .select("fortnox_customer_number, total_ex_vat, total")
+          .select("fortnox_customer_number, total_ex_vat")
           .range(offset, offset + KPI_BATCH_SIZE - 1);
 
         if (kpiError) {
@@ -812,7 +832,6 @@ Deno.serve(async (req) => {
         const rows = (kpiRows ?? []) as Array<{
           fortnox_customer_number: string | null;
           total_ex_vat: number | null;
-          total: number | null;
         }>;
         if (rows.length === 0) break;
 
@@ -821,7 +840,7 @@ Deno.serve(async (req) => {
           const existing = turnoverByCustomer.get(
             row.fortnox_customer_number,
           ) ?? { turnover: 0, count: 0 };
-          existing.turnover += Number(row.total_ex_vat ?? row.total ?? 0);
+          existing.turnover += Number(row.total_ex_vat ?? 0);
           existing.count += 1;
           turnoverByCustomer.set(row.fortnox_customer_number, existing);
         }

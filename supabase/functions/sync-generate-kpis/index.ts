@@ -842,7 +842,7 @@ Deno.serve(async (req) => {
 
         if (!customer) continue
 
-        const amount = Number(row.total_ex_vat ?? row.total ?? 0)
+        const amount = Number(row.total_ex_vat ?? 0)
         const totals = getCustomerTotalsDelta(customerTotals, customer.id)
         totals.total_turnover += amount
         totals.invoice_count += 1
@@ -1097,7 +1097,7 @@ Deno.serve(async (req) => {
 
         if (!customer) continue
 
-        const annualizedValue = annualizeContractTotal(row.total_ex_vat ?? row.total, row.period)
+        const annualizedValue = annualizeContractTotal(row.total_ex_vat, row.period)
         if (annualizedValue === 0) continue
 
         const totals = getCustomerTotalsDelta(customerTotals, customer.id)

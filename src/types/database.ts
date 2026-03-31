@@ -193,6 +193,7 @@ export interface Invoice {
   customer_name: string | null
   invoice_date: string | null
   final_pay_date: string | null
+  total_vat: number | null
   total_ex_vat: number | null
   total: number | null
   balance: number | null

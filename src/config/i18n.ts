@@ -268,6 +268,7 @@ const dictionaries = {
     "reports.articleGroups.articleNumber": "Article #",
     "reports.articleGroups.name": "Name",
     "reports.articleGroups.unmapped": "Unmapped",
+    "reports.articleGroups.derivedFrom": "Derived from",
     "kpi.labels.turnover": "Turnover (kr)",
     "kpi.labels.invoices": "Invoices (pcs)",
     "kpi.labels.hours": "Hours (h)",
@@ -792,6 +793,7 @@ const dictionaries = {
     "reports.articleGroups.articleNumber": "Artikelnr",
     "reports.articleGroups.name": "Benämning",
     "reports.articleGroups.unmapped": "Omappad",
+    "reports.articleGroups.derivedFrom": "Härledd från",
     "kpi.labels.turnover": "Omsättning (kr)",
     "kpi.labels.invoices": "Fakturor (st)",
     "kpi.labels.hours": "Timmar (h)",
@@ -1066,4 +1068,3 @@ function translate(
 }
 
 export { dictionaries, translate };
-

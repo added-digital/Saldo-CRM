@@ -87,8 +87,14 @@ function invoiceTurnoverExVat(input: {
     return { amount: Number(input.total_ex_vat), fromTotal: false };
   }
 
-  if (input.total != null) {
-    return { amount: Number(input.total), fromTotal: true };
+  return { amount: null, fromTotal: false };
+}
+
+function invoiceTurnoverStrictExVat(input: {
+  total_ex_vat: number | null;
+}): { amount: number | null; fromTotal: boolean } {
+  if (input.total_ex_vat != null) {
+    return { amount: Number(input.total_ex_vat), fromTotal: false };
   }
 
   return { amount: null, fromTotal: false };
@@ -408,6 +414,7 @@ type ArticleGroupItemRow = {
   rowCount: number;
   quantity: number;
   shareOfGroup: number;
+  invoiceNumbers: string[];
 };
 
 type ArticleGroupSummaryRow = {
@@ -1830,7 +1837,7 @@ function renderWorkloadShareCell(percentage: number) {
 
       setInvoiceDetailsRows(
         rows.map((invoice) => {
-          const turnover = invoiceTurnoverExVat(invoice);
+          const turnover = invoiceTurnoverStrictExVat(invoice);
           return {
             id: invoice.id,
             documentNumber: invoice.document_number,
@@ -1848,10 +1855,10 @@ function renderWorkloadShareCell(percentage: number) {
 
     setInvoiceDetailsRows(
       dueDateRows.map((invoice) => {
-        const turnover = invoiceTurnoverExVat(invoice);
+        const turnover = invoiceTurnoverStrictExVat(invoice);
         return {
           id: invoice.id,
-          documentNumber: invoice.document_number,
+          documentNumber: invoice.document_number ?? "-",
           invoiceDate: invoice.invoice_date,
           dueDate: invoice.due_date,
           turnover: turnover.amount,
@@ -1986,7 +1993,7 @@ function renderWorkloadShareCell(percentage: number) {
 
       setInvoiceDetailsRows(
         rows.map((invoice) => {
-          const turnover = invoiceTurnoverExVat(invoice);
+          const turnover = invoiceTurnoverStrictExVat(invoice);
           return {
             id: invoice.id,
             documentNumber: invoice.document_number,
@@ -2004,10 +2011,173 @@ function renderWorkloadShareCell(percentage: number) {
 
     setInvoiceDetailsRows(
       dueDateRows.map((invoice) => {
-        const turnover = invoiceTurnoverExVat(invoice);
+        const turnover = invoiceTurnoverStrictExVat(invoice);
         return {
           id: invoice.id,
-          documentNumber: invoice.document_number,
+          documentNumber: invoice.document_number ?? "-",
+          invoiceDate: invoice.invoice_date,
+          dueDate: invoice.due_date,
+          turnover: turnover.amount,
+          turnoverFromTotal: turnover.fromTotal,
+          currencyCode: invoice.currency_code ?? "SEK",
+        };
+      }),
+    );
+    setInvoiceDetailsLoading(false);
+  }
+
+  async function openArticleItemInvoiceDetails(
+    groupName: string,
+    article: ArticleGroupItemRow,
+  ) {
+    if (!selectedCustomerId) return;
+
+    setInvoiceDetailsOpen(true);
+    setInvoiceDetailsLoading(true);
+    setInvoiceDetailsRows([]);
+    setInvoiceDetailsTitle(
+      `${selectedCustomer?.name ?? t("reports.selectedCustomer", "Selected customer")} · ${groupName} · ${article.articleName} · ${t("reports.columns.turnover", "Turnover")}`,
+    );
+
+    const supabase = createClient();
+    const withCustomerScope = (query: ReturnType<typeof supabase.from>) => {
+      let scoped = query
+        .gte("invoice_date", rollingWindow.from)
+        .lte("invoice_date", rollingWindow.to);
+      if (selectedCustomer?.fortnox_customer_number) {
+        scoped = scoped.or(
+          `customer_id.eq.${selectedCustomerId},fortnox_customer_number.eq.${selectedCustomer.fortnox_customer_number}`,
+        );
+      } else {
+        scoped = scoped.eq("customer_id", selectedCustomerId);
+      }
+      return scoped.order("invoice_date", { ascending: false });
+    };
+
+    let dueDateAvailable = true;
+    let scopedInvoices: Array<{
+      id: string;
+      document_number: string | null;
+      invoice_date: string | null;
+      due_date: string | null;
+      total_ex_vat: number | null;
+      total: number | null;
+      currency_code: string | null;
+    }> = [];
+
+    const withDueDate = await withCustomerScope(
+      supabase
+        .from("invoices")
+        .select(
+          "id, document_number, invoice_date, due_date, total_ex_vat, total, currency_code",
+        ),
+    );
+
+    if (withDueDate.error && withDueDate.error.message.includes("due_date")) {
+      dueDateAvailable = false;
+    } else if (withDueDate.error) {
+      setInvoiceDetailsRows([]);
+      setInvoiceDetailsLoading(false);
+      return;
+    } else {
+      scopedInvoices = (withDueDate.data ?? []) as Array<{
+        id: string;
+        document_number: string | null;
+        invoice_date: string | null;
+        due_date: string | null;
+        total_ex_vat: number | null;
+        total: number | null;
+        currency_code: string | null;
+      }>;
+    }
+
+    if (!dueDateAvailable) {
+      const withoutDueDate = await withCustomerScope(
+        supabase
+          .from("invoices")
+          .select(
+            "id, document_number, invoice_date, total_ex_vat, total, currency_code",
+          ),
+      );
+
+      if (withoutDueDate.error) {
+        setInvoiceDetailsRows([]);
+        setInvoiceDetailsLoading(false);
+        return;
+      }
+
+      scopedInvoices = ((withoutDueDate.data ?? []) as Array<{
+        id: string;
+        document_number: string | null;
+        invoice_date: string | null;
+        total_ex_vat: number | null;
+        total: number | null;
+        currency_code: string | null;
+      }>).map((invoice) => ({
+        ...invoice,
+        due_date: null,
+      }));
+    }
+
+    const invoiceNumbers = scopedInvoices
+      .map((invoice) => invoice.document_number?.trim() ?? "")
+      .filter((value) => value.length > 0);
+
+    if (invoiceNumbers.length === 0) {
+      setInvoiceDetailsRows([]);
+      setInvoiceDetailsLoading(false);
+      return;
+    }
+
+    const targetArticleNumber = article.articleNumber?.trim() ?? null;
+    const targetArticleName = article.articleName.trim().toLowerCase();
+    const matchedInvoiceNumbers = new Set<string>();
+
+    for (const chunk of chunkArray(invoiceNumbers, 200)) {
+      const { data: invoiceRowsData, error: invoiceRowsError } = await supabase
+        .from("invoice_rows")
+        .select("invoice_number, article_number, article_name")
+        .in("invoice_number", chunk);
+
+      if (invoiceRowsError) {
+        setInvoiceDetailsRows([]);
+        setInvoiceDetailsLoading(false);
+        return;
+      }
+
+      for (const row of (invoiceRowsData ?? []) as Array<{
+        invoice_number: string | null;
+        article_number: string | null;
+        article_name: string | null;
+      }>) {
+        const invoiceNumber = row.invoice_number?.trim();
+        if (!invoiceNumber) continue;
+
+        if (targetArticleNumber) {
+          if (row.article_number?.trim() === targetArticleNumber) {
+            matchedInvoiceNumbers.add(invoiceNumber);
+          }
+          continue;
+        }
+
+        const rowArticleName = row.article_name?.trim().toLowerCase() ?? "";
+        if (rowArticleName && rowArticleName === targetArticleName) {
+          matchedInvoiceNumbers.add(invoiceNumber);
+        }
+      }
+    }
+
+    const matchingInvoices = scopedInvoices.filter((invoice) => {
+      const documentNumber = invoice.document_number?.trim();
+      return documentNumber ? matchedInvoiceNumbers.has(documentNumber) : false;
+    });
+
+    setInvoiceDetailsRows(
+      matchingInvoices.map((invoice) => {
+        const turnover = invoiceTurnoverStrictExVat(invoice);
+        return {
+          id: invoice.id,
+          documentNumber: invoice.document_number ?? "-",
           invoiceDate: invoice.invoice_date,
           dueDate: invoice.due_date,
           turnover: turnover.amount,
@@ -2361,10 +2531,7 @@ function renderWorkloadShareCell(percentage: number) {
         }>;
 
         for (const row of rows) {
-          contractValue += annualizeContractTotal(
-            row.total_ex_vat ?? row.total,
-            row.period,
-          );
+          contractValue += annualizeContractTotal(row.total_ex_vat, row.period);
         }
       }
 
@@ -3005,10 +3172,7 @@ function renderWorkloadShareCell(percentage: number) {
           const targetCustomerIds = customerIdsByContractNumber.get(contractNumber);
           if (!targetCustomerIds || targetCustomerIds.length === 0) continue;
 
-          const annualized = annualizeContractTotal(
-            row.total_ex_vat ?? row.total,
-            row.period,
-          );
+          const annualized = annualizeContractTotal(row.total_ex_vat, row.period);
 
           for (const customerId of targetCustomerIds) {
             const current =
@@ -3518,6 +3682,7 @@ function renderWorkloadShareCell(percentage: number) {
               turnoverExVat: number;
               rowCount: number;
               quantity: number;
+              invoiceNumbers: Set<string>;
             }
           >;
         }
@@ -3528,7 +3693,7 @@ function renderWorkloadShareCell(percentage: number) {
       for (const chunk of invoiceNumberChunks) {
         const { data: invoiceRowsData, error: invoiceRowsError } = await supabase
           .from("invoice_rows")
-          .select("article_number, article_name, quantity, total_ex_vat, total")
+          .select("invoice_number, article_number, article_name, quantity, total_ex_vat, total")
           .in("invoice_number", chunk);
 
         if (cancelled) return;
@@ -3540,12 +3705,14 @@ function renderWorkloadShareCell(percentage: number) {
         }
 
         for (const row of (invoiceRowsData ?? []) as Array<{
+          invoice_number: string | null;
           article_number: string | null;
           article_name: string | null;
           quantity: number | null;
           total_ex_vat: number | null;
           total: number | null;
         }>) {
+          const invoiceNumber = row.invoice_number?.trim() ?? null;
           const articleNumber = row.article_number?.trim() || null;
           const mapping = articleNumber
             ? mappingByArticleNumber.get(articleNumber)
@@ -3556,7 +3723,7 @@ function renderWorkloadShareCell(percentage: number) {
             t("reports.unknown", "Unknown");
           const groupName = (mapping?.groupName ?? null) ??
             t("reports.articleGroups.unmapped", "Unmapped");
-          const turnoverExVat = Number(row.total_ex_vat ?? row.total ?? 0);
+          const turnoverExVat = Number(row.total_ex_vat ?? 0);
           const quantity = Number(row.quantity ?? 0);
 
           totalTurnoverExVat += turnoverExVat;
@@ -3583,11 +3750,15 @@ function renderWorkloadShareCell(percentage: number) {
               turnoverExVat: 0,
               rowCount: 0,
               quantity: 0,
+              invoiceNumbers: new Set<string>(),
             };
 
           currentArticle.turnoverExVat += turnoverExVat;
           currentArticle.rowCount += 1;
           currentArticle.quantity += quantity;
+          if (invoiceNumber) {
+            currentArticle.invoiceNumbers.add(invoiceNumber);
+          }
 
           currentGroup.articles.set(articleKey, currentArticle);
           groupMap.set(groupName, currentGroup);
@@ -3603,6 +3774,9 @@ function renderWorkloadShareCell(percentage: number) {
               turnoverExVat: article.turnoverExVat,
               rowCount: article.rowCount,
               quantity: article.quantity,
+              invoiceNumbers: Array.from(article.invoiceNumbers.values()).sort(
+                (a, b) => a.localeCompare(b),
+              ),
               shareOfGroup:
                 group.turnoverExVat > 0
                   ? (article.turnoverExVat / group.turnoverExVat) * 100
@@ -4015,7 +4189,7 @@ function renderWorkloadShareCell(percentage: number) {
       enableSorting: false,
       cell: ({ row }) =>
         sekFormatter.format(
-          Number(row.original.total_ex_vat ?? row.original.total ?? 0),
+                  Number(row.original.total_ex_vat ?? 0),
         ),
     },
     {
@@ -4025,10 +4199,10 @@ function renderWorkloadShareCell(percentage: number) {
       enableSorting: false,
       cell: ({ row }) =>
         sekFormatter.format(
-          annualizeContractTotal(
-            row.original.total_ex_vat ?? row.original.total,
-            row.original.period,
-          ),
+                  annualizeContractTotal(
+                    row.original.total_ex_vat,
+                    row.original.period,
+                  ),
         ),
     },
     {
@@ -4263,7 +4437,25 @@ function renderWorkloadShareCell(percentage: number) {
                                     </TableCell>
                                     <TableCell>{article.articleName}</TableCell>
                                     <TableCell className="font-medium">
-                                      {sekFormatter.format(article.turnoverExVat)}
+                                      {renderTurnoverCell(
+                                        article.turnoverExVat,
+                                        article.turnoverExVat !== 0
+                                          ? () =>
+                                              openArticleItemInvoiceDetails(
+                                                group.groupName,
+                                                article,
+                                              )
+                                          : undefined,
+                                      )}
+                                      {article.turnoverExVat === 0 &&
+                                      article.invoiceNumbers.length > 0 ? (
+                                        <p className="mt-1 text-xs font-normal text-muted-foreground">
+                                          {t("reports.articleGroups.derivedFrom", "Derived from")}: {article.invoiceNumbers[0]}
+                                          {article.invoiceNumbers.length > 1
+                                            ? ` (+${article.invoiceNumbers.length - 1})`
+                                            : ""}
+                                        </p>
+                                      ) : null}
                                     </TableCell>
                                     <TableCell>{article.rowCount}</TableCell>
                                     <TableCell>

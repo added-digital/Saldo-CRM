@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
             accrual_type: (c.ContractLength as string) ?? null,
             period: (c.InvoiceInterval as string) ?? null,
             is_active: true,
-            total_ex_vat: resolveExVatTotal(c) ?? (c.Total != null ? Number(c.Total) : null),
+            total_ex_vat: resolveExVatTotal(c),
             total: c.Total != null ? Number(c.Total) : null,
             currency_code: (c.Currency as string) ?? "SEK",
             raw_data: c,
@@ -240,7 +240,7 @@ Deno.serve(async (req) => {
       while (true) {
         const { data: contractRows, error: contractError } = await supabase
           .from("contract_accruals")
-          .select("fortnox_customer_number, total_ex_vat, total, period, is_active")
+          .select("fortnox_customer_number, total_ex_vat, period, is_active")
           .order("id", { ascending: true })
           .range(offset, offset + KPI_BATCH_SIZE - 1)
 
@@ -251,7 +251,6 @@ Deno.serve(async (req) => {
         const rows = (contractRows ?? []) as Array<{
           fortnox_customer_number: string | null
           total_ex_vat: number | null
-          total: number | null
           period: string | null
           is_active: boolean
         }>
@@ -263,7 +262,7 @@ Deno.serve(async (req) => {
           const existing = valueByCustomer.get(row.fortnox_customer_number) ?? 0
           valueByCustomer.set(
             row.fortnox_customer_number,
-            existing + annualizeContractTotal(row.total_ex_vat ?? row.total, row.period)
+            existing + annualizeContractTotal(row.total_ex_vat, row.period)
           )
         }
 
