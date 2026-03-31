@@ -87,6 +87,7 @@ export default function SyncPage() {
   const [recentJobs, setRecentJobs] = React.useState<SyncJob[]>([])
   const [loadingJobs, setLoadingJobs] = React.useState(true)
   const [clearing, setClearing] = React.useState(false)
+  const [retryingJobId, setRetryingJobId] = React.useState<string | null>(null)
   const [invoiceSyncMode, setInvoiceSyncMode] = React.useState<InvoiceSyncMode>("incomplete")
 
   const fetchRecentJobs = React.useCallback(async () => {
@@ -127,6 +128,76 @@ export default function SyncPage() {
       supabase.removeChannel(channel)
     }
   }, [fetchRecentJobs])
+
+  const continueFailedJob = React.useCallback(
+    async (job: SyncJob) => {
+      const rawPayload =
+        job.payload && typeof job.payload === "object"
+          ? (job.payload as Record<string, unknown>)
+          : {}
+
+      const rawStepName =
+        typeof job.step_name === "string" && job.step_name.length > 0
+          ? job.step_name
+          : typeof rawPayload.step_name === "string"
+            ? rawPayload.step_name
+            : ""
+
+      const isSyncStep = (value: string): value is SyncStep =>
+        SYNC_STEPS.includes(value as SyncStep)
+
+      if (!isSyncStep(rawStepName)) {
+        toast.error(t("settings.sync.retryInvalidStep", "Failed to continue: unknown step"))
+        return
+      }
+
+      const step = rawStepName
+      const stepLabel =
+        typeof rawPayload.step_label === "string" && rawPayload.step_label.length > 0
+          ? rawPayload.step_label
+          : STEP_LABELS[step]
+
+      const payload: Record<string, unknown> = {
+        ...rawPayload,
+        step_name: step,
+        step_label: stepLabel,
+      }
+
+      const batchPhase =
+        typeof job.batch_phase === "string" && job.batch_phase.length > 0
+          ? job.batch_phase
+          : "list"
+
+      const batchOffset =
+        typeof job.batch_offset === "number" && Number.isFinite(job.batch_offset) && job.batch_offset > 0
+          ? job.batch_offset
+          : 0
+
+      setRetryingJobId(job.id)
+      const supabase = createClient()
+      const { error } = await supabase.from("sync_jobs").insert({
+        status: "pending",
+        progress: 0,
+        current_step: `Waiting for ${stepLabel}...`,
+        total_items: 0,
+        processed_items: 0,
+        step_name: step,
+        batch_phase: batchPhase,
+        batch_offset: batchOffset,
+        dispatch_lock: false,
+        payload,
+      } as never)
+
+      if (error) {
+        toast.error(t("settings.sync.retryFailed", "Failed to continue sync job"))
+      } else {
+        toast.success(t("settings.sync.retryStarted", "Sync step queued to continue"))
+        fetchRecentJobs()
+      }
+      setRetryingJobId(null)
+    },
+    [fetchRecentJobs, t]
+  )
 
   if (!isAdmin) {
     return (
@@ -294,6 +365,18 @@ export default function SyncPage() {
                         <span className="text-xs text-muted-foreground">
                           {job.processed_items}/{job.total_items} {t("common.items", "items")}
                         </span>
+                      )}
+                      {job.status === "failed" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={syncing || retryingJobId === job.id}
+                          onClick={() => continueFailedJob(job)}
+                        >
+                          <RefreshCw className={retryingJobId === job.id ? "size-3 animate-spin" : "size-3"} />
+                          {t("settings.sync.continue", "Continue")}
+                        </Button>
                       )}
                       <SyncStatusBadge status={job.status} t={t} />
                     </div>

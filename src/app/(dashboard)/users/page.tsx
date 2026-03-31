@@ -84,6 +84,7 @@ export default function UsersPage() {
     React.useState<Profile | null>(null);
   const [actionLoading, setActionLoading] = React.useState(false);
   const [fortnoxUserIdDraft, setFortnoxUserIdDraft] = React.useState("");
+  const [fortnoxCostCenterDraft, setFortnoxCostCenterDraft] = React.useState("");
 
   const inviteForm = useForm<InviteUserInput>({
     resolver: zodResolver(inviteUserSchema),
@@ -113,6 +114,7 @@ export default function UsersPage() {
   async function openUserDetail(user: Profile) {
     setSelectedUser(user);
     setFortnoxUserIdDraft(user.fortnox_user_id ?? "");
+    setFortnoxCostCenterDraft(user.fortnox_cost_center ?? "");
     const supabase = createClient();
     const { data: scopeRows } = await supabase
       .from("user_scopes")
@@ -197,6 +199,41 @@ export default function UsersPage() {
       prev.map((profile) =>
         profile.id === selectedUser.id
           ? { ...profile, fortnox_user_id: value }
+          : profile,
+      ),
+    );
+    setActionLoading(false);
+  }
+
+  async function handleFortnoxCostCenterSave() {
+    if (!selectedUser) return;
+
+    setActionLoading(true);
+    const supabase = createClient();
+    const trimmed = fortnoxCostCenterDraft.trim();
+    const value = trimmed.length > 0 ? trimmed : null;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ fortnox_cost_center: value } as never)
+      .eq("id", selectedUser.id);
+
+    if (error) {
+      toast.error(
+        t("users.toast.updateCostCenterFailed", "Failed to update cost center"),
+      );
+      setActionLoading(false);
+      return;
+    }
+
+    toast.success(t("users.toast.costCenterUpdated", "Cost center updated"));
+    setSelectedUser((prev) =>
+      prev ? { ...prev, fortnox_cost_center: value } : prev,
+    );
+    setUsers((prev) =>
+      prev.map((profile) =>
+        profile.id === selectedUser.id
+          ? { ...profile, fortnox_cost_center: value }
           : profile,
       ),
     );
@@ -513,6 +550,34 @@ export default function UsersPage() {
                     type="button"
                     variant="outline"
                     onClick={handleFortnoxUserIdSave}
+                    disabled={actionLoading}
+                  >
+                    {t("common.save", "Save")}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="fortnox-cost-center">
+                  {t("users.fields.costCenter", "Cost center")}
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="fortnox-cost-center"
+                    value={fortnoxCostCenterDraft}
+                    onChange={(event) =>
+                      setFortnoxCostCenterDraft(event.target.value)
+                    }
+                    placeholder={t(
+                      "users.fields.enterCostCenter",
+                      "Enter cost center",
+                    )}
+                    disabled={actionLoading}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleFortnoxCostCenterSave}
                     disabled={actionLoading}
                   >
                     {t("common.save", "Save")}

@@ -470,6 +470,8 @@ const dictionaries = {
     "users.toast.roleUpdated": "Role updated",
     "users.toast.updateFortnoxUserIdFailed": "Failed to update Fortnox user ID",
     "users.toast.fortnoxUserIdUpdated": "Fortnox user ID updated",
+    "users.toast.updateCostCenterFailed": "Failed to update cost center",
+    "users.toast.costCenterUpdated": "Cost center updated",
     "users.toast.updateTeamFailed": "Failed to update team",
     "users.toast.teamUpdated": "Team updated",
     "users.toast.reactivateFailed": "Failed to reactivate user",
@@ -507,6 +509,8 @@ const dictionaries = {
     "users.noTeam": "No team",
     "users.fields.fortnoxUserId": "Fortnox user ID",
     "users.fields.enterFortnoxUserId": "Enter Fortnox user ID",
+    "users.fields.costCenter": "Cost center",
+    "users.fields.enterCostCenter": "Enter cost center",
     "users.fields.scopes": "Scopes",
     "users.scopes.description":
       "Scopes determine which features this user can access.",
@@ -999,6 +1003,9 @@ const dictionaries = {
     "users.toast.updateFortnoxUserIdFailed":
       "Kunde inte uppdatera Fortnox användar-ID",
     "users.toast.fortnoxUserIdUpdated": "Fortnox användar-ID uppdaterat",
+    "users.toast.updateCostCenterFailed":
+      "Kunde inte uppdatera kostnadsställe",
+    "users.toast.costCenterUpdated": "Kostnadsställe uppdaterat",
     "users.toast.updateTeamFailed": "Kunde inte uppdatera team",
     "users.toast.teamUpdated": "Team uppdaterat",
     "users.toast.reactivateFailed": "Kunde inte återaktivera användare",
@@ -1038,6 +1045,8 @@ const dictionaries = {
     "users.noTeam": "Inget team",
     "users.fields.fortnoxUserId": "Fortnox användar-ID",
     "users.fields.enterFortnoxUserId": "Ange Fortnox användar-ID",
+    "users.fields.costCenter": "Kostnadsställe",
+    "users.fields.enterCostCenter": "Ange kostnadsställe",
     "users.fields.scopes": "Omfång",
     "users.scopes.description":
       "Omfång avgör vilka funktioner denna användare har tillgång till.",
