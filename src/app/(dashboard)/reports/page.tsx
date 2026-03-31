@@ -1148,8 +1148,8 @@ function renderTurnoverCell(
 function renderWorkloadShareCell(percentage: number) {
   const clamped = Math.min(Math.max(percentage, 0), 100);
   return (
-    <div className="flex items-center gap-2">
-      <span className="h-2 w-full overflow-hidden rounded-full bg-muted">
+    <div className="flex w-full min-w-0 items-center gap-2">
+      <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
         <span
           className="block h-full rounded-full bg-[oklch(0.62_0.15_252)]"
           style={{ width: `${clamped}%` }}
@@ -3740,7 +3740,9 @@ function renderWorkloadShareCell(percentage: number) {
       id: "workloadPercentage",
       accessorKey: "workloadPercentage",
       header: t("reports.columns.workloadShare", "Workload Share"),
-      size: 160,
+      size: 200,
+      minSize: 200,
+      maxSize: 200,
       enableSorting: false,
       cell: ({ row }) => renderWorkloadShareCell(row.original.workloadPercentage),
     },
@@ -3779,7 +3781,9 @@ function renderWorkloadShareCell(percentage: number) {
       id: "workloadPercentage",
       accessorKey: "workloadPercentage",
       header: t("reports.columns.workloadShare", "Workload Share"),
-      size: 160,
+      size: 200,
+      minSize: 200,
+      maxSize: 200,
       enableSorting: false,
       cell: ({ row }) => renderWorkloadShareCell(row.original.workloadPercentage),
     },
@@ -3830,7 +3834,9 @@ function renderWorkloadShareCell(percentage: number) {
       id: "workloadPercentage",
       accessorKey: "workloadPercentage",
       header: t("reports.columns.workload", "Workload"),
-      size: 140,
+      size: 200,
+      minSize: 200,
+      maxSize: 200,
       enableSorting: false,
       cell: ({ row }) => renderWorkloadShareCell(row.original.workloadPercentage),
     },
@@ -3846,7 +3852,10 @@ function renderWorkloadShareCell(percentage: number) {
               variant="ghost"
               size="icon"
               className="size-8"
-              onClick={() => setSelectedCustomerId(row.original.customerId)}
+              onClick={() => {
+                setSelectedCustomerId(row.original.customerId);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               aria-label={`${t("reports.actions.open", "Open")} ${row.original.customerName} ${t("reports.actions.inReport", "in report")}`}
             >
               <ChevronRight className="size-4" />
@@ -3889,7 +3898,9 @@ function renderWorkloadShareCell(percentage: number) {
       id: "workloadPercentage",
       accessorKey: "workloadPercentage",
       header: t("reports.columns.workload", "Workload"),
-      size: 140,
+      size: 200,
+      minSize: 200,
+      maxSize: 200,
       enableSorting: false,
       cell: ({ row }) => renderWorkloadShareCell(row.original.workloadPercentage),
     },
@@ -4182,15 +4193,15 @@ function renderWorkloadShareCell(percentage: number) {
           </p>
         ) : (
           <div className="overflow-hidden rounded-md border">
-            <Table className="table-fixed">
+            <Table className="table-auto">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[20%]">{t("reports.articleGroups.group", "Group")}</TableHead>
-                  <TableHead className="w-[18%]">{t("reports.articleGroups.turnoverExVat", "Turnover ex. VAT")}</TableHead>
-                  <TableHead className="w-[10%]">{t("reports.articleGroups.articles", "Articles")}</TableHead>
-                  <TableHead className="w-[10%]">{t("reports.articleGroups.count", "Count")}</TableHead>
-                  <TableHead className="w-[10%]">{t("reports.articleGroups.quantity", "Quantity")}</TableHead>
-                  <TableHead className="w-[32%]">{t("reports.articleGroups.share", "Share")}</TableHead>
+                  <TableHead>{t("reports.articleGroups.group", "Group")}</TableHead>
+                  <TableHead>{t("reports.articleGroups.turnoverExVat", "Turnover")}</TableHead>
+                  <TableHead>{t("reports.articleGroups.articles", "Articles")}</TableHead>
+                  <TableHead>{t("reports.articleGroups.count", "Count")}</TableHead>
+                  <TableHead>{t("reports.articleGroups.quantity", "Quantity")}</TableHead>
+                  <TableHead className="w-[200px] min-w-[200px] max-w-[200px]">{t("reports.articleGroups.share", "Share")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -4226,31 +4237,31 @@ function renderWorkloadShareCell(percentage: number) {
                         <TableCell>{group.articleCount}</TableCell>
                         <TableCell>{group.rowCount}</TableCell>
                         <TableCell>{hoursFormatter.format(group.quantity)}</TableCell>
-                        <TableCell>{renderWorkloadShareCell(group.shareOfTotal)}</TableCell>
+                        <TableCell className="w-[200px] min-w-[200px] max-w-[200px]">{renderWorkloadShareCell(group.shareOfTotal)}</TableCell>
                       </TableRow>
 
                       {isOpen ? (
                         <TableRow>
                           <TableCell colSpan={6} className="p-0">
-                            <Table className="table-fixed">
+                            <Table className="table-auto">
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead className="w-[14%]">
+                                  <TableHead>
                                     {t("reports.articleGroups.articleNumber", "Article #")}
                                   </TableHead>
-                                  <TableHead className="w-[30%]">
+                                  <TableHead>
                                     {t("reports.articleGroups.name", "Name")}
                                   </TableHead>
-                                  <TableHead className="w-[18%]">
-                                    {t("reports.articleGroups.turnoverExVat", "Turnover ex. VAT")}
+                                  <TableHead>
+                                    {t("reports.articleGroups.turnoverExVat", "Turnover")}
                                   </TableHead>
-                                  <TableHead className="w-[10%]">
+                                  <TableHead>
                                     {t("reports.articleGroups.count", "Count")}
                                   </TableHead>
-                                  <TableHead className="w-[10%]">
+                                  <TableHead>
                                     {t("reports.articleGroups.quantity", "Quantity")}
                                   </TableHead>
-                                  <TableHead className="w-[18%]">
+                                  <TableHead className="w-[200px] min-w-[200px] max-w-[200px]">
                                     {t("reports.articleGroups.share", "Share")}
                                   </TableHead>
                                 </TableRow>
@@ -4271,7 +4282,7 @@ function renderWorkloadShareCell(percentage: number) {
                                     <TableCell>
                                       {hoursFormatter.format(article.quantity)}
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="w-[200px] min-w-[200px] max-w-[200px]">
                                       <span className="text-muted-foreground">
                                         {Math.round(article.shareOfGroup)}%
                                       </span>
@@ -4514,6 +4525,41 @@ function renderWorkloadShareCell(percentage: number) {
             )}
           </section>
 
+          {selectedManagerId && !selectedCustomerId ? (
+            <section className="space-y-3">
+              <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
+                <h3 className="text-base font-semibold">
+                  {t("reports.sections.customersInCostCenter.title", "Customers in cost center")}{" "}
+                  {selectedManager?.fortnox_cost_center ?? "-"} -{" "}
+                  {selectedManager?.full_name ?? t("reports.selectedCustomerManager", "Selected customer manager")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t(
+                    "reports.sections.customersInCostCenter.description",
+                    "Period summary for customers in the selected customer manager scope.",
+                  )}
+                </p>
+              </div>
+
+              <DataTable
+                columns={managerCustomerSummaryColumns}
+                data={managerCustomerSummaryRows}
+                loading={managerCustomerSummaryLoading}
+                hideRowCount
+                pageSize={12}
+                fixedColumnWidths={{ workloadPercentage: 200 }}
+                emptyState={{
+                  icon: Filter,
+                  title: t("reports.empty.noCustomerSummaryRows.title", "No customer summary rows"),
+                  description: t(
+                    "reports.empty.noCustomerSummaryRows.description",
+                    "No customer KPI rows were found for this manager and period.",
+                  ),
+                }}
+              />
+            </section>
+          ) : null}
+
           <section className="space-y-3">
             <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
               <h3 className="text-base font-semibold">
@@ -4560,6 +4606,7 @@ function renderWorkloadShareCell(percentage: number) {
                 loading={customerTimeReportingLoading}
                 hideRowCount
                 pageSize={12}
+                fixedColumnWidths={{ workloadPercentage: 200 }}
                 emptyState={{
                   icon: Filter,
                   title: t("reports.empty.noCustomerHourEntries.title", "No customer-hour entries"),
@@ -4594,6 +4641,7 @@ function renderWorkloadShareCell(percentage: number) {
                   loading={otherManagersTimeReportingLoading}
                   hideRowCount
                   pageSize={12}
+                  fixedColumnWidths={{ workloadPercentage: 200 }}
                   emptyState={{
                     icon: Filter,
                     title: t("reports.empty.noOtherManagerReports.title", "No other manager reports"),
@@ -4629,6 +4677,7 @@ function renderWorkloadShareCell(percentage: number) {
                   loading={helpedCustomerManagersLoading}
                   hideRowCount
                   pageSize={12}
+                  fixedColumnWidths={{ workloadPercentage: 200 }}
                   emptyState={{
                     icon: Filter,
                     title: t("reports.empty.noHelpedManagerRows.title", "No helped manager rows"),
@@ -4641,40 +4690,6 @@ function renderWorkloadShareCell(percentage: number) {
               </div>
             ) : null}
           </section>
-
-          {selectedManagerId && !selectedCustomerId ? (
-            <section className="space-y-3">
-              <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
-                <h3 className="text-base font-semibold">
-                  {t("reports.sections.customersInCostCenter.title", "Customers in cost center")}{" "}
-                  {selectedManager?.fortnox_cost_center ?? "-"} -{" "}
-                  {selectedManager?.full_name ?? t("reports.selectedCustomerManager", "Selected customer manager")}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {t(
-                    "reports.sections.customersInCostCenter.description",
-                    "Period summary for customers in the selected customer manager scope.",
-                  )}
-                </p>
-              </div>
-
-              <DataTable
-                columns={managerCustomerSummaryColumns}
-                data={managerCustomerSummaryRows}
-                loading={managerCustomerSummaryLoading}
-                hideRowCount
-                pageSize={12}
-                emptyState={{
-                  icon: Filter,
-                  title: t("reports.empty.noCustomerSummaryRows.title", "No customer summary rows"),
-                  description: t(
-                    "reports.empty.noCustomerSummaryRows.description",
-                    "No customer KPI rows were found for this manager and period.",
-                  ),
-                }}
-              />
-            </section>
-          ) : null}
 
           {selectedManagerId && !selectedCustomerId ? renderArticleGroupsSection() : null}
 

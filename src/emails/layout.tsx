@@ -20,10 +20,16 @@ interface EmailLayoutProps {
 }
 
 function normalizeBaseUrl(appUrl?: string): string {
-  const fallback = process.env.NEXT_PUBLIC_APP_URL || system.url;
+  const fallback =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
+    system.url;
   const candidate = (appUrl || fallback || "").trim();
   if (!candidate) return "";
-  return candidate.endsWith("/") ? candidate.slice(0, -1) : candidate;
+  const normalized = candidate.endsWith("/") ? candidate.slice(0, -1) : candidate;
+  if (/^https?:\/\//.test(normalized)) return normalized;
+  return `https://${normalized}`;
 }
 
 function toAbsoluteAssetUrl(baseUrl: string, assetPath: string): string {

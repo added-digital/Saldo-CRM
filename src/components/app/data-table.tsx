@@ -57,6 +57,7 @@ interface DataTableProps<TData, TValue> {
   hideRowCount?: boolean
   sortingStorageKey?: string
   pageSizeOptions?: number[]
+  fixedColumnWidths?: Record<string, number>
 }
 
 function getColumnWidthPercent<TData, TValue>(
@@ -131,6 +132,7 @@ function DataTable<TData, TValue>({
   hideRowCount = false,
   sortingStorageKey,
   pageSizeOptions,
+  fixedColumnWidths,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [sortingHydrated, setSortingHydrated] = React.useState(false)
@@ -254,6 +256,31 @@ function DataTable<TData, TValue>({
   }
 
   const totalSize = table.getCenterTotalSize()
+  const visibleLeafColumns = table.getVisibleLeafColumns()
+  const fixedWidthByColumn = fixedColumnWidths ?? {}
+  const fixedTotalWidth = visibleLeafColumns.reduce(
+    (sum, column) => sum + (fixedWidthByColumn[column.id] ?? 0),
+    0,
+  )
+  const nonFixedTotalSize = visibleLeafColumns.reduce(
+    (sum, column) =>
+      fixedWidthByColumn[column.id] == null ? sum + column.getSize() : sum,
+    0,
+  )
+
+  function getHeaderWidth(header: Header<TData, unknown>) {
+    const fixedWidth = fixedWidthByColumn[header.column.id]
+    if (fixedWidth != null) {
+      return `${fixedWidth}px`
+    }
+
+    if (fixedTotalWidth > 0 && nonFixedTotalSize > 0) {
+      const ratio = header.getSize() / nonFixedTotalSize
+      return `calc((100% - ${fixedTotalWidth}px) * ${ratio})`
+    }
+
+    return getColumnWidthPercent(header, totalSize)
+  }
 
   return (
     <div className="space-y-4">
@@ -323,7 +350,7 @@ function DataTable<TData, TValue>({
                   return (
                     <TableHead
                       key={header.id}
-                      style={{ width: getColumnWidthPercent(header, totalSize) }}
+                      style={{ width: getHeaderWidth(header) }}
                       className={isControlHeader ? "relative p-0" : "relative"}
                     >
                       {header.isPlaceholder ? null : header.column.getCanSort() ? (

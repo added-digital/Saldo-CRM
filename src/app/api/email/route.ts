@@ -40,10 +40,52 @@ type EmailRenderResult = {
   html: string
 }
 
-type TemplateRenderer = (data: Record<string, unknown>) => Promise<EmailRenderResult>
+type TemplateRenderer = (data: Record<string, unknown>, appUrl: string) => Promise<EmailRenderResult>
+
+function normalizeBaseUrl(value: string): string {
+  const candidate = value.trim()
+  if (!candidate) return ""
+  return candidate.endsWith("/") ? candidate.slice(0, -1) : candidate
+}
+
+function toHttpsUrl(value: string): string {
+  const candidate = value.trim()
+  if (!candidate) return ""
+  if (/^https?:\/\//i.test(candidate)) return normalizeBaseUrl(candidate)
+  return normalizeBaseUrl(`https://${candidate}`)
+}
+
+function resolveAppUrl(request: NextRequest, data: Record<string, unknown>): string {
+  const fromPayload = asString(data.appUrl, "")
+  if (fromPayload) {
+    return normalizeBaseUrl(fromPayload)
+  }
+
+  const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (publicAppUrl?.trim()) {
+    return normalizeBaseUrl(publicAppUrl)
+  }
+
+  const vercelProductionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  if (vercelProductionUrl?.trim()) {
+    return toHttpsUrl(vercelProductionUrl)
+  }
+
+  const vercelUrl = process.env.VERCEL_URL
+  if (vercelUrl?.trim()) {
+    return toHttpsUrl(vercelUrl)
+  }
+
+  const requestOrigin = request.nextUrl.origin
+  if (requestOrigin?.trim()) {
+    return normalizeBaseUrl(requestOrigin)
+  }
+
+  return normalizeBaseUrl(system.url)
+}
 
 const templateRenderers: Record<EmailRequest["template"], TemplateRenderer> = {
-  content: async (data) => {
+  content: async (data, appUrl) => {
     const title = asString(data.title, "Information from Saldo")
     const subject = asString(data.subject, title)
     const paragraphs = asStringArray(data.paragraphs)
@@ -56,7 +98,7 @@ const templateRenderers: Record<EmailRequest["template"], TemplateRenderer> = {
         ctaLabel: asString(data.ctaLabel, ""),
         ctaUrl: asString(data.ctaUrl, ""),
         footnote: asString(data.footnote, ""),
-        appUrl: asString(data.appUrl, process.env.NEXT_PUBLIC_APP_URL || system.url),
+        appUrl,
         brandName: asString(data.brandName, system.companyName),
       })
     )
@@ -155,7 +197,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid template" }, { status: 400 })
     }
 
-    const { subject, html } = await renderTemplate(data ?? {})
+    const payload = data ?? {}
+    const appUrl = resolveAppUrl(request, payload)
+    const { subject, html } = await renderTemplate(payload, appUrl)
 
     if (mode === "preview") {
       return NextResponse.json({ success: true, subject, html, recipients })
