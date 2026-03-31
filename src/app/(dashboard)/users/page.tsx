@@ -14,7 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { createClient } from "@/lib/supabase/client";
 import type { Profile, Team, Scope } from "@/types/database";
-import { inviteUserSchema, type InviteUserInput } from "@/lib/validations/user";
+import { createUserSchema, type CreateUserInput } from "@/lib/validations/user";
 import { PageHeader } from "@/components/app/page-header";
 import { DataTable } from "@/components/app/data-table";
 import { StatusBadge } from "@/components/app/status-badge";
@@ -76,8 +76,8 @@ export default function UsersPage() {
   const [teams, setTeams] = React.useState<Team[]>([]);
   const [scopes, setScopes] = React.useState<Scope[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [inviteDialogOpen, setInviteDialogOpen] = React.useState(false);
-  const [inviting, setInviting] = React.useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+  const [creating, setCreating] = React.useState(false);
   const [selectedUser, setSelectedUser] = React.useState<Profile | null>(null);
   const [userScopes, setUserScopes] = React.useState<string[]>([]);
   const [deactivateTarget, setDeactivateTarget] =
@@ -86,9 +86,16 @@ export default function UsersPage() {
   const [fortnoxUserIdDraft, setFortnoxUserIdDraft] = React.useState("");
   const [fortnoxCostCenterDraft, setFortnoxCostCenterDraft] = React.useState("");
 
-  const inviteForm = useForm<InviteUserInput>({
-    resolver: zodResolver(inviteUserSchema),
-    defaultValues: { email: "" },
+  const createForm = useForm<CreateUserInput>({
+    resolver: zodResolver(createUserSchema),
+    defaultValues: {
+      email: "",
+      full_name: "",
+      fortnox_employee_id: "",
+      fortnox_user_id: "",
+      fortnox_group_name: "",
+      fortnox_cost_center: "",
+    },
   });
 
   async function fetchData() {
@@ -126,25 +133,30 @@ export default function UsersPage() {
     );
   }
 
-  async function handleInvite(values: InviteUserInput) {
-    setInviting(true);
+  async function handleCreate(values: CreateUserInput) {
+    setCreating(true);
 
     const response = await fetch("/api/users/invite", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: values.email }),
+      body: JSON.stringify(values),
     });
 
+    const data = (await response.json().catch(() => null)) as
+      | { error?: string }
+      | null;
+
     if (!response.ok) {
-      toast.error(t("users.toast.inviteFailed", "Failed to invite user"));
-    } else {
-      toast.success(
-        `${t("users.toast.invitationSentTo", "Invitation sent to")} ${values.email}`,
+      toast.error(
+        data?.error ?? t("users.toast.createFailed", "Failed to create user"),
       );
-      setInviteDialogOpen(false);
-      inviteForm.reset();
+    } else {
+      toast.success(t("users.toast.userCreated", "User created"));
+      setCreateDialogOpen(false);
+      createForm.reset();
+      fetchData();
     }
-    setInviting(false);
+    setCreating(false);
   }
 
   async function handleRoleChange(userId: string, role: string) {
@@ -422,35 +434,115 @@ export default function UsersPage() {
         title={t("users.header.title", "Users")}
         description={t("users.header.description", "Manage user accounts, roles, and permissions")}
       >
-        <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="size-4" />
-              {t("users.invite.button", "Invite User")}
+              {t("users.create.button", "Create User")}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{t("users.invite.title", "Invite User")}</DialogTitle>
+              <DialogTitle>{t("users.create.title", "Create User")}</DialogTitle>
               <DialogDescription>
-                {t("users.invite.description", "Send an invitation to a new user.")}
+                {t("users.create.description", "Create a user directly without sending an email.")}
               </DialogDescription>
             </DialogHeader>
-            <Form {...inviteForm}>
+            <Form {...createForm}>
               <form
-                onSubmit={inviteForm.handleSubmit(handleInvite)}
+                onSubmit={createForm.handleSubmit(handleCreate)}
                 className="space-y-4"
               >
                 <FormField
-                  control={inviteForm.control}
+                  control={createForm.control}
+                  name="full_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("users.create.fullName", "Full name")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t("users.create.fullNamePlaceholder", "Jane Doe")}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("users.invite.emailAddress", "Email Address")}</FormLabel>
+                      <FormLabel>{t("users.create.emailAddress", "Email address")}</FormLabel>
                       <FormControl>
                         <Input
                           type="email"
-                          placeholder={t("users.invite.emailPlaceholder", "user@company.com")}
+                          placeholder={t("users.create.emailPlaceholder", "user@company.com")}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="fortnox_employee_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("users.fields.fortnoxEmployeeId", "Fortnox employee ID")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t("users.fields.enterFortnoxEmployeeId", "Enter Fortnox employee ID")}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="fortnox_user_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("users.fields.fortnoxUserId", "Fortnox user ID")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t("users.fields.enterFortnoxUserId", "Enter Fortnox user ID")}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="fortnox_group_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("users.fields.fortnoxGroupName", "Fortnox group name")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t("users.fields.enterFortnoxGroupName", "Enter Fortnox group name")}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={createForm.control}
+                  name="fortnox_cost_center"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("users.fields.costCenter", "Cost center")}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder={t("users.fields.enterCostCenter", "Enter cost center")}
                           {...field}
                         />
                       </FormControl>
@@ -459,9 +551,9 @@ export default function UsersPage() {
                   )}
                 />
                 <FormActions
-                  submitLabel={t("users.invite.sendInvitation", "Send Invitation")}
-                  loading={inviting}
-                  onCancel={() => setInviteDialogOpen(false)}
+                  submitLabel={t("users.create.submit", "Create user")}
+                  loading={creating}
+                  onCancel={() => setCreateDialogOpen(false)}
                 />
               </form>
             </Form>
