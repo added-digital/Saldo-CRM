@@ -734,6 +734,16 @@ export default function ReportsPage() {
   const [openArticleGroups, setOpenArticleGroups] = React.useState<
     Record<string, boolean>
   >({});
+
+  const scrollReportsViewportToTop = React.useCallback(() => {
+    const viewport = document.querySelector("main.overflow-y-auto");
+    if (viewport instanceof HTMLElement) {
+      viewport.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
   const [timeDetailsOpen, setTimeDetailsOpen] = React.useState(false);
   const [timeDetailsLoading, setTimeDetailsLoading] = React.useState(false);
   const [timeDetailsTitle, setTimeDetailsTitle] = React.useState("");
@@ -3840,29 +3850,6 @@ function renderWorkloadShareCell(percentage: number) {
       enableSorting: false,
       cell: ({ row }) => renderWorkloadShareCell(row.original.workloadPercentage),
     },
-    {
-      id: "openCustomer",
-      header: "",
-      size: 56,
-      enableSorting: false,
-      cell: ({ row }) => (
-        <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={() => {
-                setSelectedCustomerId(row.original.customerId);
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              aria-label={`${t("reports.actions.open", "Open")} ${row.original.customerName} ${t("reports.actions.inReport", "in report")}`}
-            >
-              <ChevronRight className="size-4" />
-            </Button>
-        </div>
-      ),
-    },
   ];
 
   const helpedCustomerManagersColumns: ColumnDef<
@@ -4547,7 +4534,11 @@ function renderWorkloadShareCell(percentage: number) {
                 loading={managerCustomerSummaryLoading}
                 hideRowCount
                 pageSize={12}
-                fixedColumnWidths={{ workloadPercentage: 200 }}
+                fixedColumnWidths={{ workloadPercentage: 200, _navigate: 60 }}
+                onRowNavigate={(row) => {
+                  setSelectedCustomerId(row.customerId);
+                  scrollReportsViewportToTop();
+                }}
                 emptyState={{
                   icon: Filter,
                   title: t("reports.empty.noCustomerSummaryRows.title", "No customer summary rows"),
