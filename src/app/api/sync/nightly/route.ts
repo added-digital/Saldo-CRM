@@ -15,14 +15,6 @@ type NightlyChainJob = {
   payload: Record<string, unknown> | null
 }
 
-function readStepIndex(payload: Record<string, unknown> | null): number | null {
-  const value = payload?.nightly_step_index
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return null
-  }
-  return value
-}
-
 export async function GET(request: NextRequest) {
   if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -64,46 +56,28 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  if (chainJobs.some((job) => job.status === "pending" || job.status === "processing")) {
+  if (chainJobs.length > 0) {
     return NextResponse.json({
       ok: true,
       chain_id: chainId,
-      message: "Nightly chain in progress.",
+      message: "Nightly chain already queued.",
     })
   }
 
-  const completedStepIndexes = chainJobs
-    .filter((job) => job.status === "completed")
-    .map((job) => readStepIndex(job.payload))
-    .filter((value): value is number => value != null)
+  const jobsToInsert = NIGHTLY_SYNC_STEPS.map((step, index) => {
+    const label = STEP_LABELS[step]
+    const payload: Record<string, unknown> = {
+      step_name: step,
+      step_label: label,
+      nightly_chain_id: chainId,
+      nightly_step_index: index,
+    }
 
-  const lastCompletedStep = completedStepIndexes.length > 0 ? Math.max(...completedStepIndexes) : -1
-  const nextStepIndex = lastCompletedStep + 1
+    if (step === "invoices") {
+      payload.sync_mode = "full"
+    }
 
-  if (nextStepIndex >= NIGHTLY_SYNC_STEPS.length) {
-    return NextResponse.json({
-      ok: true,
-      chain_id: chainId,
-      message: "Nightly chain already completed.",
-    })
-  }
-
-  const step = NIGHTLY_SYNC_STEPS[nextStepIndex]
-  const label = STEP_LABELS[step]
-  const payload: Record<string, unknown> = {
-    step_name: step,
-    step_label: label,
-    nightly_chain_id: chainId,
-    nightly_step_index: nextStepIndex,
-  }
-
-  if (step === "invoices") {
-    payload.sync_mode = "full"
-  }
-
-  const { data: insertedJob, error: insertError } = await supabase
-    .from("sync_jobs")
-    .insert({
+    return {
       status: "pending",
       progress: 0,
       current_step: `Waiting for ${label}...`,
@@ -115,14 +89,18 @@ export async function GET(request: NextRequest) {
       dispatch_lock: false,
       payload,
       started_by: null,
-    } as never)
-    .select("id")
-    .single()
+    }
+  })
 
-  if (insertError || !insertedJob) {
+  const { data: insertedJobs, error: insertError } = await supabase
+    .from("sync_jobs")
+    .insert(jobsToInsert as never)
+    .select("id")
+
+  if (insertError || !insertedJobs) {
     return NextResponse.json(
       {
-        error: "Failed to enqueue nightly sync step",
+        error: "Failed to enqueue nightly sync chain",
         detail: insertError?.message,
       },
       { status: 500 },
@@ -132,8 +110,8 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     chain_id: chainId,
-    step,
-    job_id: (insertedJob as { id: string }).id,
-    message: `Queued ${label}.`,
+    queued_steps: NIGHTLY_SYNC_STEPS,
+    queued_jobs: insertedJobs.length,
+    message: "Queued nightly sync chain.",
   })
 }
