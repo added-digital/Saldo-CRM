@@ -275,6 +275,44 @@ export default function CustomersPage() {
     return filteredCustomers.slice(from, to)
   }, [filteredCustomers, pageIndex, pageSize])
 
+  const hasNonDefaultFilters =
+    !(filters.statuses.length === 1 && filters.statuses[0] === "active") ||
+    filters.segmentIds.length > 0 ||
+    filters.managerIds.length > 0 ||
+    filters.missingPrimaryContact ||
+    filters.missingEmail ||
+    filters.missingCustomerManager
+
+  const hasSearch = searchQuery.trim().length > 0
+  const hasFilterResultGap = customers.length > 0 && filteredCustomers.length === 0 && (hasNonDefaultFilters || hasSearch)
+
+  const emptyState = hasFilterResultGap
+    ? {
+        icon: Users,
+        title: t("customers.empty.title", "No customers"),
+        description: t("customers.filters.subtitle", "Refine the customer list and choose what is shown in the list."),
+        action: {
+          label: t("customers.filters.clearAll", "Clear all filters"),
+          onClick: () => {
+            setFilters(EMPTY_FILTERS)
+            setSearchQuery("")
+            setPageIndex(0)
+          },
+        },
+      }
+    : {
+        icon: Users,
+        title: t("customers.empty.title", "No customers"),
+        description: t(
+          "customers.empty.description",
+          "Connect Fortnox in Settings → Integrations to sync your customer database."
+        ),
+        action: {
+          label: t("customers.empty.goToIntegrations", "Go to Integrations"),
+          onClick: () => router.push("/settings/integrations"),
+        },
+      }
+
   async function fetchCustomers() {
     const supabase = createClient()
 
@@ -548,18 +586,7 @@ export default function CustomersPage() {
         onSelectionChange={setSelectedCustomers}
         clearSelectionRef={clearSelectionRef}
         onRowNavigate={(customer) => router.push(`/customers/${customer.id}`)}
-        emptyState={{
-          icon: Users,
-          title: t("customers.empty.title", "No customers"),
-          description: t(
-            "customers.empty.description",
-            "Connect Fortnox in Settings → Integrations to sync your customer database."
-          ),
-          action: {
-            label: t("customers.empty.goToIntegrations", "Go to Integrations"),
-            onClick: () => router.push("/settings/integrations"),
-          },
-        }}
+        emptyState={emptyState}
       />
 
       <ActionBar
