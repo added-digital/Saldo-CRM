@@ -160,6 +160,11 @@ const dictionaries = {
     "reports.filters.customerSingular": "customer",
     "reports.filters.customerPlural": "customers",
     "reports.filters.inCurrentFilter": "in current filter",
+    "reports.filters.articleGroups.label": "Article groups",
+    "reports.filters.articleGroups.search": "Search article groups...",
+    "reports.filters.articleGroups.none": "No article groups found",
+    "reports.filters.articleGroups.allSelected": "All article groups",
+    "reports.filters.articleGroups.selected": "selected",
     "reports.empty.noCustomers.title": "No customers match this filter",
     "reports.empty.noCustomers.description":
       "Adjust team, customer manager, or customer selection to view KPIs.",
@@ -699,6 +704,11 @@ const dictionaries = {
     "reports.filters.customerSingular": "kund",
     "reports.filters.customerPlural": "kunder",
     "reports.filters.inCurrentFilter": "i aktuellt filter",
+    "reports.filters.articleGroups.label": "Artikelgrupper",
+    "reports.filters.articleGroups.search": "Sök artikelgrupper...",
+    "reports.filters.articleGroups.none": "Inga artikelgrupper hittades",
+    "reports.filters.articleGroups.allSelected": "Alla artikelgrupper",
+    "reports.filters.articleGroups.selected": "valda",
     "reports.empty.noCustomers.title": "Inga kunder matchar filtret",
     "reports.empty.noCustomers.description":
       "Justera team, kundansvarig eller kundval för att visa KPI:er.",

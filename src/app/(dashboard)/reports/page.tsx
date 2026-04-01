@@ -67,6 +67,8 @@ const REPORTS_MANAGER_ALIAS: Record<string, string> = {
 
 const REPORT_MONTH_OPTIONS_COUNT = 36;
 const TIME_REPORTS_PAGE_SIZE = 1000;
+const MONTHLY_UNMAPPED_ARTICLE_GROUP = "__UNMAPPED__";
+const MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP = "Licenser";
 
 const sekFormatter = new Intl.NumberFormat("sv-SE", {
   style: "currency",
@@ -78,17 +80,6 @@ const hoursFormatter = new Intl.NumberFormat("sv-SE", {
   maximumFractionDigits: 1,
   minimumFractionDigits: 1,
 });
-
-function invoiceTurnoverExVat(input: {
-  total_ex_vat: number | null;
-  total: number | null;
-}): { amount: number | null; fromTotal: boolean } {
-  if (input.total_ex_vat != null) {
-    return { amount: Number(input.total_ex_vat), fromTotal: false };
-  }
-
-  return { amount: null, fromTotal: false };
-}
 
 function invoiceTurnoverStrictExVat(input: {
   total_ex_vat: number | null;
@@ -434,6 +425,12 @@ type TurnoverMonthRow = {
   invoiceCount: number;
 };
 
+type MonthlyInvoiceGroupRow = {
+  monthKey: string;
+  groupValue: string;
+  turnover: number;
+};
+
 type TimeDetailMetric =
   | "customerHours"
   | "absenceHours"
@@ -741,6 +738,18 @@ export default function ReportsPage() {
   const [openArticleGroups, setOpenArticleGroups] = React.useState<
     Record<string, boolean>
   >({});
+  const [monthlyArticleGroupFilterOpen, setMonthlyArticleGroupFilterOpen] =
+    React.useState(false);
+  const [monthlyArticleGroupValues, setMonthlyArticleGroupValues] =
+    React.useState<string[]>([]);
+  const [selectedMonthlyArticleGroups, setSelectedMonthlyArticleGroups] =
+    React.useState<string[]>([]);
+  const [monthlyInvoiceGroupRows, setMonthlyInvoiceGroupRows] = React.useState<
+    MonthlyInvoiceGroupRow[]
+  >([]);
+  const [monthlyHoursByMonth, setMonthlyHoursByMonth] = React.useState<
+    Array<{ monthKey: string; hours: number }>
+  >([]);
 
   const scrollReportsViewportToTop = React.useCallback(() => {
     const viewport = document.querySelector("main.overflow-y-auto");
@@ -790,6 +799,30 @@ export default function ReportsPage() {
     () => getReportingWindowRange(selectedMonth, selectedWindowMode),
     [selectedMonth, selectedWindowMode],
   );
+  const monthlyArticleGroupLabel = React.useCallback(
+    (value: string) =>
+      value === MONTHLY_UNMAPPED_ARTICLE_GROUP
+        ? t("reports.articleGroups.unmapped", "Unmapped")
+        : value,
+    [t],
+  );
+  const selectedMonthlyArticleGroupSet = React.useMemo(
+    () => new Set(selectedMonthlyArticleGroups),
+    [selectedMonthlyArticleGroups],
+  );
+  const monthlyArticleGroupSummaryLabel = React.useMemo(() => {
+    if (monthlyArticleGroupValues.length === 0) {
+      return t("reports.filters.articleGroups.none", "No article groups found");
+    }
+
+    const selectedCount = selectedMonthlyArticleGroups.length;
+    const totalCount = monthlyArticleGroupValues.length;
+    if (selectedCount === totalCount) {
+      return t("reports.filters.articleGroups.allSelected", "All article groups");
+    }
+
+    return `${selectedCount}/${totalCount} ${t("reports.filters.articleGroups.selected", "selected")}`;
+  }, [monthlyArticleGroupValues.length, selectedMonthlyArticleGroups.length, t]);
   const reportingWindowOptions = React.useMemo<SelectOption[]>(
     () => [
       {
@@ -3392,30 +3425,23 @@ function renderWorkloadShareCell(percentage: number) {
   React.useEffect(() => {
     let cancelled = false;
 
-    async function fetchCustomerMonthlyEconomics() {
+    async function fetchCustomerMonthlyEconomicsSource() {
       if (!selectedCustomerId) {
         setCustomerMonthlyEconomicsRows([]);
+        setMonthlyInvoiceGroupRows([]);
+        setMonthlyHoursByMonth([]);
+        setMonthlyArticleGroupValues([]);
+        setSelectedMonthlyArticleGroups([]);
         setCustomerMonthlyEconomicsLoading(false);
         return;
       }
 
       setCustomerMonthlyEconomicsLoading(true);
       const supabase = createClient();
-      const rowsByMonth = new Map<string, CustomerMonthlyEconomicsRow>();
-      for (const month of rollingWindow.months) {
-        rowsByMonth.set(month.key, {
-          monthKey: month.key,
-          monthLabel: `${month.label} ${String(month.year).slice(-2)}`,
-          turnover: 0,
-          turnoverFromTotal: false,
-          hours: 0,
-          turnoverPerHour: null,
-        });
-      }
 
       let invoiceQuery = supabase
         .from("invoices")
-        .select("invoice_date, total_ex_vat, total")
+        .select("document_number, invoice_date")
         .gte("invoice_date", rollingWindow.from)
         .lte("invoice_date", rollingWindow.to);
 
@@ -3432,27 +3458,161 @@ function renderWorkloadShareCell(percentage: number) {
 
       if (invoiceError) {
         setCustomerMonthlyEconomicsRows([]);
+        setMonthlyInvoiceGroupRows([]);
+        setMonthlyHoursByMonth([]);
+        setMonthlyArticleGroupValues([]);
+        setSelectedMonthlyArticleGroups([]);
         setCustomerMonthlyEconomicsLoading(false);
         return;
       }
 
+      const invoiceMonthByNumber = new Map<string, string>();
+      const invoiceNumbers: string[] = [];
       for (const row of (invoiceRows ?? []) as Array<{
+        document_number: string | null;
         invoice_date: string | null;
-        total_ex_vat: number | null;
-        total: number | null;
       }>) {
+        const invoiceNumber = normalizeIdentifier(row.document_number);
         const monthKey = (row.invoice_date ?? "").slice(0, 7);
-        const target = rowsByMonth.get(monthKey);
-        if (!target) continue;
+        if (!invoiceNumber || !monthKey) continue;
+        invoiceMonthByNumber.set(invoiceNumber, monthKey);
+        invoiceNumbers.push(invoiceNumber);
+      }
 
-        const turnover = invoiceTurnoverExVat(row);
-        if (turnover.amount == null) {
-          continue;
+      const uniqueInvoiceNumbers = Array.from(new Set(invoiceNumbers));
+      const invoiceNumberChunks = chunkArray(uniqueInvoiceNumbers, 200);
+
+      const mappingByArticleNumber = new Map<
+        string,
+        { groupName: string; articleName: string | null }
+      >();
+      const mappingByArticleName = new Map<
+        string,
+        { groupName: string; articleName: string | null }
+      >();
+
+      if (uniqueInvoiceNumbers.length > 0) {
+        const { data: mappings, error: mappingError } = await supabase
+          .from("article_group_mappings")
+          .select("article_number, article_name, group_name, active")
+          .eq("active", true);
+
+        if (cancelled) return;
+
+        if (mappingError) {
+          setCustomerMonthlyEconomicsRows([]);
+          setMonthlyInvoiceGroupRows([]);
+          setMonthlyHoursByMonth([]);
+          setMonthlyArticleGroupValues([]);
+          setSelectedMonthlyArticleGroups([]);
+          setCustomerMonthlyEconomicsLoading(false);
+          return;
         }
 
-        target.turnover = Number(target.turnover ?? 0) + turnover.amount;
-        target.turnoverFromTotal = target.turnoverFromTotal || turnover.fromTotal;
+        for (const mappingRow of (mappings ?? []) as Array<{
+          article_number: string | null;
+          article_name: string | null;
+          group_name: string;
+          active: boolean | null;
+        }>) {
+          if (!mappingRow.group_name) continue;
+          const normalizedArticleNumber = normalizeIdentifier(
+            mappingRow.article_number,
+          );
+          const normalizedArticleName = normalizeText(mappingRow.article_name);
+          const mapped = {
+            groupName: mappingRow.group_name,
+            articleName: mappingRow.article_name,
+          };
+
+          if (normalizedArticleNumber) {
+            mappingByArticleNumber.set(normalizedArticleNumber, mapped);
+          }
+          if (normalizedArticleName) {
+            mappingByArticleName.set(normalizedArticleName, mapped);
+          }
+        }
       }
+
+      const groupedInvoiceRows: MonthlyInvoiceGroupRow[] = [];
+      const groupValueSet = new Set<string>();
+
+      for (const invoiceNumberChunk of invoiceNumberChunks) {
+        const { data, error } = await supabase
+          .from("invoice_rows")
+          .select("invoice_number, article_number, article_name, total_ex_vat")
+          .in("invoice_number", invoiceNumberChunk);
+
+        if (cancelled) return;
+
+        if (error) {
+          setCustomerMonthlyEconomicsRows([]);
+          setMonthlyInvoiceGroupRows([]);
+          setMonthlyHoursByMonth([]);
+          setMonthlyArticleGroupValues([]);
+          setSelectedMonthlyArticleGroups([]);
+          setCustomerMonthlyEconomicsLoading(false);
+          return;
+        }
+
+        for (const row of (data ?? []) as Array<{
+          invoice_number: string | null;
+          article_number: string | null;
+          article_name: string | null;
+          total_ex_vat: number | null;
+        }>) {
+          const invoiceNumber = normalizeIdentifier(row.invoice_number);
+          const monthKey = invoiceMonthByNumber.get(invoiceNumber);
+          if (!monthKey) continue;
+
+          const normalizedArticleNumber = normalizeIdentifier(row.article_number);
+          const normalizedArticleName = normalizeText(row.article_name);
+          const mapping =
+            (normalizedArticleNumber
+              ? mappingByArticleNumber.get(normalizedArticleNumber)
+              : null) ??
+            (normalizedArticleName
+              ? mappingByArticleName.get(normalizedArticleName)
+              : null);
+
+          const groupValue =
+            mapping?.groupName?.trim().length
+              ? mapping.groupName.trim()
+              : MONTHLY_UNMAPPED_ARTICLE_GROUP;
+
+          groupedInvoiceRows.push({
+            monthKey,
+            groupValue,
+            turnover: Number(row.total_ex_vat ?? 0),
+          });
+          groupValueSet.add(groupValue);
+        }
+      }
+
+      const nextGroupValues = Array.from(groupValueSet.values()).sort((a, b) =>
+        monthlyArticleGroupLabel(a).localeCompare(monthlyArticleGroupLabel(b)),
+      );
+      const defaultSelected = nextGroupValues.filter(
+        (groupValue) => groupValue !== MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP,
+      );
+      const fallbackSelected =
+        defaultSelected.length > 0 ? defaultSelected : nextGroupValues;
+
+      setMonthlyInvoiceGroupRows(groupedInvoiceRows);
+      setMonthlyArticleGroupValues(nextGroupValues);
+      setSelectedMonthlyArticleGroups((current) => {
+        const inScope = current.filter((value) =>
+          nextGroupValues.includes(value),
+        );
+        const next = inScope.length > 0 ? inScope : fallbackSelected;
+        if (
+          current.length === next.length &&
+          current.every((value, index) => value === next[index])
+        ) {
+          return current;
+        }
+        return next;
+      });
 
       let hoursQuery = supabase
         .from("time_reports")
@@ -3474,68 +3634,40 @@ function renderWorkloadShareCell(percentage: number) {
 
       if (hourError) {
         setCustomerMonthlyEconomicsRows([]);
+        setMonthlyInvoiceGroupRows([]);
+        setMonthlyHoursByMonth([]);
+        setMonthlyArticleGroupValues([]);
+        setSelectedMonthlyArticleGroups([]);
         setCustomerMonthlyEconomicsLoading(false);
         return;
       }
 
+      const hoursByMonth = new Map<string, number>();
       for (const row of (hourRows ?? []) as Array<{
         report_date: string | null;
         hours: number | null;
       }>) {
         const monthKey = (row.report_date ?? "").slice(0, 7);
-        const target = rowsByMonth.get(monthKey);
-        if (!target) continue;
-        target.hours += Number(row.hours ?? 0);
+        if (!monthKey) continue;
+        const current = hoursByMonth.get(monthKey) ?? 0;
+        hoursByMonth.set(monthKey, current + Number(row.hours ?? 0));
       }
-
-      const orderedRows = rollingWindow.months.map((month) => {
-        const row = rowsByMonth.get(month.key) ?? {
-          monthKey: month.key,
-          monthLabel: `${month.label} ${String(month.year).slice(-2)}`,
-          turnover: 0,
-          turnoverFromTotal: false,
-          hours: 0,
-          turnoverPerHour: null,
-        };
-
-        return {
-          ...row,
-          turnoverPerHour:
-            row.turnover != null && row.hours > 0 ? row.turnover / row.hours : null,
-        };
-      });
-
-      const averageHours =
-        orderedRows.length > 0
-          ? orderedRows.reduce((sum, row) => sum + row.hours, 0) /
-            orderedRows.length
-          : 0;
-      const averageTurnover =
-        orderedRows.length > 0
-          ? orderedRows.reduce((sum, row) => sum + Number(row.turnover ?? 0), 0) /
-            orderedRows.length
-          : 0;
-      const hasFallbackTurnover = orderedRows.some((row) => row.turnoverFromTotal);
-
-      const averageRow: CustomerMonthlyEconomicsRow = {
-        monthKey: "average",
-        monthLabel: t("reports.average", "Average"),
-        turnover: averageTurnover,
-        turnoverFromTotal: hasFallbackTurnover,
-        hours: averageHours,
-        turnoverPerHour:
-          averageTurnover != null && averageHours > 0
-            ? averageTurnover / averageHours
-            : null,
-      };
-
-      setCustomerMonthlyEconomicsRows([...orderedRows, averageRow]);
+      setMonthlyHoursByMonth(
+        Array.from(hoursByMonth.entries()).map(([monthKey, hours]) => ({
+          monthKey,
+          hours,
+        })),
+      );
       setCustomerMonthlyEconomicsLoading(false);
     }
 
-    fetchCustomerMonthlyEconomics().catch(() => {
+    fetchCustomerMonthlyEconomicsSource().catch(() => {
       if (!cancelled) {
         setCustomerMonthlyEconomicsRows([]);
+        setMonthlyInvoiceGroupRows([]);
+        setMonthlyHoursByMonth([]);
+        setMonthlyArticleGroupValues([]);
+        setSelectedMonthlyArticleGroups([]);
         setCustomerMonthlyEconomicsLoading(false);
       }
     });
@@ -3543,7 +3675,93 @@ function renderWorkloadShareCell(percentage: number) {
     return () => {
       cancelled = true;
     };
-  }, [selectedCustomerId, selectedCustomer, rollingWindow, t]);
+  }, [
+    monthlyArticleGroupLabel,
+    rollingWindow,
+    selectedCustomer,
+    selectedCustomerId,
+  ]);
+
+  React.useEffect(() => {
+    if (!selectedCustomerId) {
+      setCustomerMonthlyEconomicsRows([]);
+      return;
+    }
+
+    const rowsByMonth = new Map<string, CustomerMonthlyEconomicsRow>();
+    for (const month of rollingWindow.months) {
+      rowsByMonth.set(month.key, {
+        monthKey: month.key,
+        monthLabel: `${month.label} ${String(month.year).slice(-2)}`,
+        turnover: 0,
+        turnoverFromTotal: false,
+        hours: 0,
+        turnoverPerHour: null,
+      });
+    }
+
+    for (const row of monthlyInvoiceGroupRows) {
+      if (!selectedMonthlyArticleGroupSet.has(row.groupValue)) continue;
+      const target = rowsByMonth.get(row.monthKey);
+      if (!target) continue;
+      target.turnover = Number(target.turnover ?? 0) + row.turnover;
+    }
+
+    for (const row of monthlyHoursByMonth) {
+      const target = rowsByMonth.get(row.monthKey);
+      if (!target) continue;
+      target.hours += row.hours;
+    }
+
+    const orderedRows = rollingWindow.months.map((month) => {
+      const row = rowsByMonth.get(month.key) ?? {
+        monthKey: month.key,
+        monthLabel: `${month.label} ${String(month.year).slice(-2)}`,
+        turnover: 0,
+        turnoverFromTotal: false,
+        hours: 0,
+        turnoverPerHour: null,
+      };
+
+      return {
+        ...row,
+        turnoverPerHour:
+          row.turnover != null && row.hours > 0 ? row.turnover / row.hours : null,
+      };
+    });
+
+    const averageHours =
+      orderedRows.length > 0
+        ? orderedRows.reduce((sum, row) => sum + row.hours, 0) /
+          orderedRows.length
+        : 0;
+    const averageTurnover =
+      orderedRows.length > 0
+        ? orderedRows.reduce((sum, row) => sum + Number(row.turnover ?? 0), 0) /
+          orderedRows.length
+        : 0;
+
+    const averageRow: CustomerMonthlyEconomicsRow = {
+      monthKey: "average",
+      monthLabel: t("reports.average", "Average"),
+      turnover: averageTurnover,
+      turnoverFromTotal: false,
+      hours: averageHours,
+      turnoverPerHour:
+        averageTurnover != null && averageHours > 0
+          ? averageTurnover / averageHours
+          : null,
+    };
+
+    setCustomerMonthlyEconomicsRows([...orderedRows, averageRow]);
+  }, [
+    monthlyHoursByMonth,
+    monthlyInvoiceGroupRows,
+    rollingWindow,
+    selectedCustomerId,
+    selectedMonthlyArticleGroupSet,
+    t,
+  ]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -4913,6 +5131,79 @@ function renderWorkloadShareCell(percentage: number) {
                     {selectedCustomer?.name ?? t("reports.selectedCustomer", "Selected customer")} ·{" "}
                     {rollingWindow.title}
                   </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Popover
+                    open={monthlyArticleGroupFilterOpen}
+                    onOpenChange={setMonthlyArticleGroupFilterOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="justify-between gap-2"
+                        disabled={monthlyArticleGroupValues.length === 0}
+                      >
+                        <Filter className="size-4" />
+                        {t(
+                          "reports.filters.articleGroups.label",
+                          "Article groups",
+                        )}
+                        <ChevronDown className="size-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[340px] p-0" align="start">
+                      <Command>
+                        <CommandInput
+                          placeholder={t(
+                            "reports.filters.articleGroups.search",
+                            "Search article groups...",
+                          )}
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            {t(
+                              "reports.filters.articleGroups.none",
+                              "No article groups found",
+                            )}
+                          </CommandEmpty>
+                          {monthlyArticleGroupValues.map((groupValue) => {
+                            const isSelected =
+                              selectedMonthlyArticleGroupSet.has(groupValue);
+                            return (
+                              <CommandItem
+                                key={groupValue}
+                                value={monthlyArticleGroupLabel(groupValue)}
+                                onSelect={() => {
+                                  setSelectedMonthlyArticleGroups((current) => {
+                                    if (current.includes(groupValue)) {
+                                      if (current.length <= 1) return current;
+                                      return current.filter(
+                                        (value) => value !== groupValue,
+                                      );
+                                    }
+                                    return [...current, groupValue];
+                                  });
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "size-4",
+                                    isSelected ? "opacity-100" : "opacity-0",
+                                  )}
+                                />
+                                <span className="truncate">
+                                  {monthlyArticleGroupLabel(groupValue)}
+                                </span>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <span className="text-xs text-muted-foreground">
+                    {monthlyArticleGroupSummaryLabel}
+                  </span>
                 </div>
                 {customerMonthlyEconomicsLoading ? (
                   <Skeleton className="h-[420px] w-full" />
