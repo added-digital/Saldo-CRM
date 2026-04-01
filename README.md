@@ -7,7 +7,7 @@ A **white-label internal operations system** — a stripped-down CRM focused on 
 ```bash
 pnpm install
 cp .env.example .env.local
-# Fill in your Supabase, Resend, and Fortnox credentials
+# Fill in your Supabase, Microsoft SMTP, and Fortnox credentials
 pnpm dev
 ```
 
@@ -18,7 +18,7 @@ pnpm dev
 3. Update colors and fonts in `src/styles/theme.css`
 4. Place logo files in `public/brand/`
 5. Create a Supabase project and configure environment variables
-6. Configure Resend SMTP in Supabase Dashboard → Authentication → SMTP Settings
+6. Configure Microsoft SMTP in Supabase Dashboard → Authentication → SMTP Settings
 7. Run database migrations: `pnpm supabase db push`
 8. Deploy to Vercel
 9. Create your first admin user (see below)
@@ -41,7 +41,7 @@ Run this in the Supabase SQL Editor or via `supabase` CLI.
 | Framework | Next.js 16 (App Router) |
 | Language | TypeScript |
 | Backend/DB | Supabase (PostgreSQL, Auth, RLS) |
-| Email | Resend |
+| Email | Microsoft SMTP |
 | UI | shadcn/ui + Radix UI |
 | Styling | Tailwind CSS 4 |
 | Animations | GSAP |
@@ -61,7 +61,7 @@ src/
 │   └── layout/             # Sidebar, topbar, breadcrumbs
 ├── config/                 # System variables, navigation, scopes
 ├── hooks/                  # React hooks
-├── lib/                    # Supabase, Fortnox, Resend, validations
+├── lib/                    # Supabase, Fortnox, mail, validations
 ├── emails/                 # React Email templates
 ├── styles/                 # Theme CSS variables
 └── types/                  # TypeScript type definitions
@@ -96,7 +96,7 @@ Add new scopes by inserting rows into the `scopes` table. Then reference them in
 See `.env.example` for all required variables. Key services:
 
 - **Supabase**: URL, anon key, service role key
-- **Resend**: API key (also configured as SMTP in Supabase)
+- **Mail**: SMTP credentials (configured in Supabase Auth)
 - **Fortnox**: Client ID, secret, redirect URI
 - **App**: Public URL
 

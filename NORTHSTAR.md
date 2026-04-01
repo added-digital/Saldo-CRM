@@ -19,7 +19,7 @@ This project is a **reusable template**. To deploy for a new company:
 1. Clone the repository
 2. Update system variables (colors, fonts, company name, logo)
 3. Run SQL migrations
-4. Configure environment variables (Supabase, Fortnox, Resend)
+4. Configure environment variables (Supabase, Fortnox, Microsoft SMTP)
 5. Deploy
 
 The system should be production-ready for a new client within hours, not weeks.
@@ -40,7 +40,7 @@ The system should be production-ready for a new client within hours, not weeks.
 | Framework | Next.js (App Router) | 16.x | Full-stack React framework |
 | Language | TypeScript | 5.x | Type safety everywhere |
 | Backend/DB | Supabase | Latest | PostgreSQL, Auth, Realtime, Storage |
-| Email | Resend | Latest | Transactional emails + Supabase SMTP |
+| Email | Microsoft SMTP | Latest | Transactional emails via Supabase SMTP |
 | UI Primitives | shadcn/ui + Radix UI | Latest | Accessible, composable component primitives |
 | Styling | Tailwind CSS | 4.x | Utility-first CSS |
 | Animations | GSAP | 3.x | Page transitions, micro-interactions |
@@ -64,7 +64,7 @@ next
 react / react-dom
 @supabase/supabase-js
 @supabase/ssr
-resend
+SMTP provider (Microsoft)
 @react-email/components
 tailwindcss
 gsap
@@ -313,7 +313,7 @@ src/
 │       │   └── webhook/
 │       │       └── route.ts      # Fortnox websocket event handler
 │       ├── email/
-│       │   └── route.ts          # Resend email sending
+│       │   └── route.ts          # Email sending
 │       └── users/
 │           └── invite/
 │               └── route.ts      # User invitation (admin, uses service role)
@@ -390,8 +390,8 @@ src/
 │   │   ├── auth.ts              # OAuth token management
 │   │   ├── sync.ts              # Sync logic (customers)
 │   │   └── websocket.ts         # Websocket connection handler
-│   ├── resend/
-│   │   └── client.ts            # Resend email client
+│   ├── mail/
+│   │   └── client.ts            # Mail client
 │   ├── validations/
 │   │   ├── user.ts              # User schemas (Zod)
 │   │   ├── customer.ts          # Customer schemas
@@ -434,7 +434,7 @@ Authentication is **passwordless** via Supabase magic links.
 **Flow:**
 1. User enters email on `/login`
 2. System calls `supabase.auth.signInWithOtp({ email, options: { emailRedirectTo } })`
-3. Supabase sends magic link via Resend SMTP
+3. Supabase sends magic link via configured SMTP provider
 4. User clicks link → redirected to `/auth/callback`
 5. Client-side callback page handles three auth token delivery methods:
    - **Hash fragment** (invites): `#access_token=...&refresh_token=...` → `supabase.auth.setSession()`
@@ -444,14 +444,14 @@ Authentication is **passwordless** via Supabase magic links.
 
 > **Note:** The callback is a **client-side page** (`page.tsx`), not a server route (`route.ts`). This is required because Supabase `inviteUserByEmail()` delivers tokens via URL hash fragments (`#access_token=...`), which are invisible to server-side route handlers. The page is wrapped in `<Suspense>` for `useSearchParams()` compatibility.
 
-**Resend as Supabase SMTP provider:**
+**SMTP provider in Supabase Auth:**
 
 | Setting | Value |
 |---|---|
-| Host | `smtp.resend.com` |
+| Host | Microsoft SMTP host |
 | Port | `587` |
-| Username | `resend` |
-| Password | Resend API key |
+| Username | SMTP username |
+| Password | SMTP password |
 | Sender email | Configured per deployment |
 | Sender name | From `system.name` |
 
@@ -1214,13 +1214,13 @@ The websocket listener runs as a **long-lived server process** — not as a Next
 
 ---
 
-## 11. Email System (Resend)
+## 11. Email System
 
 ### 11.1 Architecture
 
-Resend serves two purposes:
+Email serves two purposes:
 
-1. **Supabase auth emails** — Magic links, via Supabase custom SMTP configuration
+1. **Supabase auth emails** — Magic links via Supabase custom SMTP configuration
 2. **Application emails** — Welcome messages, team invitations, notifications
 
 ### 11.2 Email Templates
@@ -1243,34 +1243,7 @@ Built with `@react-email/components` for consistent, cross-client rendering.
 
 ### 11.3 Sending Pattern
 
-```typescript
-// src/lib/resend/client.ts
-import { Resend } from "resend"
-
-let resendClient: Resend | null = null
-
-export function getResend(): Resend {
-  if (!resendClient) {
-    const apiKey = process.env.RESEND_API_KEY
-    if (!apiKey) {
-      throw new Error("RESEND_API_KEY is not set")
-    }
-    resendClient = new Resend(apiKey)
-  }
-  return resendClient
-}
-
-// Usage in API route:
-const resend = getResend()
-await resend.emails.send({
-  from: `${system.name} <${system.supportEmail}>`,
-  to: [user.email],
-  subject: `Welcome to ${system.name}`,
-  react: WelcomeEmail({ userName: user.full_name, systemName: system.name }),
-})
-```
-
-> **Note:** The Resend client uses lazy initialization via `getResend()` to prevent build failures when `RESEND_API_KEY` is not set (e.g., during `next build` in CI).
+Application emails are sent through the configured SMTP provider and rendered with React Email templates.
 
 ---
 
@@ -1294,7 +1267,7 @@ await resend.emails.send({
 
 1. Admin enters email address in user management
 2. System calls `supabase.auth.admin.inviteUserByEmail(email)` (service role)
-3. Supabase sends magic link invite via Resend SMTP
+3. Supabase sends magic link invite via configured SMTP provider
 4. User clicks link → account created, profile trigger fires
 5. User is redirected to dashboard, sees welcome state
 6. Admin assigns role, team, and scopes
@@ -1369,8 +1342,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...             # Server-side only
 
-# ─── Resend ───
-RESEND_API_KEY=re_xxxx                       # Server-side only
+# ─── Mail / SMTP ───
+# Configure SMTP in Supabase Auth settings
 
 # ─── Fortnox ───
 FORTNOX_CLIENT_ID=xxxxx
@@ -1468,7 +1441,7 @@ const form = useForm<z.infer<typeof formSchema>>({
 3. [ ] Install dependencies: `pnpm install`
 4. [ ] shadcn/ui is pre-configured — components already in `src/components/ui/`
 5. [ ] Create Supabase project
-6. [ ] Configure Resend SMTP in Supabase Auth settings
+6. [ ] Configure SMTP provider in Supabase Auth settings
 7. [ ] Run migrations: `pnpm supabase db push` (supabase CLI is a devDependency)
 8. [ ] Update `src/config/system.ts` with company branding
 9. [ ] Update `src/styles/theme.css` with company colors and fonts
@@ -1526,4 +1499,4 @@ If feature-level scopes become insufficient:
 ---
 
 *Last updated: 2026-03-06*
-*Version: 1.1.0 — Aligned with implementation (Next.js 16, PKCE auth, TW4, Zod v4, lazy Resend, supabase devDep)*
+*Version: 1.1.0 — Aligned with implementation (Next.js 16, PKCE auth, TW4, Zod v4, SMTP auth, supabase devDep)*

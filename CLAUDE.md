@@ -36,7 +36,7 @@ src/
 │   ├── utils.ts          # cn(), formatters, helpers
 │   ├── supabase/         # Supabase client
 │   ├── fortnox/          # Fortnox API
-│   ├── resend/           # Email service
+│   ├── mail/             # Email service
 │   └── validations/      # Zod schemas
 ├── hooks/                # Custom React hooks
 ├── config/               # navigation.ts, system.ts, scopes.ts

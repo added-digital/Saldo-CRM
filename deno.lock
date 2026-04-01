@@ -34,7 +34,6 @@
         "npm:react-hook-form@^7.71.2",
         "npm:react@19.2.3",
         "npm:recharts@^3.8.0",
-        "npm:resend@^6.9.3",
         "npm:shadcn@^3.8.5",
         "npm:sonner@^2.0.7",
         "npm:supabase@^2.76.17",
