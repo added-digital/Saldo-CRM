@@ -70,7 +70,7 @@ function SyncProvider({ children }: { children: ReactNode }) {
         dispatch_lock: false,
         batch_phase: null,
       } as never)
-      .in("status", ["pending", "processing"] as never)
+      .eq("status", "processing")
       .lt("updated_at", cutoff as never)
   }, [])
 
