@@ -431,6 +431,12 @@ type MonthlyInvoiceGroupRow = {
   turnover: number;
 };
 
+type MonthlyHourGroupRow = {
+  monthKey: string;
+  groupValue: string;
+  hours: number;
+};
+
 type TimeDetailMetric =
   | "customerHours"
   | "absenceHours"
@@ -747,8 +753,8 @@ export default function ReportsPage() {
   const [monthlyInvoiceGroupRows, setMonthlyInvoiceGroupRows] = React.useState<
     MonthlyInvoiceGroupRow[]
   >([]);
-  const [monthlyHoursByMonth, setMonthlyHoursByMonth] = React.useState<
-    Array<{ monthKey: string; hours: number }>
+  const [monthlyHourGroupRows, setMonthlyHourGroupRows] = React.useState<
+    MonthlyHourGroupRow[]
   >([]);
 
   const scrollReportsViewportToTop = React.useCallback(() => {
@@ -3429,7 +3435,7 @@ function renderWorkloadShareCell(percentage: number) {
       if (!selectedCustomerId) {
         setCustomerMonthlyEconomicsRows([]);
         setMonthlyInvoiceGroupRows([]);
-        setMonthlyHoursByMonth([]);
+        setMonthlyHourGroupRows([]);
         setMonthlyArticleGroupValues([]);
         setSelectedMonthlyArticleGroups([]);
         setCustomerMonthlyEconomicsLoading(false);
@@ -3459,7 +3465,7 @@ function renderWorkloadShareCell(percentage: number) {
       if (invoiceError) {
         setCustomerMonthlyEconomicsRows([]);
         setMonthlyInvoiceGroupRows([]);
-        setMonthlyHoursByMonth([]);
+        setMonthlyHourGroupRows([]);
         setMonthlyArticleGroupValues([]);
         setSelectedMonthlyArticleGroups([]);
         setCustomerMonthlyEconomicsLoading(false);
@@ -3491,46 +3497,44 @@ function renderWorkloadShareCell(percentage: number) {
         { groupName: string; articleName: string | null }
       >();
 
-      if (uniqueInvoiceNumbers.length > 0) {
-        const { data: mappings, error: mappingError } = await supabase
-          .from("article_group_mappings")
-          .select("article_number, article_name, group_name, active")
-          .eq("active", true);
+      const { data: mappings, error: mappingError } = await supabase
+        .from("article_group_mappings")
+        .select("article_number, article_name, group_name, active")
+        .eq("active", true);
 
-        if (cancelled) return;
+      if (cancelled) return;
 
-        if (mappingError) {
-          setCustomerMonthlyEconomicsRows([]);
-          setMonthlyInvoiceGroupRows([]);
-          setMonthlyHoursByMonth([]);
-          setMonthlyArticleGroupValues([]);
-          setSelectedMonthlyArticleGroups([]);
-          setCustomerMonthlyEconomicsLoading(false);
-          return;
+      if (mappingError) {
+        setCustomerMonthlyEconomicsRows([]);
+        setMonthlyInvoiceGroupRows([]);
+        setMonthlyHourGroupRows([]);
+        setMonthlyArticleGroupValues([]);
+        setSelectedMonthlyArticleGroups([]);
+        setCustomerMonthlyEconomicsLoading(false);
+        return;
+      }
+
+      for (const mappingRow of (mappings ?? []) as Array<{
+        article_number: string | null;
+        article_name: string | null;
+        group_name: string;
+        active: boolean | null;
+      }>) {
+        if (!mappingRow.group_name) continue;
+        const normalizedArticleNumber = normalizeIdentifier(
+          mappingRow.article_number,
+        );
+        const normalizedArticleName = normalizeText(mappingRow.article_name);
+        const mapped = {
+          groupName: mappingRow.group_name,
+          articleName: mappingRow.article_name,
+        };
+
+        if (normalizedArticleNumber) {
+          mappingByArticleNumber.set(normalizedArticleNumber, mapped);
         }
-
-        for (const mappingRow of (mappings ?? []) as Array<{
-          article_number: string | null;
-          article_name: string | null;
-          group_name: string;
-          active: boolean | null;
-        }>) {
-          if (!mappingRow.group_name) continue;
-          const normalizedArticleNumber = normalizeIdentifier(
-            mappingRow.article_number,
-          );
-          const normalizedArticleName = normalizeText(mappingRow.article_name);
-          const mapped = {
-            groupName: mappingRow.group_name,
-            articleName: mappingRow.article_name,
-          };
-
-          if (normalizedArticleNumber) {
-            mappingByArticleNumber.set(normalizedArticleNumber, mapped);
-          }
-          if (normalizedArticleName) {
-            mappingByArticleName.set(normalizedArticleName, mapped);
-          }
+        if (normalizedArticleName) {
+          mappingByArticleName.set(normalizedArticleName, mapped);
         }
       }
 
@@ -3548,7 +3552,7 @@ function renderWorkloadShareCell(percentage: number) {
         if (error) {
           setCustomerMonthlyEconomicsRows([]);
           setMonthlyInvoiceGroupRows([]);
-          setMonthlyHoursByMonth([]);
+          setMonthlyHourGroupRows([]);
           setMonthlyArticleGroupValues([]);
           setSelectedMonthlyArticleGroups([]);
           setCustomerMonthlyEconomicsLoading(false);
@@ -3589,34 +3593,11 @@ function renderWorkloadShareCell(percentage: number) {
         }
       }
 
-      const nextGroupValues = Array.from(groupValueSet.values()).sort((a, b) =>
-        monthlyArticleGroupLabel(a).localeCompare(monthlyArticleGroupLabel(b)),
-      );
-      const defaultSelected = nextGroupValues.filter(
-        (groupValue) => groupValue !== MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP,
-      );
-      const fallbackSelected =
-        defaultSelected.length > 0 ? defaultSelected : nextGroupValues;
-
       setMonthlyInvoiceGroupRows(groupedInvoiceRows);
-      setMonthlyArticleGroupValues(nextGroupValues);
-      setSelectedMonthlyArticleGroups((current) => {
-        const inScope = current.filter((value) =>
-          nextGroupValues.includes(value),
-        );
-        const next = inScope.length > 0 ? inScope : fallbackSelected;
-        if (
-          current.length === next.length &&
-          current.every((value, index) => value === next[index])
-        ) {
-          return current;
-        }
-        return next;
-      });
 
       let hoursQuery = supabase
         .from("time_reports")
-        .select("report_date, hours")
+        .select("report_date, hours, article_number")
         .eq("entry_type", "time")
         .gte("report_date", rollingWindow.from)
         .lte("report_date", rollingWindow.to);
@@ -3635,29 +3616,63 @@ function renderWorkloadShareCell(percentage: number) {
       if (hourError) {
         setCustomerMonthlyEconomicsRows([]);
         setMonthlyInvoiceGroupRows([]);
-        setMonthlyHoursByMonth([]);
+        setMonthlyHourGroupRows([]);
         setMonthlyArticleGroupValues([]);
         setSelectedMonthlyArticleGroups([]);
         setCustomerMonthlyEconomicsLoading(false);
         return;
       }
 
-      const hoursByMonth = new Map<string, number>();
+      const groupedHourRows: MonthlyHourGroupRow[] = [];
       for (const row of (hourRows ?? []) as Array<{
         report_date: string | null;
         hours: number | null;
+        article_number: string | null;
       }>) {
         const monthKey = (row.report_date ?? "").slice(0, 7);
         if (!monthKey) continue;
-        const current = hoursByMonth.get(monthKey) ?? 0;
-        hoursByMonth.set(monthKey, current + Number(row.hours ?? 0));
-      }
-      setMonthlyHoursByMonth(
-        Array.from(hoursByMonth.entries()).map(([monthKey, hours]) => ({
+
+        const normalizedArticleNumber = normalizeIdentifier(row.article_number);
+        const mapping = normalizedArticleNumber
+          ? mappingByArticleNumber.get(normalizedArticleNumber)
+          : null;
+        const groupValue =
+          mapping?.groupName?.trim().length
+            ? mapping.groupName.trim()
+            : MONTHLY_UNMAPPED_ARTICLE_GROUP;
+
+        groupedHourRows.push({
           monthKey,
-          hours,
-        })),
+          groupValue,
+          hours: Number(row.hours ?? 0),
+        });
+        groupValueSet.add(groupValue);
+      }
+
+      const nextGroupValues = Array.from(groupValueSet.values()).sort((a, b) =>
+        monthlyArticleGroupLabel(a).localeCompare(monthlyArticleGroupLabel(b)),
       );
+      const defaultSelected = nextGroupValues.filter(
+        (groupValue) => groupValue !== MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP,
+      );
+      const fallbackSelected =
+        defaultSelected.length > 0 ? defaultSelected : nextGroupValues;
+
+      setMonthlyHourGroupRows(groupedHourRows);
+      setMonthlyArticleGroupValues(nextGroupValues);
+      setSelectedMonthlyArticleGroups((current) => {
+        const inScope = current.filter((value) =>
+          nextGroupValues.includes(value),
+        );
+        const next = inScope.length > 0 ? inScope : fallbackSelected;
+        if (
+          current.length === next.length &&
+          current.every((value, index) => value === next[index])
+        ) {
+          return current;
+        }
+        return next;
+      });
       setCustomerMonthlyEconomicsLoading(false);
     }
 
@@ -3665,7 +3680,7 @@ function renderWorkloadShareCell(percentage: number) {
       if (!cancelled) {
         setCustomerMonthlyEconomicsRows([]);
         setMonthlyInvoiceGroupRows([]);
-        setMonthlyHoursByMonth([]);
+        setMonthlyHourGroupRows([]);
         setMonthlyArticleGroupValues([]);
         setSelectedMonthlyArticleGroups([]);
         setCustomerMonthlyEconomicsLoading(false);
@@ -3707,7 +3722,8 @@ function renderWorkloadShareCell(percentage: number) {
       target.turnover = Number(target.turnover ?? 0) + row.turnover;
     }
 
-    for (const row of monthlyHoursByMonth) {
+    for (const row of monthlyHourGroupRows) {
+      if (!selectedMonthlyArticleGroupSet.has(row.groupValue)) continue;
       const target = rowsByMonth.get(row.monthKey);
       if (!target) continue;
       target.hours += row.hours;
@@ -3755,7 +3771,7 @@ function renderWorkloadShareCell(percentage: number) {
 
     setCustomerMonthlyEconomicsRows([...orderedRows, averageRow]);
   }, [
-    monthlyHoursByMonth,
+    monthlyHourGroupRows,
     monthlyInvoiceGroupRows,
     rollingWindow,
     selectedCustomerId,
