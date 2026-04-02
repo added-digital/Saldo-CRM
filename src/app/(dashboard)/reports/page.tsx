@@ -695,9 +695,10 @@ export default function ReportsPage() {
   const [selectedCustomerId, setSelectedCustomerId] = React.useState<
     string | null
   >(null);
-  const [selectedMonth, setSelectedMonth] = React.useState<string>(() =>
-    toMonthKey(new Date()),
-  );
+  const [selectedMonth, setSelectedMonth] = React.useState<string>(() => {
+    const now = new Date();
+    return toMonthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  });
   const [selectedWindowMode, setSelectedWindowMode] =
     React.useState<ReportingWindowMode>("rolling-12-months");
   const [kpiLoading, setKpiLoading] = React.useState(false);
@@ -3746,26 +3747,21 @@ function renderWorkloadShareCell(percentage: number) {
       };
     });
 
-    const averageHours =
-      orderedRows.length > 0
-        ? orderedRows.reduce((sum, row) => sum + row.hours, 0) /
-          orderedRows.length
-        : 0;
-    const averageTurnover =
-      orderedRows.length > 0
-        ? orderedRows.reduce((sum, row) => sum + Number(row.turnover ?? 0), 0) /
-          orderedRows.length
-        : 0;
+    const totalHours = orderedRows.reduce((sum, row) => sum + row.hours, 0);
+    const totalTurnover = orderedRows.reduce(
+      (sum, row) => sum + Number(row.turnover ?? 0),
+      0,
+    );
 
     const averageRow: CustomerMonthlyEconomicsRow = {
       monthKey: "average",
-      monthLabel: t("reports.average", "Average"),
-      turnover: averageTurnover,
+      monthLabel: "",
+      turnover: totalTurnover,
       turnoverFromTotal: false,
-      hours: averageHours,
+      hours: totalHours,
       turnoverPerHour:
-        averageTurnover != null && averageHours > 0
-          ? averageTurnover / averageHours
+        totalTurnover != null && totalHours > 0
+          ? totalTurnover / totalHours
           : null,
     };
 
