@@ -101,6 +101,8 @@ export interface SyncJob {
   batch_offset: number
   dispatch_lock: boolean
   last_dispatched_at: string | null
+  nightly_chain_id: string | null
+  nightly_step_index: number | null
   created_at: string
   updated_at: string
 }

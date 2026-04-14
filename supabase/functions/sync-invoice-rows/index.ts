@@ -35,10 +35,15 @@ function readNumberField(
   return null
 }
 
-function resolveExVatTotal(record: Record<string, unknown>): number | null {
-  const explicitExVat = readNumberField(record, [
-    "PriceExcludingVAT",
-    "PriceExcludingVat",
+function resolveQuantity(record: Record<string, unknown>): number | null {
+  return readNumberField(record, ["DeliveredQuantity", "Quantity"])
+}
+
+function resolveExVatTotal(
+  record: Record<string, unknown>,
+  quantity: number | null,
+): number | null {
+  const explicitLineExVat = readNumberField(record, [
     "RowAmountExcludingVAT",
     "RowAmountExcludingVat",
     "TotalExcludingVAT",
@@ -50,11 +55,26 @@ function resolveExVatTotal(record: Record<string, unknown>): number | null {
     "TotalNet",
   ])
 
-  if (explicitExVat != null) {
-    return explicitExVat
+  if (explicitLineExVat != null) {
+    return explicitLineExVat
   }
 
-  return readNumberField(record, ["Price", "UnitPrice"])
+  const unitExVat = readNumberField(record, [
+    "PriceExcludingVAT",
+    "PriceExcludingVat",
+    "Price",
+    "UnitPrice",
+  ])
+
+  if (unitExVat == null) {
+    return null
+  }
+
+  if (quantity != null) {
+    return unitExVat * quantity
+  }
+
+  return unitExVat
 }
 
 function toInvoiceRows(
@@ -68,6 +88,7 @@ function toInvoiceRows(
     .filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object"))
     .map((row) => {
       const price = readNumberField(row, ["Price", "UnitPrice"])
+      const quantity = resolveQuantity(row)
 
       if (price === 0) {
         return null
@@ -78,11 +99,9 @@ function toInvoiceRows(
       article_number: row.ArticleNumber != null ? String(row.ArticleNumber) : (row.ArticleNo != null ? String(row.ArticleNo) : null),
       article_name: row.ArticleName != null ? String(row.ArticleName) : null,
       description: row.Description != null ? String(row.Description) : null,
-      quantity: row.DeliveredQuantity != null
-        ? Number(row.DeliveredQuantity)
-        : (row.Quantity != null ? Number(row.Quantity) : null),
+      quantity,
       unit_price: price,
-      total_ex_vat: resolveExVatTotal(row),
+      total_ex_vat: resolveExVatTotal(row, quantity),
       total: row.Total != null ? Number(row.Total) : null,
     }
     })

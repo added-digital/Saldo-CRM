@@ -58,13 +58,8 @@ export async function POST(
 
     const { step } = await params
     const body = (await request.json().catch(() => ({}))) as {
-      sync_mode?: string
       start_customer_number?: string
     }
-    const syncMode =
-      body.sync_mode === "incomplete" || body.sync_mode === "full"
-        ? body.sync_mode
-        : undefined
     const startCustomerNumber =
       typeof body.start_customer_number === "string" &&
       body.start_customer_number.trim().length > 0
@@ -81,9 +76,6 @@ export async function POST(
     const supabase = await createClient()
     const label = STEP_LABELS[step] ?? step
     const payload: Record<string, unknown> = { step_name: step, step_label: label }
-    if (step === "invoices" && syncMode) {
-      payload.sync_mode = syncMode
-    }
     if (step === "invoices" && startCustomerNumber) {
       payload.start_customer_number = startCustomerNumber
     }

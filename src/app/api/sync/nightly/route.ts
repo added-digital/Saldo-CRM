@@ -12,7 +12,8 @@ import {
 type NightlyChainJob = {
   id: string
   status: "pending" | "processing" | "completed" | "failed"
-  payload: Record<string, unknown> | null
+  nightly_chain_id: string | null
+  nightly_step_index: number | null
 }
 
 export async function GET(request: NextRequest) {
@@ -35,9 +36,9 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from("sync_jobs")
-    .select("id,status,payload")
-    .contains("payload", { nightly_chain_id: chainId })
-    .order("created_at", { ascending: true })
+    .select("id,status,nightly_chain_id,nightly_step_index")
+    .eq("nightly_chain_id", chainId as never)
+    .order("nightly_step_index", { ascending: true })
 
   if (error) {
     return NextResponse.json(
@@ -69,8 +70,6 @@ export async function GET(request: NextRequest) {
     const payload: Record<string, unknown> = {
       step_name: step,
       step_label: label,
-      nightly_chain_id: chainId,
-      nightly_step_index: index,
     }
 
     if (step === "invoices") {
@@ -89,6 +88,8 @@ export async function GET(request: NextRequest) {
       dispatch_lock: false,
       payload,
       started_by: null,
+      nightly_chain_id: chainId,
+      nightly_step_index: index,
     }
   })
 

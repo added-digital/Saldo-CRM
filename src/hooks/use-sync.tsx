@@ -20,12 +20,6 @@ type SyncStep =
   | "contracts"
   | "generate-kpis"
 
-type InvoiceSyncMode = "full" | "incomplete"
-
-interface StartSyncOptions {
-  invoiceSyncMode?: InvoiceSyncMode
-}
-
 const SYNC_STEPS: SyncStep[] = [
   "customers",
   "employees",
@@ -50,7 +44,7 @@ const STALE_JOB_TIMEOUT_MS = 5 * 60 * 1000
 
 interface SyncContextValue {
   syncing: boolean
-  startSync: (steps: SyncStep[], options?: StartSyncOptions) => Promise<void>
+  startSync: (steps: SyncStep[]) => Promise<void>
 }
 
 const SyncContext = createContext<SyncContextValue | null>(null)
@@ -79,7 +73,7 @@ function SyncProvider({ children }: { children: ReactNode }) {
   }, [cleanUpStaleJobs])
 
   const startSync = useCallback(
-    async (steps: SyncStep[], options?: StartSyncOptions) => {
+    async (steps: SyncStep[]) => {
       if (syncing) return
       setSyncing(true)
 
@@ -91,10 +85,6 @@ function SyncProvider({ children }: { children: ReactNode }) {
           const payload: Record<string, unknown> = {
             step_name: step,
             step_label: label,
-          }
-
-          if (step === "invoices" && options?.invoiceSyncMode) {
-            payload.sync_mode = options.invoiceSyncMode
           }
 
           const { error: insertError } = await supabase
@@ -143,4 +133,4 @@ function useSync() {
 }
 
 export { SyncProvider, useSync, SYNC_STEPS, STEP_LABELS }
-export type { SyncStep, InvoiceSyncMode, StartSyncOptions }
+export type { SyncStep }

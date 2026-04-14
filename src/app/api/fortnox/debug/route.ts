@@ -444,44 +444,107 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const [costCentersRes, profilesRes, customersWithCCRes] = await Promise.all([
-      adminClient.from("cost_centers").select("code, name, active"),
-      adminClient.from("profiles").select("id, full_name, fortnox_cost_center, is_active").eq("is_active", true),
-      adminClient.from("customers").select("id, name, fortnox_cost_center").not("fortnox_cost_center", "is", null).limit(20),
-    ])
+    const costCentersParam = request.nextUrl.searchParams.get("costcenters")
+    if (costCentersParam === "1") {
+      const [costCentersRes, profilesRes, customersWithCCRes] = await Promise.all([
+        adminClient.from("cost_centers").select("code, name, active"),
+        adminClient.from("profiles").select("id, full_name, fortnox_cost_center, is_active").eq("is_active", true),
+        adminClient.from("customers").select("id, name, fortnox_cost_center").not("fortnox_cost_center", "is", null).limit(20),
+      ])
 
-    const costCenters = (costCentersRes.data ?? []) as unknown as { code: string; name: string | null; active: boolean }[]
-    const profiles = (profilesRes.data ?? []) as unknown as { id: string; full_name: string | null; fortnox_cost_center: string | null; is_active: boolean }[]
-    const customersWithCC = customersWithCCRes.data ?? []
+      const costCenters = (costCentersRes.data ?? []) as unknown as { code: string; name: string | null; active: boolean }[]
+      const profiles = (profilesRes.data ?? []) as unknown as { id: string; full_name: string | null; fortnox_cost_center: string | null; is_active: boolean }[]
+      const customersWithCC = customersWithCCRes.data ?? []
 
-    const profileNames = profiles.map((p) => p.full_name?.toLowerCase().trim()).filter(Boolean)
-    const costCenterNames = costCenters.map((cc) => cc.name?.toLowerCase().trim()).filter(Boolean)
+      const profileNames = profiles.map((p) => p.full_name?.toLowerCase().trim()).filter(Boolean)
+      const costCenterNames = costCenters.map((cc) => cc.name?.toLowerCase().trim()).filter(Boolean)
 
-    const matchingNames = costCenterNames.filter((ccName) => profileNames.includes(ccName))
-    const unmatchedCostCenters = costCenters.filter(
-      (cc) => cc.name && !profileNames.includes(cc.name.toLowerCase().trim())
-    )
-    const unmatchedProfiles = profiles.filter(
-      (p) => p.full_name && !costCenterNames.includes(p.full_name.toLowerCase().trim())
-    )
+      const matchingNames = costCenterNames.filter((ccName) => profileNames.includes(ccName))
+      const unmatchedCostCenters = costCenters.filter(
+        (cc) => cc.name && !profileNames.includes(cc.name.toLowerCase().trim())
+      )
+      const unmatchedProfiles = profiles.filter(
+        (p) => p.full_name && !costCenterNames.includes(p.full_name.toLowerCase().trim())
+      )
 
-    const profilesWithCostCenter = profiles.filter((p) => p.fortnox_cost_center)
+      const profilesWithCostCenter = profiles.filter((p) => p.fortnox_cost_center)
+
+      return NextResponse.json({
+        cost_centers: costCenters,
+        profiles: profiles.map((p) => ({ id: p.id, full_name: p.full_name, fortnox_cost_center: p.fortnox_cost_center })),
+        customers_with_cost_center: customersWithCC,
+        profiles_with_cost_center: profilesWithCostCenter.map((p) => ({ id: p.id, full_name: p.full_name, fortnox_cost_center: p.fortnox_cost_center })),
+        matching_names: matchingNames,
+        unmatched_cost_centers: unmatchedCostCenters.map((cc) => ({ code: cc.code, name: cc.name })),
+        unmatched_profiles: unmatchedProfiles.map((p) => ({ id: p.id, full_name: p.full_name })),
+        summary: {
+          total_cost_centers: costCenters.length,
+          total_active_profiles: profiles.length,
+          total_customers_with_cost_center: customersWithCC.length,
+          total_profiles_with_cost_center: profilesWithCostCenter.length,
+          name_matches: matchingNames.length,
+        },
+      })
+    }
 
     return NextResponse.json({
-      cost_centers: costCenters,
-      profiles: profiles.map((p) => ({ id: p.id, full_name: p.full_name, fortnox_cost_center: p.fortnox_cost_center })),
-      customers_with_cost_center: customersWithCC,
-      profiles_with_cost_center: profilesWithCostCenter.map((p) => ({ id: p.id, full_name: p.full_name, fortnox_cost_center: p.fortnox_cost_center })),
-      matching_names: matchingNames,
-      unmatched_cost_centers: unmatchedCostCenters.map((cc) => ({ code: cc.code, name: cc.name })),
-      unmatched_profiles: unmatchedProfiles.map((p) => ({ id: p.id, full_name: p.full_name })),
-      summary: {
-        total_cost_centers: costCenters.length,
-        total_active_profiles: profiles.length,
-        total_customers_with_cost_center: customersWithCC.length,
-        total_profiles_with_cost_center: profilesWithCostCenter.length,
-        name_matches: matchingNames.length,
-      },
+      endpoints: [
+        {
+          params: { customer: "<number>" },
+          description: "Raw Fortnox customer by customer number",
+          example: "?customer=1001",
+        },
+        {
+          params: { invoice: "<number>" },
+          description: "Raw Fortnox invoice with rows by document number",
+          example: "?invoice=50123",
+        },
+        {
+          params: { invoicesCustomer: "<number>", limit: "<number>", page: "<number>" },
+          description: "Fortnox invoices for a customer (paginated)",
+          example: "?invoicesCustomer=1001&limit=100&page=1",
+        },
+        {
+          params: { contract: "<number>" },
+          description: "Raw Fortnox contract by contract number",
+          example: "?contract=1",
+        },
+        {
+          params: { registrations: "v2", fromDate: "<YYYY-MM-DD>" },
+          description: "Time registrations v2 summary (date range + count)",
+          example: "?registrations=v2&fromDate=2025-01-01",
+        },
+        {
+          params: { fortnoxdump: "1", fromDate: "<YYYY-MM-DD>" },
+          description: "Fortnox time reports (10) + employees (10) preview",
+          example: "?fortnoxdump=1&fromDate=2025-01-01",
+        },
+        {
+          params: { fortnoxusersdump: "1" },
+          description: "All Fortnox users (tries multiple endpoints)",
+          example: "?fortnoxusersdump=1",
+        },
+        {
+          params: { fortnoxemployeesdump: "1" },
+          description: "All Fortnox employees",
+          example: "?fortnoxemployeesdump=1",
+        },
+        {
+          params: { fortnoxuserdump: "1", userId: "<id>" },
+          description: "Single Fortnox user/employee lookup with cross-matching",
+          example: "?fortnoxuserdump=1&userId=12",
+        },
+        {
+          params: { dbdump: "1" },
+          description: "DB time reports (10) + profiles (10) preview",
+          example: "?dbdump=1",
+        },
+        {
+          params: { costcenters: "1" },
+          description: "Cost center ↔ profile matching debug",
+          example: "?costcenters=1",
+        },
+      ],
     })
   } catch (error) {
     console.error("Debug error:", error)

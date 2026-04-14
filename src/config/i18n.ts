@@ -41,8 +41,6 @@ const dictionaries = {
       "Sync contracts and compute contract value per customer",
     "settings.sync.desc.generateKpis":
       "Recompute all customer KPI fields from existing invoices, time reports, and contracts",
-    "settings.sync.syncIncomplete": "Sync incomplete",
-    "settings.sync.syncFull": "Sync full",
     "settings.sync.recentJobs": "Recent Sync Jobs",
     "settings.sync.recentJobsDescription":
       "History of the last 20 sync operations",

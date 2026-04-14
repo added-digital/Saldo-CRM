@@ -51,23 +51,35 @@ export class FortnoxClient {
   }
 
   private async request<T>(path: string): Promise<T> {
-    const response = await fetch(`${FORTNOX_API_BASE}${path}`, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.accessToken}`,
-      },
-    })
+    const MAX_RETRIES = 3
+    const BASE_BACKOFF_MS = 1000
 
-    if (response.status === 429) {
-      throw new Error("Rate limited by Fortnox. Retry after backoff.")
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const response = await fetch(`${FORTNOX_API_BASE}${path}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+      })
+
+      if (response.status === 429) {
+        if (attempt === MAX_RETRIES) {
+          throw new Error("Rate limited by Fortnox after max retries.")
+        }
+        const backoff = BASE_BACKOFF_MS * Math.pow(2, attempt)
+        await new Promise((resolve) => setTimeout(resolve, backoff))
+        continue
+      }
+
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(`Fortnox API error (${response.status}): ${text}`)
+      }
+
+      return response.json() as Promise<T>
     }
 
-    if (!response.ok) {
-      const text = await response.text()
-      throw new Error(`Fortnox API error (${response.status}): ${text}`)
-    }
-
-    return response.json() as Promise<T>
+    throw new Error("Unreachable: request loop exited without return or throw")
   }
 
   async requestPath<T>(path: string): Promise<T> {
