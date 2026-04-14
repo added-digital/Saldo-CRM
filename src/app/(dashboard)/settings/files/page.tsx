@@ -91,15 +91,6 @@ function formatBytes(value: number | undefined): string {
   return `${size.toFixed(1)} ${units[unitIndex]}`
 }
 
-function toParentFolder(path: string): string {
-  const parts = path.split("/").filter(Boolean)
-  if (parts.length <= 1) {
-    return ROOT_FOLDER
-  }
-
-  return parts.slice(0, -1).join("/")
-}
-
 export default function SettingsFilesPage() {
   const { isAdmin } = useUser()
   const { t } = useTranslation()
@@ -281,11 +272,6 @@ export default function SettingsFilesPage() {
               )
             })}
 
-            {currentFolder !== ROOT_FOLDER ? (
-              <Button variant="outline" size="sm" onClick={() => setCurrentFolder(toParentFolder(currentFolder))}>
-                Up
-              </Button>
-            ) : null}
           </div>
 
           <div className="grid gap-3 md:grid-cols-[1fr_auto]">
