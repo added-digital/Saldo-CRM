@@ -229,7 +229,20 @@ Deno.serve(async (req) => {
     jobId = body.job_id ?? null;
     const phase: string = body.phase ?? "list";
     const offset: number = body.offset ?? 0;
-    const detailOffset: number = body.detail_offset ?? 0;
+    let detailOffset: number = body.detail_offset ?? 0;
+
+    if (detailOffset === 0 && jobId) {
+      const { data: jobPayloadRow } = await supabase
+        .from("sync_jobs")
+        .select("payload")
+        .eq("id", jobId)
+        .maybeSingle();
+
+      const jobPayload = (
+        jobPayloadRow as unknown as { payload: Record<string, unknown> } | null
+      )?.payload;
+      detailOffset = (jobPayload?.detail_offset as number) ?? 0;
+    }
 
     logSyncEvent("request_received", {
       job_id: jobId,
