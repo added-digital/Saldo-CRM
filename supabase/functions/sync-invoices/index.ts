@@ -10,11 +10,11 @@ declare const Deno: {
   serve: (handler: (req: Request) => Response | Promise<Response>) => void;
 };
 
-const RATE_LIMIT_DELAY_MS = 200;
 const LIST_PAGE_SIZE = 500;
 const INVOICE_FROM_DATE = "2025-01-01";
 const DETAIL_BATCH_SIZE = 25;
 const DETAIL_DELAY_MS = 200;
+const MAX_DETAILS_PER_INVOCATION = 200;
 const KPI_BATCH_SIZE = 3000;
 const CUSTOMER_DB_PAGE_SIZE = 1000;
 
@@ -229,11 +229,13 @@ Deno.serve(async (req) => {
     jobId = body.job_id ?? null;
     const phase: string = body.phase ?? "list";
     const offset: number = body.offset ?? 0;
+    const detailOffset: number = body.detail_offset ?? 0;
 
     logSyncEvent("request_received", {
       job_id: jobId,
       phase,
       offset,
+      detail_offset: detailOffset,
     });
 
     const client = await getFortnoxClient(supabase);
@@ -311,14 +313,14 @@ Deno.serve(async (req) => {
         const documentNumber =
           inv.DocumentNumber != null ? String(inv.DocumentNumber) : null;
         if (!documentNumber) {
-          skipped++;
+          if (detailOffset === 0) skipped++;
           continue;
         }
 
         const customerNumber =
           inv.CustomerNumber != null ? String(inv.CustomerNumber) : null;
         if (!customerNumber || !customerMap.has(customerNumber)) {
-          skipped++;
+          if (detailOffset === 0) skipped++;
           continue;
         }
 
@@ -346,7 +348,7 @@ Deno.serve(async (req) => {
         documentNumbersForDetail.push(documentNumber);
       }
 
-      if (invoicesToUpsert.length > 0) {
+      if (detailOffset === 0 && invoicesToUpsert.length > 0) {
         const { error: upsertError } = await supabase
           .from("invoices")
           .upsert(invoicesToUpsert as never, {
@@ -399,25 +401,34 @@ Deno.serve(async (req) => {
         }
       }
 
-      const detailDocNumbers = documentNumbersForDetail.filter(
+      const detailDocNumbersAll = documentNumbersForDetail.filter(
         (dn) => !finalizedDocNumbers.has(dn),
       );
-      detailSkippedFinalized += documentNumbersForDetail.length - detailDocNumbers.length;
+      if (detailOffset === 0) {
+        detailSkippedFinalized += documentNumbersForDetail.length - detailDocNumbersAll.length;
+      }
+
+      const detailDocNumbers = detailDocNumbersAll.slice(detailOffset);
+      const detailChunk = detailDocNumbers.slice(0, MAX_DETAILS_PER_INVOCATION);
+      const hasMoreDetails = detailDocNumbers.length > MAX_DETAILS_PER_INVOCATION;
+      const nextDetailOffset = hasMoreDetails ? detailOffset + MAX_DETAILS_PER_INVOCATION : 0;
 
       if (detailSkippedFinalized > prevDetailSkipped) {
         logSyncEvent("detail_fetch_skipped_finalized", {
           job_id: jobId,
-          skipped_this_page: documentNumbersForDetail.length - detailDocNumbers.length,
+          skipped_this_page: documentNumbersForDetail.length - detailDocNumbersAll.length,
           skipped_total: detailSkippedFinalized,
-          fetching_count: detailDocNumbers.length,
+          fetching_count: detailChunk.length,
+          total_remaining: detailDocNumbers.length,
+          has_more_details: hasMoreDetails,
         });
       }
 
       const allRowInserts: InvoiceRowInsert[] = [];
       const detailFetchedNumbers: string[] = [];
 
-      for (let i = 0; i < detailDocNumbers.length; i += DETAIL_BATCH_SIZE) {
-        const batch = detailDocNumbers.slice(i, i + DETAIL_BATCH_SIZE);
+      for (let i = 0; i < detailChunk.length; i += DETAIL_BATCH_SIZE) {
+        const batch = detailChunk.slice(i, i + DETAIL_BATCH_SIZE);
 
         for (const docNum of batch) {
           try {
@@ -492,10 +503,11 @@ Deno.serve(async (req) => {
 
       const morePages = currentPage < totalPages;
       const nextPage = currentPage + 1;
+      const needsContinuation = hasMoreDetails || morePages;
 
       if (jobId) {
         const progress = totalPages > 0
-          ? Math.round((currentPage / totalPages) * (morePages ? 85 : 90))
+          ? Math.round((currentPage / totalPages) * (needsContinuation ? 85 : 90))
           : 90;
 
         const updatePayload: Record<string, unknown> = {
@@ -510,7 +522,19 @@ Deno.serve(async (req) => {
         };
         if (firstError) updatePayload.first_error = firstError;
 
-        if (morePages) {
+        if (hasMoreDetails) {
+          updatePayload.detail_offset = nextDetailOffset;
+          await updateSyncJob(supabase, jobId, {
+            current_step: `Syncing invoice details (page ${currentPage}/${totalPages}, batch ${detailOffset / MAX_DETAILS_PER_INVOCATION + 1}, ${synced} saved)...`,
+            total_items: totalPages,
+            processed_items: currentPage,
+            progress,
+            payload: updatePayload,
+            batch_phase: "list",
+            batch_offset: currentPage,
+            dispatch_lock: false,
+          });
+        } else if (morePages) {
           await updateSyncJob(supabase, jobId, {
             current_step: `Syncing invoices (page ${currentPage}/${totalPages}, ${synced} saved)...`,
             total_items: totalPages,
@@ -547,6 +571,8 @@ Deno.serve(async (req) => {
         skipped,
         detail_fetched: detailFetched,
         detail_skipped: detailSkippedFinalized,
+        detail_chunk_size: detailChunk.length,
+        has_more_details: hasMoreDetails,
         more_pages: morePages,
       });
 
@@ -557,6 +583,7 @@ Deno.serve(async (req) => {
           page: currentPage,
           totalPages,
           morePages,
+          hasMoreDetails,
           synced,
           errors,
           skipped,
