@@ -1,11 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Download, FileText, FolderPlus, FolderTree, Loader2, Upload } from "lucide-react"
+import { Download, FileText, FolderPlus, FolderTree, Loader2, Trash2, Upload } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/hooks/use-user"
 import { useTranslation } from "@/hooks/use-translation"
+import { ConfirmDialog } from "@/components/app/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -24,6 +25,11 @@ type StorageListItem = {
     size?: number
   } | null
   updated_at?: string
+}
+
+type DeleteTarget = {
+  name: string
+  kind: "file" | "folder"
 }
 
 function joinStoragePath(...parts: string[]): string {
@@ -75,6 +81,20 @@ function renderSegmentLabel(segment: string, t: (key: string, fallback?: string)
   return segment
 }
 
+function getCurrentFolderLabel(
+  currentFolder: string,
+  t: (key: string, fallback?: string) => string,
+): string {
+  const segments = currentFolder.split("/").filter(Boolean)
+  const lastSegment = segments[segments.length - 1]
+
+  if (!lastSegment) {
+    return t("settings.tabs.files", "Files")
+  }
+
+  return renderSegmentLabel(lastSegment, t)
+}
+
 function formatBytes(value: number | undefined): string {
   if (!value || value <= 0) return "-"
   if (value < 1024) return `${value} B`
@@ -100,10 +120,14 @@ export default function SettingsFilesPage() {
   const [loading, setLoading] = React.useState(true)
   const [creatingFolder, setCreatingFolder] = React.useState(false)
   const [uploading, setUploading] = React.useState(false)
+  const [deletingPath, setDeletingPath] = React.useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = React.useState<DeleteTarget | null>(null)
   const [folderName, setFolderName] = React.useState("")
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
 
   const pathSegments = React.useMemo(() => currentFolder.split("/").filter(Boolean), [currentFolder])
+  const canUploadToCurrentFolder = currentFolder !== ROOT_FOLDER
+  const currentFolderLabel = React.useMemo(() => getCurrentFolderLabel(currentFolder, t), [currentFolder, t])
 
   const loadFolder = React.useCallback(async (folderPath: string) => {
     const supabase = createClient()
@@ -239,6 +263,93 @@ export default function SettingsFilesPage() {
     URL.revokeObjectURL(downloadUrl)
   }
 
+  async function handleDeleteFile(itemName: string) {
+    const objectPath = joinStoragePath(currentFolder, itemName)
+    const supabase = createClient()
+
+    setDeletingPath(objectPath)
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).remove([objectPath])
+
+    if (error) {
+      toast.error(error.message || "Failed to delete file")
+      setDeletingPath(null)
+      return
+    }
+
+    toast.success("File deleted")
+    setDeleteTarget(null)
+    setDeletingPath(null)
+    await loadFolder(currentFolder)
+  }
+
+  async function collectFolderObjectPaths(folderPath: string): Promise<string[]> {
+    const supabase = createClient()
+    const queue = [folderPath]
+    const objectPaths: string[] = []
+
+    while (queue.length > 0) {
+      const nextPath = queue.shift()
+      if (!nextPath) {
+        continue
+      }
+
+      const { data, error } = await supabase.storage.from(STORAGE_BUCKET).list(nextPath, {
+        limit: 100,
+        offset: 0,
+        sortBy: { column: "name", order: "asc" },
+      })
+
+      if (error) {
+        throw new Error(error.message || "Failed to read folder")
+      }
+
+      for (const item of data ?? []) {
+        const itemPath = joinStoragePath(nextPath, item.name)
+        if (item.id === null) {
+          queue.push(itemPath)
+        } else {
+          objectPaths.push(itemPath)
+        }
+      }
+    }
+
+    return objectPaths
+  }
+
+  async function handleDeleteFolder(folderName: string) {
+    const folderPath = joinStoragePath(currentFolder, folderName)
+    const supabase = createClient()
+
+    setDeletingPath(folderPath)
+
+    try {
+      const objectPaths = await collectFolderObjectPaths(folderPath)
+
+      if (objectPaths.length === 0) {
+        setDeleteTarget(null)
+        setDeletingPath(null)
+        await loadFolder(currentFolder)
+        return
+      }
+
+      const { error } = await supabase.storage.from(STORAGE_BUCKET).remove(objectPaths)
+      if (error) {
+        toast.error(error.message || "Failed to delete folder")
+        setDeletingPath(null)
+        return
+      }
+
+      toast.success("Folder deleted")
+      setDeleteTarget(null)
+      setDeletingPath(null)
+      await loadFolder(currentFolder)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete folder"
+      toast.error(message)
+      setDeletingPath(null)
+    }
+  }
+
   if (!isAdmin) {
     return <div className="h-40 rounded-lg border bg-muted/20" />
   }
@@ -278,7 +389,7 @@ export default function SettingsFilesPage() {
             <Input
               value={folderName}
               onChange={(event) => setFolderName(event.target.value)}
-              placeholder="New folder name"
+              placeholder={`New folder inside ${currentFolderLabel}`}
             />
             <Button onClick={handleCreateFolder} disabled={creatingFolder}>
               {creatingFolder ? <Loader2 className="size-4 animate-spin" /> : <FolderPlus className="size-4" />}
@@ -286,16 +397,18 @@ export default function SettingsFilesPage() {
             </Button>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-            <Input
-              type="file"
-              onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-            />
-            <Button onClick={handleUploadFile} disabled={uploading || !selectedFile}>
-              {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              Upload file
-            </Button>
-          </div>
+          {canUploadToCurrentFolder ? (
+            <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+              <Input
+                type="file"
+                onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+              />
+              <Button onClick={handleUploadFile} disabled={uploading || !selectedFile}>
+                {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                Upload file
+              </Button>
+            </div>
+          ) : null}
 
           {loading ? (
             <div className="h-24 animate-pulse rounded-md border bg-muted/20" />
@@ -328,14 +441,46 @@ export default function SettingsFilesPage() {
                     </div>
 
                     {isFolder ? (
-                      <Button variant="outline" size="sm" onClick={() => setCurrentFolder(joinStoragePath(currentFolder, item.name))}>
-                        Open
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setCurrentFolder(joinStoragePath(currentFolder, item.name))}>
+                          Open
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="text-destructive"
+                          onClick={() => setDeleteTarget({ name: item.name, kind: "folder" })}
+                          disabled={deletingPath === joinStoragePath(currentFolder, item.name)}
+                        >
+                          {deletingPath === joinStoragePath(currentFolder, item.name) ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="size-4" />
+                          )}
+                          <span className="sr-only">Delete folder</span>
+                        </Button>
+                      </div>
                     ) : (
-                      <Button variant="outline" size="sm" onClick={() => handleDownloadFile(item.name)}>
-                        <Download className="size-4" />
-                        Download
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleDownloadFile(item.name)}>
+                          <Download className="size-4" />
+                          Download
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="text-destructive"
+                          onClick={() => setDeleteTarget({ name: item.name, kind: "file" })}
+                          disabled={deletingPath === joinStoragePath(currentFolder, item.name)}
+                        >
+                          {deletingPath === joinStoragePath(currentFolder, item.name) ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="size-4" />
+                          )}
+                          <span className="sr-only">Delete file</span>
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )
@@ -344,6 +489,25 @@ export default function SettingsFilesPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={deleteTarget?.kind === "folder" ? "Delete folder" : "Delete file"}
+        description={deleteTarget ? `Permanently delete "${deleteTarget.name}"?` : "Permanently delete item?"}
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deleteTarget ? deletingPath === joinStoragePath(currentFolder, deleteTarget.name) : false}
+        onConfirm={async () => {
+          if (!deleteTarget) return
+          if (deleteTarget.kind === "folder") {
+            await handleDeleteFolder(deleteTarget.name)
+            return
+          }
+
+          await handleDeleteFile(deleteTarget.name)
+        }}
+      />
     </div>
   )
 }

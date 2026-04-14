@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { type ColumnDef } from "@tanstack/react-table"
-import { Users, Tags, ChevronLeft, ChevronRight, Mail, BarChart3 } from "lucide-react"
+import { Users, Tags, ChevronLeft, ChevronRight, Mail, BarChart3, Download } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import type { CustomerWithRelations, Profile, Segment } from "@/types/database"
@@ -148,6 +148,15 @@ function formatSek(value: number | null): string {
 function formatNumber(value: number | null): string {
   if (value == null) return "—"
   return numberFormatter.format(value)
+}
+
+function escapeCsvValue(value: string): string {
+  const escaped = value.replace(/"/g, '""')
+  return `"${escaped}"`
+}
+
+function toCsvRow(values: string[]): string {
+  return values.map(escapeCsvValue).join(",")
 }
 
 interface CustomerListColumnDefinition {
@@ -511,6 +520,61 @@ export default function CustomersPage() {
     toast.success(t("customers.toast.filtersSaved", "Filters and list fields saved"))
   }
 
+  function handleExportCsv() {
+    if (filteredCustomers.length === 0) {
+      toast.error(t("customers.export.none", "No customers to export"))
+      return
+    }
+
+    const exportColumns = customerListColumnDefinitions.filter(
+      (column) => visibleListColumns[column.id] ?? true,
+    )
+
+    const headers = exportColumns.map((column) => t(column.labelKey, column.fallbackLabel))
+
+    const rows = filteredCustomers.map((customer) =>
+      exportColumns.map((column) => {
+        switch (column.id) {
+          case "name":
+            return customer.name ?? ""
+          case "fortnox_customer_number":
+            return customer.fortnox_customer_number ?? ""
+          case "org_number":
+            return customer.org_number ?? ""
+          case "contact_name":
+            return customer.contact_name ?? ""
+          case "email":
+            return customer.email ?? ""
+          case "account_manager":
+            return customer.account_manager
+              ? customer.account_manager.full_name ?? customer.account_manager.email
+              : ""
+          case "invoice_count":
+            return customer.invoice_count == null ? "" : String(customer.invoice_count)
+          case "contract_value":
+            return customer.contract_value == null ? "" : String(customer.contract_value)
+          case "segments":
+            return (customer.segments ?? []).map((segment) => segment.name).join(" | ")
+          default:
+            return ""
+        }
+      }),
+    )
+
+    const csvContent = [toCsvRow(headers), ...rows.map(toCsvRow)].join("\n")
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const timestamp = new Date().toISOString().slice(0, 10)
+    const link = document.createElement("a")
+
+    link.href = url
+    link.download = `customers-${timestamp}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+
+    toast.success(t("customers.export.success", "Customer CSV exported"))
+  }
+
   const paginationControl = (
     <div className="flex items-center gap-2">
       <select
@@ -588,6 +652,13 @@ export default function CustomersPage() {
         onRowNavigate={(customer) => router.push(`/customers/${customer.id}`)}
         emptyState={emptyState}
       />
+
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={handleExportCsv} disabled={loading || filteredCustomers.length === 0}>
+          <Download className="size-4" />
+          {t("customers.export.csv", "Export CSV")}
+        </Button>
+      </div>
 
       <ActionBar
         selectedCount={selectedCustomers.length}

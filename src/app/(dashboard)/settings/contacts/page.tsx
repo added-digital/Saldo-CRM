@@ -10,6 +10,7 @@ import {
   Users,
   Trash2,
   Filter,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -64,6 +65,15 @@ const DEFAULT_CONTACT_ADVANCED_FILTERS: ContactAdvancedFilters = {
   showMissingPhone: false,
 };
 
+function escapeCsvValue(value: string): string {
+  const escaped = value.replace(/"/g, '""');
+  return `"${escaped}"`;
+}
+
+function toCsvRow(values: string[]): string {
+  return values.map(escapeCsvValue).join(",");
+}
+
 export default function ContactsPage() {
   const { isAdmin } = useUser();
   const { t } = useTranslation();
@@ -105,7 +115,7 @@ export default function ContactsPage() {
     setContacts(payload?.contacts ?? []);
     setAllCustomers(payload?.customers ?? []);
     setLoading(false);
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     fetchContacts();
@@ -232,6 +242,54 @@ export default function ContactsPage() {
       ...previous,
       [key]: !previous[key],
     }));
+  }
+
+  function handleExportCsv() {
+    if (filteredContacts.length === 0) {
+      toast.error(t("settings.contacts.export.none", "No contacts to export"));
+      return;
+    }
+
+    const headers = [
+      t("settings.contacts.export.columns.name", "Name"),
+      t("settings.contacts.export.columns.email", "Email"),
+      t("settings.contacts.export.columns.phone", "Phone"),
+      t("settings.contacts.export.columns.role", "Role"),
+      t("settings.contacts.export.columns.primaryFor", "Primary contact for"),
+      t("settings.contacts.export.columns.contactFor", "Contact for"),
+    ];
+
+    const rows = filteredContacts.map((contact) => {
+      const visibleRelations = getVisibleRelations(contact);
+      const primaryFor = visibleRelations.primary
+        .map((customer) => customer.name)
+        .join(" | ");
+      const contactFor = visibleRelations.regular
+        .map((customer) => customer.name)
+        .join(" | ");
+
+      return [
+        contact.name ?? "",
+        contact.email?.trim() ?? "",
+        contact.phone?.trim() ?? "",
+        contact.role?.trim() ?? "",
+        primaryFor,
+        contactFor,
+      ];
+    });
+
+    const csvContent = [toCsvRow(headers), ...rows.map(toCsvRow)].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `contacts-${timestamp}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    toast.success(t("settings.contacts.export.success", "Contacts CSV exported"));
   }
 
   const existingPrimaryByCustomerId = React.useMemo(() => {
@@ -547,89 +605,102 @@ export default function ContactsPage() {
             className="pl-9"
           />
         </div>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="ml-auto h-9 gap-1.5">
-              <Filter className="size-3.5" />
-              {t("settings.contacts.filters", "Filters")}
-              {activeFilterCount > 0 ? (
-                <Badge
-                  variant="secondary"
-                  className="ml-0.5 h-5 min-w-5 px-1 text-xs"
-                >
-                  {activeFilterCount}
-                </Badge>
-              ) : null}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-80 space-y-3">
-            <div>
-              <p className="text-sm font-medium">
-                {t("settings.contacts.advancedFiltering", "Advanced filtering")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t(
-                  "settings.contacts.advancedFilteringDescription",
-                  "Refine contacts with checkbox-based filters.",
-                )}
-              </p>
-            </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5"
+            onClick={handleExportCsv}
+            disabled={loading || filteredContacts.length === 0}
+          >
+            <Download className="size-3.5" />
+            {t("settings.contacts.export.csv", "Export CSV")}
+          </Button>
 
-            <div className="space-y-2">
-              {[
-                {
-                  key: "showDuplicates" as const,
-                  label: `${t("settings.contacts.filter.duplicates", "Duplicates")}${duplicateCount > 0 ? ` (${duplicateCount})` : ""}`,
-                },
-                {
-                  key: "showMissingMail" as const,
-                  label: t("settings.contacts.filter.missingMail", "Missing Mail"),
-                },
-                {
-                  key: "showMissingPhone" as const,
-                  label: t("settings.contacts.filter.missingPhone", "Missing Phone"),
-                },
-                {
-                  key: "showArchivedCustomerContacts" as const,
-                  label: t(
-                    "settings.contacts.filter.showArchivedCustomerContacts",
-                    "Show contacts for archived customers",
-                  ),
-                },
-              ].map((item) => {
-                const id = `contact-advanced-filter-${item.key}`;
-                return (
-                  <label
-                    key={item.key}
-                    htmlFor={id}
-                    className="flex cursor-pointer items-center gap-3 text-sm"
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5">
+                <Filter className="size-3.5" />
+                {t("settings.contacts.filters", "Filters")}
+                {activeFilterCount > 0 ? (
+                  <Badge
+                    variant="secondary"
+                    className="ml-0.5 h-5 min-w-5 px-1 text-xs"
                   >
-                    <Checkbox
-                      id={id}
-                      checked={advancedFilters[item.key]}
-                      onCheckedChange={() => toggleAdvancedFilter(item.key)}
-                    />
-                    <span>{item.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-
-            <div className="flex justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-0 text-xs text-muted-foreground"
-                onClick={() =>
-                  setAdvancedFilters(DEFAULT_CONTACT_ADVANCED_FILTERS)
-                }
-                disabled={activeFilterCount === 0}
-              >
-                {t("settings.contacts.clearFilters", "Clear filters")}
+                    {activeFilterCount}
+                  </Badge>
+                ) : null}
               </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 space-y-3">
+              <div>
+                <p className="text-sm font-medium">
+                  {t("settings.contacts.advancedFiltering", "Advanced filtering")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    "settings.contacts.advancedFilteringDescription",
+                    "Refine contacts with checkbox-based filters.",
+                  )}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {[
+                  {
+                    key: "showDuplicates" as const,
+                    label: `${t("settings.contacts.filter.duplicates", "Duplicates")}${duplicateCount > 0 ? ` (${duplicateCount})` : ""}`,
+                  },
+                  {
+                    key: "showMissingMail" as const,
+                    label: t("settings.contacts.filter.missingMail", "Missing Mail"),
+                  },
+                  {
+                    key: "showMissingPhone" as const,
+                    label: t("settings.contacts.filter.missingPhone", "Missing Phone"),
+                  },
+                  {
+                    key: "showArchivedCustomerContacts" as const,
+                    label: t(
+                      "settings.contacts.filter.showArchivedCustomerContacts",
+                      "Show contacts for archived customers",
+                    ),
+                  },
+                ].map((item) => {
+                  const id = `contact-advanced-filter-${item.key}`;
+                  return (
+                    <label
+                      key={item.key}
+                      htmlFor={id}
+                      className="flex cursor-pointer items-center gap-3 text-sm"
+                    >
+                      <Checkbox
+                        id={id}
+                        checked={advancedFilters[item.key]}
+                        onCheckedChange={() => toggleAdvancedFilter(item.key)}
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-0 text-xs text-muted-foreground"
+                  onClick={() =>
+                    setAdvancedFilters(DEFAULT_CONTACT_ADVANCED_FILTERS)
+                  }
+                  disabled={activeFilterCount === 0}
+                >
+                  {t("settings.contacts.clearFilters", "Clear filters")}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       <p className="text-sm text-muted-foreground">
