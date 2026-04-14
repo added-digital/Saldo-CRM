@@ -71,7 +71,7 @@ BEGIN
         'job_id', job.id,
         'phase', job.batch_phase,
         'offset', job.batch_offset,
-        'sync_mode', COALESCE(job.payload->>'sync_mode', 'full')
+        'detail_offset', COALESCE((job.payload->>'detail_offset')::int, 0)
       ),
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
