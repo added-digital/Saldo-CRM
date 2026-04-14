@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { User, Shield, UserCog, Link2, Tags, RefreshCw, Mail } from "lucide-react"
+import { User, Shield, UserCog, Link2, Tags, RefreshCw, Mail, FolderOpen } from "lucide-react"
 import { type LucideIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -24,6 +24,7 @@ function getSettingsTabs(t: (key: string, fallback?: string) => string): Setting
     { label: t("settings.tabs.teams", "Teams"), href: "/settings/teams", icon: UserCog },
     { label: t("settings.tabs.segments", "Segments"), href: "/settings/segments", icon: Tags },
     { label: t("settings.tabs.integrations", "Integrations"), href: "/settings/integrations", icon: Link2 },
+    { label: t("settings.tabs.files", "Files"), href: "/settings/files", icon: FolderOpen },
     { label: t("settings.tabs.mailTemplates", "Mail Templates"), href: "/settings/mail", icon: Mail },
     { label: t("settings.tabs.sync", "Sync"), href: "/settings/sync", icon: RefreshCw },
   ]
