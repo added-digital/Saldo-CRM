@@ -67,6 +67,7 @@ const REPORTS_MANAGER_ALIAS: Record<string, string> = {
 
 const REPORT_MONTH_OPTIONS_COUNT = 36;
 const TIME_REPORTS_PAGE_SIZE = 1000;
+const FETCH_ALL_PAGE_SIZE = 1000;
 const MONTHLY_UNMAPPED_ARTICLE_GROUP = "__UNMAPPED__";
 const MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP = "Licenser";
 
@@ -527,6 +528,27 @@ const turnoverChartConfig = {
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
+
+async function fetchAllPages<T>(
+  buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }> },
+): Promise<T[]> {
+  const all: T[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await buildQuery().range(
+      offset,
+      offset + FETCH_ALL_PAGE_SIZE - 1,
+    );
+    if (error) throw error;
+    const page = (data ?? []) as T[];
+    all.push(...page);
+    if (page.length < FETCH_ALL_PAGE_SIZE) break;
+    offset += FETCH_ALL_PAGE_SIZE;
+  }
+
+  return all;
+}
 
 type TurnoverTooltipPayloadItem = {
   value?: number | string | null;
@@ -1426,87 +1448,55 @@ function renderWorkloadShareCell(percentage: number) {
         .filter((value): value is string => Boolean(value));
 
       if (customerIds.length > 0) {
-        const { data, error } = await supabase
-          .from("time_reports")
-          .select(
-            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
-          )
-          .in("customer_id", customerIds)
-          .gte("report_date", from)
-          .lte("report_date", to)
-          .limit(10000);
+        const rows = await fetchAllPages<{
+          id: string;
+          report_date: string | null;
+          customer_name: string | null;
+          employee_id: string | null;
+          employee_name: string | null;
+          entry_type: string | null;
+          project_name: string | null;
+          activity: string | null;
+          description: string | null;
+          hours: number | null;
+        }>(() =>
+          supabase
+            .from("time_reports")
+            .select(
+              "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+            )
+            .in("customer_id", customerIds)
+            .gte("report_date", from)
+            .lte("report_date", to),
+        );
 
-        if (error) {
-          setTimeDetailsRows([]);
-          setTimeDetailsLoading(false);
-          return;
-        }
+        addRows(rows);
       }
 
       if (customerNumbers.length > 0) {
-        const { data, error } = await supabase
-          .from("time_reports")
-          .select(
-            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
-          )
-          .in("fortnox_customer_number", customerNumbers)
-          .gte("report_date", from)
-          .lte("report_date", to)
-          .limit(10000);
-
-        if (error) {
-          setTimeDetailsRows([]);
-          setTimeDetailsLoading(false);
-          return;
-        }
-
-        addRows(
-          (data ?? []) as Array<{
-            id: string;
-            report_date: string | null;
-            customer_name: string | null;
-            employee_id: string | null;
-            employee_name: string | null;
-            entry_type: string | null;
-            project_name: string | null;
-            activity: string | null;
-            description: string | null;
-            hours: number | null;
-          }>,
+        const rows = await fetchAllPages<{
+          id: string;
+          report_date: string | null;
+          customer_name: string | null;
+          employee_id: string | null;
+          employee_name: string | null;
+          entry_type: string | null;
+          project_name: string | null;
+          activity: string | null;
+          description: string | null;
+          hours: number | null;
+        }>(() =>
+          supabase
+            .from("time_reports")
+            .select(
+              "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+            )
+            .in("fortnox_customer_number", customerNumbers)
+            .gte("report_date", from)
+            .lte("report_date", to),
         );
-      }
 
-      if (customerNumbers.length > 0) {
-        const { data, error } = await supabase
-          .from("time_reports")
-          .select(
-            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
-          )
-          .in("fortnox_customer_number", customerNumbers)
-          .gte("report_date", from)
-          .lte("report_date", to)
-          .limit(10000);
-
-        if (error) {
-          setTimeDetailsRows([]);
-          setTimeDetailsLoading(false);
-          return;
-        }
-
-        addRows(
-          (data ?? []) as Array<{
-            id: string;
-            report_date: string | null;
-            customer_name: string | null;
-            employee_id: string | null;
-            employee_name: string | null;
-            entry_type: string | null;
-            project_name: string | null;
-            activity: string | null;
-            description: string | null;
-            hours: number | null;
-          }>,
-        );
+        addRows(rows);
       }
     }
 
@@ -1583,69 +1573,55 @@ function renderWorkloadShareCell(percentage: number) {
         .filter((value): value is string => Boolean(value));
 
       if (customerIds.length > 0) {
-        const { data, error } = await supabase
-          .from("time_reports")
-          .select(
-            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
-          )
-          .in("customer_id", customerIds)
-          .gte("report_date", rollingWindow.from)
-          .lte("report_date", rollingWindow.to)
-          .limit(10000);
-
-        if (error) {
-          setTimeDetailsRows([]);
-          setTimeDetailsLoading(false);
-          return;
-        }
-
-        addRows(
-          (data ?? []) as Array<{
-            id: string;
-            report_date: string | null;
-            customer_name: string | null;
-            employee_id: string | null;
-            employee_name: string | null;
-            entry_type: string | null;
-            project_name: string | null;
-            activity: string | null;
-            description: string | null;
-            hours: number | null;
-          }>,
+        const rows = await fetchAllPages<{
+          id: string;
+          report_date: string | null;
+          customer_name: string | null;
+          employee_id: string | null;
+          employee_name: string | null;
+          entry_type: string | null;
+          project_name: string | null;
+          activity: string | null;
+          description: string | null;
+          hours: number | null;
+        }>(() =>
+          supabase
+            .from("time_reports")
+            .select(
+              "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+            )
+            .in("customer_id", customerIds)
+            .gte("report_date", rollingWindow.from)
+            .lte("report_date", rollingWindow.to),
         );
+
+        addRows(rows);
       }
 
       if (customerNumbers.length > 0) {
-        const { data, error } = await supabase
-          .from("time_reports")
-          .select(
-            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
-          )
-          .in("fortnox_customer_number", customerNumbers)
-          .gte("report_date", rollingWindow.from)
-          .lte("report_date", rollingWindow.to)
-          .limit(10000);
-
-        if (error) {
-          setTimeDetailsRows([]);
-          setTimeDetailsLoading(false);
-          return;
-        }
-
-        addRows(
-          (data ?? []) as Array<{
-            id: string;
-            report_date: string | null;
-            customer_name: string | null;
-            employee_id: string | null;
-            employee_name: string | null;
-            entry_type: string | null;
-            project_name: string | null;
-            activity: string | null;
-            description: string | null;
-            hours: number | null;
-          }>,
+        const rows = await fetchAllPages<{
+          id: string;
+          report_date: string | null;
+          customer_name: string | null;
+          employee_id: string | null;
+          employee_name: string | null;
+          entry_type: string | null;
+          project_name: string | null;
+          activity: string | null;
+          description: string | null;
+          hours: number | null;
+        }>(() =>
+          supabase
+            .from("time_reports")
+            .select(
+              "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+            )
+            .in("fortnox_customer_number", customerNumbers)
+            .gte("report_date", rollingWindow.from)
+            .lte("report_date", rollingWindow.to),
         );
+
+        addRows(rows);
       }
     }
 
@@ -1739,69 +1715,55 @@ function renderWorkloadShareCell(percentage: number) {
         .filter((value): value is string => Boolean(value));
 
       if (customerIds.length > 0) {
-        const { data, error } = await supabase
-          .from("time_reports")
-          .select(
-            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
-          )
-          .in("customer_id", customerIds)
-          .gte("report_date", rollingWindow.from)
-          .lte("report_date", rollingWindow.to)
-          .limit(10000);
-
-        if (error) {
-          setTimeDetailsRows([]);
-          setTimeDetailsLoading(false);
-          return;
-        }
-
-        addRows(
-          (data ?? []) as Array<{
-            id: string;
-            report_date: string | null;
-            customer_name: string | null;
-            employee_id: string | null;
-            employee_name: string | null;
-            entry_type: string | null;
-            project_name: string | null;
-            activity: string | null;
-            description: string | null;
-            hours: number | null;
-          }>,
+        const rows = await fetchAllPages<{
+          id: string;
+          report_date: string | null;
+          customer_name: string | null;
+          employee_id: string | null;
+          employee_name: string | null;
+          entry_type: string | null;
+          project_name: string | null;
+          activity: string | null;
+          description: string | null;
+          hours: number | null;
+        }>(() =>
+          supabase
+            .from("time_reports")
+            .select(
+              "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+            )
+            .in("customer_id", customerIds)
+            .gte("report_date", rollingWindow.from)
+            .lte("report_date", rollingWindow.to),
         );
+
+        addRows(rows);
       }
 
       if (customerNumbers.length > 0) {
-        const { data, error } = await supabase
-          .from("time_reports")
-          .select(
-            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
-          )
-          .in("fortnox_customer_number", customerNumbers)
-          .gte("report_date", rollingWindow.from)
-          .lte("report_date", rollingWindow.to)
-          .limit(10000);
-
-        if (error) {
-          setTimeDetailsRows([]);
-          setTimeDetailsLoading(false);
-          return;
-        }
-
-        addRows(
-          (data ?? []) as Array<{
-            id: string;
-            report_date: string | null;
-            customer_name: string | null;
-            employee_id: string | null;
-            employee_name: string | null;
-            entry_type: string | null;
-            project_name: string | null;
-            activity: string | null;
-            description: string | null;
-            hours: number | null;
-          }>,
+        const rows = await fetchAllPages<{
+          id: string;
+          report_date: string | null;
+          customer_name: string | null;
+          employee_id: string | null;
+          employee_name: string | null;
+          entry_type: string | null;
+          project_name: string | null;
+          activity: string | null;
+          description: string | null;
+          hours: number | null;
+        }>(() =>
+          supabase
+            .from("time_reports")
+            .select(
+              "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+            )
+            .in("fortnox_customer_number", customerNumbers)
+            .gte("report_date", rollingWindow.from)
+            .lte("report_date", rollingWindow.to),
         );
+
+        addRows(rows);
       }
     }
 
@@ -2198,23 +2160,18 @@ function renderWorkloadShareCell(percentage: number) {
     const matchedInvoiceNumbers = new Set<string>();
 
     for (const chunk of chunkArray(invoiceNumbers, 200)) {
-      const { data: invoiceRowsData, error: invoiceRowsError } = await supabase
-        .from("invoice_rows")
-        .select("invoice_number, article_number, article_name")
-        .in("invoice_number", chunk)
-        .limit(10000);
-
-      if (invoiceRowsError) {
-        setInvoiceDetailsRows([]);
-        setInvoiceDetailsLoading(false);
-        return;
-      }
-
-      for (const row of (invoiceRowsData ?? []) as Array<{
+      const invoiceRowsData = await fetchAllPages<{
         invoice_number: string | null;
         article_number: string | null;
         article_name: string | null;
-      }>) {
+      }>(() =>
+        supabase
+          .from("invoice_rows")
+          .select("invoice_number, article_number, article_name")
+          .in("invoice_number", chunk),
+      );
+
+      for (const row of invoiceRowsData) {
         const invoiceNumber = row.invoice_number?.trim();
         if (!invoiceNumber) continue;
 
@@ -2525,28 +2482,23 @@ function renderWorkloadShareCell(percentage: number) {
       for (const idChunk of customerIdChunks) {
         if (cancelled) return;
 
-        const { data: kpiRows, error: kpiError } = await supabase
-          .from("customer_kpis")
-          .select(
-            "period_year, period_month, total_turnover, invoice_count, total_hours",
-          )
-          .in("customer_id", idChunk)
-          .eq("period_type", "month")
-          .in("period_year", years)
-          .in("period_month", monthNumbers)
-          .limit(10000);
-
-        if (kpiError) {
-          throw kpiError;
-        }
-
-        const rows = (kpiRows ?? []) as Array<{
+        const rows = await fetchAllPages<{
           period_year: number;
           period_month: number;
           total_turnover: number | null;
           invoice_count: number | null;
           total_hours: number | null;
-        }>;
+        }>(() =>
+          supabase
+            .from("customer_kpis")
+            .select(
+              "period_year, period_month, total_turnover, invoice_count, total_hours",
+            )
+            .in("customer_id", idChunk)
+            .eq("period_type", "month")
+            .in("period_year", years)
+            .in("period_month", monthNumbers),
+        );
 
         for (const row of rows) {
           const monthKey = `${row.period_year}-${String(row.period_month).padStart(2, "0")}`;
@@ -2720,28 +2672,23 @@ function renderWorkloadShareCell(percentage: number) {
         for (const idChunk of customerIdChunks) {
           if (cancelled) return;
 
-          const { data, error } = await supabase
-            .from("customer_kpis")
-            .select(
-              "period_year, period_month, customer_hours, absence_hours, internal_hours",
-            )
-            .in("customer_id", idChunk)
-            .eq("period_type", "month")
-            .in("period_year", years)
-            .in("period_month", monthNumbers)
-            .limit(10000);
-
-          if (error) {
-            throw error;
-          }
-
-          const rows = (data ?? []) as Array<{
+          const rows = await fetchAllPages<{
             period_year: number;
             period_month: number;
             customer_hours: number | null;
             absence_hours: number | null;
             internal_hours: number | null;
-          }>;
+          }>(() =>
+            supabase
+              .from("customer_kpis")
+              .select(
+                "period_year, period_month, customer_hours, absence_hours, internal_hours",
+              )
+              .in("customer_id", idChunk)
+              .eq("period_type", "month")
+              .in("period_year", years)
+              .in("period_month", monthNumbers),
+          );
 
           for (const row of rows) {
             const monthKey = `${row.period_year}-${String(row.period_month).padStart(2, "0")}`;
@@ -3057,30 +3004,23 @@ function renderWorkloadShareCell(percentage: number) {
       for (const idChunk of customerIdChunks) {
         if (cancelled) return;
 
-        const { data, error } = await supabase
-          .from("customer_kpis")
-          .select(
-            "customer_id, period_year, period_month, invoice_count, customer_hours",
-          )
-          .in("customer_id", idChunk)
-          .eq("period_type", "month")
-          .in("period_year", years)
-          .in("period_month", monthNumbers)
-          .limit(10000);
-
-        if (error) {
-          setManagerCustomerSummaryRows([]);
-          setManagerCustomerSummaryLoading(false);
-          return;
-        }
-
-        const rows = (data ?? []) as Array<{
+        const rows = await fetchAllPages<{
           customer_id: string;
           period_year: number;
           period_month: number;
           invoice_count: number | null;
           customer_hours: number | null;
-        }>;
+        }>(() =>
+          supabase
+            .from("customer_kpis")
+            .select(
+              "customer_id, period_year, period_month, invoice_count, customer_hours",
+            )
+            .in("customer_id", idChunk)
+            .eq("period_type", "month")
+            .in("period_year", years)
+            .in("period_month", monthNumbers),
+        );
 
         for (const row of rows) {
           const monthKey = `${row.period_year}-${String(row.period_month).padStart(2, "0")}`;
@@ -3113,25 +3053,18 @@ function renderWorkloadShareCell(percentage: number) {
       for (const idChunk of customerIdChunks) {
         if (cancelled) return;
 
-        const { data, error } = await supabase
-          .from("invoices")
-          .select("id, customer_id, total_ex_vat")
-          .in("customer_id", idChunk)
-          .gte("invoice_date", rollingWindow.from)
-          .lte("invoice_date", rollingWindow.to)
-          .limit(10000);
-
-        if (error) {
-          setManagerCustomerSummaryRows([]);
-          setManagerCustomerSummaryLoading(false);
-          return;
-        }
-
-        const rows = (data ?? []) as Array<{
+        const rows = await fetchAllPages<{
           id: string;
           customer_id: string | null;
           total_ex_vat: number | null;
-        }>;
+        }>(() =>
+          supabase
+            .from("invoices")
+            .select("id, customer_id, total_ex_vat")
+            .in("customer_id", idChunk)
+            .gte("invoice_date", rollingWindow.from)
+            .lte("invoice_date", rollingWindow.to),
+        );
 
         for (const row of rows) {
           if (!row.customer_id) continue;
@@ -3153,26 +3086,19 @@ function renderWorkloadShareCell(percentage: number) {
       for (const numberChunk of customerNumberChunks) {
         if (cancelled) return;
 
-        const { data, error } = await supabase
-          .from("invoices")
-          .select("id, customer_id, fortnox_customer_number, total_ex_vat")
-          .in("fortnox_customer_number", numberChunk)
-          .gte("invoice_date", rollingWindow.from)
-          .lte("invoice_date", rollingWindow.to)
-          .limit(10000);
-
-        if (error) {
-          setManagerCustomerSummaryRows([]);
-          setManagerCustomerSummaryLoading(false);
-          return;
-        }
-
-        const rows = (data ?? []) as Array<{
+        const rows = await fetchAllPages<{
           id: string;
           customer_id: string | null;
           fortnox_customer_number: string | null;
           total_ex_vat: number | null;
-        }>;
+        }>(() =>
+          supabase
+            .from("invoices")
+            .select("id, customer_id, fortnox_customer_number, total_ex_vat")
+            .in("fortnox_customer_number", numberChunk)
+            .gte("invoice_date", rollingWindow.from)
+            .lte("invoice_date", rollingWindow.to),
+        );
 
         for (const row of rows) {
           if (invoicesSeen.has(row.id)) continue;
@@ -3573,30 +3499,21 @@ function renderWorkloadShareCell(percentage: number) {
       const groupValueSet = new Set<string>();
 
       for (const invoiceNumberChunk of invoiceNumberChunks) {
-        const { data, error } = await supabase
-          .from("invoice_rows")
-          .select("invoice_number, article_number, article_name, total_ex_vat")
-          .in("invoice_number", invoiceNumberChunk)
-          .limit(10000);
-
         if (cancelled) return;
 
-        if (error) {
-          setCustomerMonthlyEconomicsRows([]);
-          setMonthlyInvoiceGroupRows([]);
-          setMonthlyHourGroupRows([]);
-          setMonthlyArticleGroupValues([]);
-          setSelectedMonthlyArticleGroups([]);
-          setCustomerMonthlyEconomicsLoading(false);
-          return;
-        }
-
-        for (const row of (data ?? []) as Array<{
+        const invoiceRows = await fetchAllPages<{
           invoice_number: string | null;
           article_number: string | null;
           article_name: string | null;
           total_ex_vat: number | null;
-        }>) {
+        }>(() =>
+          supabase
+            .from("invoice_rows")
+            .select("invoice_number, article_number, article_name, total_ex_vat")
+            .in("invoice_number", invoiceNumberChunk),
+        );
+
+        for (const row of invoiceRows) {
           const invoiceNumber = normalizeIdentifier(row.invoice_number);
           const monthKey = invoiceMonthByNumber.get(invoiceNumber);
           if (!monthKey) continue;
@@ -3844,23 +3761,18 @@ function renderWorkloadShareCell(percentage: number) {
       const seenInvoiceIds = new Set<string>();
 
       for (const idChunk of customerIdChunks) {
-        const { data, error } = await supabase
-          .from("invoices")
-          .select("id, document_number")
-          .in("customer_id", idChunk)
-          .gte("invoice_date", rollingWindow.from)
-          .lte("invoice_date", rollingWindow.to)
-          .limit(10000);
-
         if (cancelled) return;
 
-        if (error) {
-          setArticleGroupRows([]);
-          setArticleGroupsLoading(false);
-          return;
-        }
+        const rows = await fetchAllPages<{ id: string; document_number: string | null }>(() =>
+          supabase
+            .from("invoices")
+            .select("id, document_number")
+            .in("customer_id", idChunk)
+            .gte("invoice_date", rollingWindow.from)
+            .lte("invoice_date", rollingWindow.to),
+        );
 
-        for (const row of (data ?? []) as Array<{ id: string; document_number: string | null }>) {
+        for (const row of rows) {
           seenInvoiceIds.add(row.id);
           const documentNumber = row.document_number?.trim();
           if (!documentNumber) continue;
@@ -3869,23 +3781,18 @@ function renderWorkloadShareCell(percentage: number) {
       }
 
       for (const numberChunk of customerNumberChunks) {
-        const { data, error } = await supabase
-          .from("invoices")
-          .select("id, document_number")
-          .in("fortnox_customer_number", numberChunk)
-          .gte("invoice_date", rollingWindow.from)
-          .lte("invoice_date", rollingWindow.to)
-          .limit(10000);
-
         if (cancelled) return;
 
-        if (error) {
-          setArticleGroupRows([]);
-          setArticleGroupsLoading(false);
-          return;
-        }
+        const rows = await fetchAllPages<{ id: string; document_number: string | null }>(() =>
+          supabase
+            .from("invoices")
+            .select("id, document_number")
+            .in("fortnox_customer_number", numberChunk)
+            .gte("invoice_date", rollingWindow.from)
+            .lte("invoice_date", rollingWindow.to),
+        );
 
-        for (const row of (data ?? []) as Array<{ id: string; document_number: string | null }>) {
+        for (const row of rows) {
           if (seenInvoiceIds.has(row.id)) continue;
           seenInvoiceIds.add(row.id);
 
@@ -3954,28 +3861,23 @@ function renderWorkloadShareCell(percentage: number) {
       let totalTurnoverExVat = 0;
 
       for (const chunk of invoiceNumberChunks) {
-        const { data: invoiceRowsData, error: invoiceRowsError } = await supabase
-          .from("invoice_rows")
-          .select("invoice_number, article_number, article_name, quantity, total_ex_vat, total")
-          .in("invoice_number", chunk)
-          .limit(10000);
-
         if (cancelled) return;
 
-        if (invoiceRowsError) {
-          setArticleGroupRows([]);
-          setArticleGroupsLoading(false);
-          return;
-        }
-
-        for (const row of (invoiceRowsData ?? []) as Array<{
+        const invoiceRows = await fetchAllPages<{
           invoice_number: string | null;
           article_number: string | null;
           article_name: string | null;
           quantity: number | null;
           total_ex_vat: number | null;
           total: number | null;
-        }>) {
+        }>(() =>
+          supabase
+            .from("invoice_rows")
+            .select("invoice_number, article_number, article_name, quantity, total_ex_vat, total")
+            .in("invoice_number", chunk),
+        );
+
+        for (const row of invoiceRows) {
           const invoiceNumber = row.invoice_number?.trim() ?? null;
           const articleNumber = row.article_number?.trim() || null;
           const mapping = articleNumber
