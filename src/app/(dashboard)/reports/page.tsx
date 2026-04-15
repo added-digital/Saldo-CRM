@@ -1433,7 +1433,26 @@ function renderWorkloadShareCell(percentage: number) {
           )
           .in("customer_id", customerIds)
           .gte("report_date", from)
-          .lte("report_date", to);
+          .lte("report_date", to)
+          .limit(10000);
+
+        if (error) {
+          setTimeDetailsRows([]);
+          setTimeDetailsLoading(false);
+          return;
+        }
+      }
+
+      if (customerNumbers.length > 0) {
+        const { data, error } = await supabase
+          .from("time_reports")
+          .select(
+            "id, report_date, customer_name, employee_id, employee_name, entry_type, project_name, activity, description, hours",
+          )
+          .in("fortnox_customer_number", customerNumbers)
+          .gte("report_date", from)
+          .lte("report_date", to)
+          .limit(10000);
 
         if (error) {
           setTimeDetailsRows([]);
@@ -1465,7 +1484,8 @@ function renderWorkloadShareCell(percentage: number) {
           )
           .in("fortnox_customer_number", customerNumbers)
           .gte("report_date", from)
-          .lte("report_date", to);
+          .lte("report_date", to)
+          .limit(10000);
 
         if (error) {
           setTimeDetailsRows([]);
@@ -1570,7 +1590,8 @@ function renderWorkloadShareCell(percentage: number) {
           )
           .in("customer_id", customerIds)
           .gte("report_date", rollingWindow.from)
-          .lte("report_date", rollingWindow.to);
+          .lte("report_date", rollingWindow.to)
+          .limit(10000);
 
         if (error) {
           setTimeDetailsRows([]);
@@ -1602,7 +1623,8 @@ function renderWorkloadShareCell(percentage: number) {
           )
           .in("fortnox_customer_number", customerNumbers)
           .gte("report_date", rollingWindow.from)
-          .lte("report_date", rollingWindow.to);
+          .lte("report_date", rollingWindow.to)
+          .limit(10000);
 
         if (error) {
           setTimeDetailsRows([]);
@@ -1724,7 +1746,8 @@ function renderWorkloadShareCell(percentage: number) {
           )
           .in("customer_id", customerIds)
           .gte("report_date", rollingWindow.from)
-          .lte("report_date", rollingWindow.to);
+          .lte("report_date", rollingWindow.to)
+          .limit(10000);
 
         if (error) {
           setTimeDetailsRows([]);
@@ -1756,7 +1779,8 @@ function renderWorkloadShareCell(percentage: number) {
           )
           .in("fortnox_customer_number", customerNumbers)
           .gte("report_date", rollingWindow.from)
-          .lte("report_date", rollingWindow.to);
+          .lte("report_date", rollingWindow.to)
+          .limit(10000);
 
         if (error) {
           setTimeDetailsRows([]);
@@ -2177,7 +2201,8 @@ function renderWorkloadShareCell(percentage: number) {
       const { data: invoiceRowsData, error: invoiceRowsError } = await supabase
         .from("invoice_rows")
         .select("invoice_number, article_number, article_name")
-        .in("invoice_number", chunk);
+        .in("invoice_number", chunk)
+        .limit(10000);
 
       if (invoiceRowsError) {
         setInvoiceDetailsRows([]);
@@ -3093,7 +3118,8 @@ function renderWorkloadShareCell(percentage: number) {
           .select("id, customer_id, total_ex_vat")
           .in("customer_id", idChunk)
           .gte("invoice_date", rollingWindow.from)
-          .lte("invoice_date", rollingWindow.to);
+          .lte("invoice_date", rollingWindow.to)
+          .limit(10000);
 
         if (error) {
           setManagerCustomerSummaryRows([]);
@@ -3132,7 +3158,8 @@ function renderWorkloadShareCell(percentage: number) {
           .select("id, customer_id, fortnox_customer_number, total_ex_vat")
           .in("fortnox_customer_number", numberChunk)
           .gte("invoice_date", rollingWindow.from)
-          .lte("invoice_date", rollingWindow.to);
+          .lte("invoice_date", rollingWindow.to)
+          .limit(10000);
 
         if (error) {
           setManagerCustomerSummaryRows([]);
@@ -3549,7 +3576,8 @@ function renderWorkloadShareCell(percentage: number) {
         const { data, error } = await supabase
           .from("invoice_rows")
           .select("invoice_number, article_number, article_name, total_ex_vat")
-          .in("invoice_number", invoiceNumberChunk);
+          .in("invoice_number", invoiceNumberChunk)
+          .limit(10000);
 
         if (cancelled) return;
 
@@ -3821,7 +3849,8 @@ function renderWorkloadShareCell(percentage: number) {
           .select("id, document_number")
           .in("customer_id", idChunk)
           .gte("invoice_date", rollingWindow.from)
-          .lte("invoice_date", rollingWindow.to);
+          .lte("invoice_date", rollingWindow.to)
+          .limit(10000);
 
         if (cancelled) return;
 
@@ -3845,7 +3874,8 @@ function renderWorkloadShareCell(percentage: number) {
           .select("id, document_number")
           .in("fortnox_customer_number", numberChunk)
           .gte("invoice_date", rollingWindow.from)
-          .lte("invoice_date", rollingWindow.to);
+          .lte("invoice_date", rollingWindow.to)
+          .limit(10000);
 
         if (cancelled) return;
 
@@ -3927,7 +3957,8 @@ function renderWorkloadShareCell(percentage: number) {
         const { data: invoiceRowsData, error: invoiceRowsError } = await supabase
           .from("invoice_rows")
           .select("invoice_number, article_number, article_name, quantity, total_ex_vat, total")
-          .in("invoice_number", chunk);
+          .in("invoice_number", chunk)
+          .limit(10000);
 
         if (cancelled) return;
 

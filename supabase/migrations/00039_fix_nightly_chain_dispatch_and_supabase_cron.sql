@@ -143,7 +143,7 @@ BEGIN
     (
       'pending', 0, 'Waiting for Invoices...', 0, 0,
       'invoices', 'list', 0, false,
-      jsonb_build_object('step_name','invoices','step_label','Invoices','nightly_chain_id',chain_id,'nightly_step_index',1,'sync_mode','full'),
+      jsonb_build_object('step_name','invoices','step_label','Invoices','nightly_chain_id',chain_id,'nightly_step_index',1,'sync_mode','skip_finalized'),
       NULL
     ),
     (
