@@ -54,6 +54,8 @@ const dictionaries = {
     "settings.sync.fallbackSync": "Sync",
     "settings.sync.clearFailed": "Failed to clear sync history",
     "settings.sync.clearSuccess": "Sync history cleared",
+    "settings.sync.skipFinalized": "Skip Finalized",
+    "settings.sync.enrichAll": "Enrich All",
     "settings.header.title": "Settings",
     "settings.header.description":
       "Manage your account and system configuration",
@@ -600,6 +602,8 @@ const dictionaries = {
     "settings.sync.fallbackSync": "Synk",
     "settings.sync.clearFailed": "Kunde inte rensa synkhistorik",
     "settings.sync.clearSuccess": "Synkhistorik rensad",
+    "settings.sync.skipFinalized": "Hoppa över slutförda",
+    "settings.sync.enrichAll": "Berika alla",
     "settings.header.title": "Inställningar",
     "settings.header.description": "Hantera ditt konto och systemkonfiguration",
     "settings.navigation.ariaLabel": "Navigering för inställningar",

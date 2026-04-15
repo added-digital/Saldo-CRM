@@ -238,18 +238,47 @@ export default function SyncPage() {
                 <p className="text-sm text-muted-foreground">
                   {t(STEP_DESCRIPTION_KEYS[step], STEP_DESCRIPTIONS[step])}
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  disabled={syncing || isRunning}
-                  onClick={() =>
-                    startSync([step])
-                  }
-                >
-                  <Play className="size-3" />
-                  {t("common.run", "Run")}
-                </Button>
+                {step === "invoices" ? (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      disabled={syncing || isRunning}
+                      onClick={() =>
+                        startSync([step], { syncMode: "skip_finalized" })
+                      }
+                    >
+                      <Play className="size-3" />
+                      {t("settings.sync.skipFinalized", "Skip Finalized")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      disabled={syncing || isRunning}
+                      onClick={() =>
+                        startSync([step], { syncMode: "enrich_all" })
+                      }
+                    >
+                      <Play className="size-3" />
+                      {t("settings.sync.enrichAll", "Enrich All")}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    disabled={syncing || isRunning}
+                    onClick={() =>
+                      startSync([step])
+                    }
+                  >
+                    <Play className="size-3" />
+                    {t("common.run", "Run")}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )

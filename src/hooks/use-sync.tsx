@@ -42,9 +42,13 @@ const STEP_LABELS: Record<SyncStep, string> = {
 
 const STALE_JOB_TIMEOUT_MS = 5 * 60 * 1000
 
+interface SyncOptions {
+  syncMode?: string
+}
+
 interface SyncContextValue {
   syncing: boolean
-  startSync: (steps: SyncStep[]) => Promise<void>
+  startSync: (steps: SyncStep[], options?: SyncOptions) => Promise<void>
 }
 
 const SyncContext = createContext<SyncContextValue | null>(null)
@@ -73,7 +77,7 @@ function SyncProvider({ children }: { children: ReactNode }) {
   }, [cleanUpStaleJobs])
 
   const startSync = useCallback(
-    async (steps: SyncStep[]) => {
+    async (steps: SyncStep[], options?: SyncOptions) => {
       if (syncing) return
       setSyncing(true)
 
@@ -85,6 +89,10 @@ function SyncProvider({ children }: { children: ReactNode }) {
           const payload: Record<string, unknown> = {
             step_name: step,
             step_label: label,
+          }
+
+          if (options?.syncMode) {
+            payload.sync_mode = options.syncMode
           }
 
           const { error: insertError } = await supabase
@@ -133,4 +141,4 @@ function useSync() {
 }
 
 export { SyncProvider, useSync, SYNC_STEPS, STEP_LABELS }
-export type { SyncStep }
+export type { SyncStep, SyncOptions }

@@ -20,6 +20,16 @@ interface ClientCredentialsResponse {
   scope: string
 }
 
+export class FortnoxApiError extends Error {
+  status: number
+
+  constructor(status: number, body: string) {
+    super(`Fortnox API error (${status}): ${body}`)
+    this.name = "FortnoxApiError"
+    this.status = status
+  }
+}
+
 export async function requestAccessToken(
   tenantId: string
 ): Promise<ClientCredentialsResponse> {
@@ -62,9 +72,14 @@ export class FortnoxClient {
         },
       })
 
-      if (response.status === 429) {
+      const retryable =
+        response.status === 429 ||
+        (response.status >= 500 && response.status <= 599)
+
+      if (retryable) {
         if (attempt === MAX_RETRIES) {
-          throw new Error("Rate limited by Fortnox after max retries.")
+          const text = await response.text()
+          throw new FortnoxApiError(response.status, text)
         }
         const backoff = BASE_BACKOFF_MS * Math.pow(2, attempt)
         await new Promise((resolve) => setTimeout(resolve, backoff))
@@ -73,7 +88,7 @@ export class FortnoxClient {
 
       if (!response.ok) {
         const text = await response.text()
-        throw new Error(`Fortnox API error (${response.status}): ${text}`)
+        throw new FortnoxApiError(response.status, text)
       }
 
       return response.json() as Promise<T>

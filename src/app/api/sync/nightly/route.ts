@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (step === "invoices") {
-      payload.sync_mode = "full"
+      payload.sync_mode = "skip_finalized"
     }
 
     return {
