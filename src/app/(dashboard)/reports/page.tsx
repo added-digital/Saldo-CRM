@@ -2508,7 +2508,8 @@ function renderWorkloadShareCell(percentage: number) {
           .in("customer_id", idChunk)
           .eq("period_type", "month")
           .in("period_year", years)
-          .in("period_month", monthNumbers);
+          .in("period_month", monthNumbers)
+          .limit(10000);
 
         if (kpiError) {
           throw kpiError;
@@ -2702,7 +2703,8 @@ function renderWorkloadShareCell(percentage: number) {
             .in("customer_id", idChunk)
             .eq("period_type", "month")
             .in("period_year", years)
-            .in("period_month", monthNumbers);
+            .in("period_month", monthNumbers)
+            .limit(10000);
 
           if (error) {
             throw error;
@@ -3038,7 +3040,8 @@ function renderWorkloadShareCell(percentage: number) {
           .in("customer_id", idChunk)
           .eq("period_type", "month")
           .in("period_year", years)
-          .in("period_month", monthNumbers);
+          .in("period_month", monthNumbers)
+          .limit(10000);
 
         if (error) {
           setManagerCustomerSummaryRows([]);

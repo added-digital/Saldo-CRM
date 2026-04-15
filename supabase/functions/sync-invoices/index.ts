@@ -480,6 +480,12 @@ Deno.serve(async (req) => {
 
       const allRowInserts: InvoiceRowInsert[] = [];
       const detailFetchedNumbers: string[] = [];
+      const detailTotalsUpdates: Array<{
+        document_number: string;
+        total: number | null;
+        total_vat: number | null;
+        total_ex_vat: number | null;
+      }> = [];
 
       for (let i = 0; i < detailChunk.length; i += DETAIL_BATCH_SIZE) {
         const batch = detailChunk.slice(i, i + DETAIL_BATCH_SIZE);
@@ -496,6 +502,14 @@ Deno.serve(async (req) => {
               detailFetchedNumbers.push(docNum);
               allRowInserts.push(...toInvoiceRows(docNum, detail));
               detailFetched++;
+
+              const enrichedTotals = resolveInvoiceTotals(detail);
+              detailTotalsUpdates.push({
+                document_number: docNum,
+                total: enrichedTotals.total,
+                total_vat: enrichedTotals.totalVat,
+                total_ex_vat: enrichedTotals.totalExVat,
+              });
             }
           } catch (detailError) {
             const is404 =
@@ -564,6 +578,32 @@ Deno.serve(async (req) => {
             });
           }
         }
+      }
+
+      if (detailTotalsUpdates.length > 0) {
+        for (const upd of detailTotalsUpdates) {
+          const { error: updError } = await supabase
+            .from("invoices")
+            .update({
+              total: upd.total,
+              total_vat: upd.total_vat,
+              total_ex_vat: upd.total_ex_vat,
+            } as never)
+            .eq("document_number", upd.document_number as never);
+
+          if (updError) {
+            logSyncEvent("invoice_totals_update_error", {
+              job_id: jobId,
+              document_number: upd.document_number,
+              error: updError.message,
+            });
+          }
+        }
+
+        logSyncEvent("invoice_totals_enriched", {
+          job_id: jobId,
+          count: detailTotalsUpdates.length,
+        });
       }
 
       const morePages = currentPage < totalPages;
