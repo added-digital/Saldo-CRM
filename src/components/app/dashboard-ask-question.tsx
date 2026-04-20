@@ -20,9 +20,7 @@ type AskQuestionProps = {
 
 type AskQuestionResponse = {
   answer: string
-  sql: string
-  openai_sql_response?: string
-  rows: Array<Record<string, unknown>>
+  sources: Array<{ file_name: string; document_type: string; similarity: number }>
 }
 
 type AskQuestionErrorResponse = {
@@ -34,6 +32,7 @@ type ChatMessage = {
   id: string
   role: "user" | "assistant"
   content: string
+  sources?: Array<{ file_name: string; document_type: string; similarity: number }>
 }
 
 export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
@@ -68,15 +67,13 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     setLoading(true)
 
     try {
-      const response = await fetch("/api/questions/ask-sql", {
+      const response = await fetch("/api/questions/ask-documents", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           question: trimmedQuestion,
-          customer_id: selectedCustomerId,
-          user_id: selectedUserId,
         }),
       })
 
@@ -106,6 +103,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
             ? {
                 ...item,
                 content: successPayload.answer,
+                sources: successPayload.sources,
               }
             : item
         )
@@ -138,6 +136,15 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
               :
             </span>{" "}
             {message.content}
+            {message.role === "assistant" && message.sources && message.sources.length > 0 ? (
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {message.sources.map((source) => (
+                  <span key={`${message.id}-${source.file_name}-${source.document_type}`} className="block">
+                    {`Källa: ${source.file_name} (${Math.round(source.similarity * 100)}% match)`}
+                  </span>
+                ))}
+              </span>
+            ) : null}
           </p>
         ))}
       </div>

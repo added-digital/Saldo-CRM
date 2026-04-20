@@ -387,6 +387,27 @@ export interface MailTemplate {
   updated_at: string
 }
 
+export interface Document {
+  id: string
+  storage_path: string
+  file_name: string
+  file_type: string | null
+  document_type: string | null
+  content_text: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DocumentChunk {
+  id: string
+  document_id: string
+  chunk_index: number
+  chunk_text: string
+  embedding: string
+  created_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -514,6 +535,16 @@ export interface Database {
         Row: MailTemplate
         Insert: Omit<MailTemplate, "id" | "created_at" | "updated_at">
         Update: Partial<Omit<MailTemplate, "id" | "created_at" | "updated_at">>
+      }
+      documents: {
+        Row: Document
+        Insert: Omit<Document, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<Document, "id" | "created_at" | "updated_at">>
+      }
+      document_chunks: {
+        Row: DocumentChunk
+        Insert: Omit<DocumentChunk, "id" | "created_at">
+        Update: Partial<Omit<DocumentChunk, "id" | "created_at">>
       }
       sync_jobs: {
         Row: SyncJob

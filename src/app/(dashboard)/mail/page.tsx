@@ -2,18 +2,22 @@
 
 import * as React from "react"
 import { useSearchParams } from "next/navigation"
-import { ChevronLeft, ChevronRight, Loader2, Send } from "lucide-react"
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Search, Send, X } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
-import { CustomerMultiSelect } from "@/components/app/customer-multi-select"
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useTranslation } from "@/hooks/use-translation"
-import type { MailTemplate } from "@/types/database"
+import type { CustomerContact, MailTemplate, Segment } from "@/types/database"
 import { toast } from "sonner"
 
 type MailTemplateType = "plain" | "plain_os"
@@ -22,8 +26,35 @@ type MailRecipientCustomer = {
   id: string
   name: string
   fortnox_customer_number: string | null
+  status: string | null
   email: string | null
   primaryContactName: string | null
+  segmentIds: string[]
+}
+
+type CustomerOptionWithStatus = {
+  id: string
+  name: string
+  fortnox_customer_number: string | null
+  status: string | null
+}
+
+type MailRecipientContact = CustomerContact & {
+  primaryCustomers: CustomerOptionWithStatus[]
+  customers: CustomerOptionWithStatus[]
+  segmentIds: string[]
+}
+
+type RecipientSegment = Pick<Segment, "id" | "name" | "color">
+type RecipientType = "customers" | "contacts"
+
+type ResolvedRecipient = {
+  id: string
+  type: RecipientType
+  name: string
+  email: string | null
+  customerName: string
+  companyName: string
 }
 
 type PlainForm = {
@@ -42,6 +73,8 @@ type PlainOsForm = {
   footnote: string
   brandName: string
 }
+
+const SELECTED_RECIPIENT_PREVIEW_LIMIT = 8
 
 function toParagraphs(raw: string): string[] {
   return raw
@@ -144,11 +177,24 @@ function personalizePayload(
   }
 }
 
+function includesSearch(haystack: string, query: string): boolean {
+  if (!query) return true
+  return haystack.toLowerCase().includes(query.toLowerCase())
+}
+
 export default function MailPage() {
   const { t } = useTranslation()
   const searchParams = useSearchParams()
   const [customerOptions, setCustomerOptions] = React.useState<MailRecipientCustomer[]>([])
+  const [contactOptions, setContactOptions] = React.useState<MailRecipientContact[]>([])
+  const [segmentOptions, setSegmentOptions] = React.useState<RecipientSegment[]>([])
   const [selectedCustomerIds, setSelectedCustomerIds] = React.useState<string[]>([])
+  const [selectedContactIds, setSelectedContactIds] = React.useState<string[]>([])
+  const [recipientType, setRecipientType] = React.useState<RecipientType>("customers")
+  const [recipientSearch, setRecipientSearch] = React.useState("")
+  const [selectedSegmentIds, setSelectedSegmentIds] = React.useState<string[]>([])
+  const [recipientPickerOpen, setRecipientPickerOpen] = React.useState(false)
+  const [showAllSelectedRecipients, setShowAllSelectedRecipients] = React.useState(false)
   const [selectedTemplateValue, setSelectedTemplateValue] = React.useState<string>("plain_os")
   const [templateType, setTemplateType] = React.useState<MailTemplateType>("plain_os")
   const [plainForm, setPlainForm] = React.useState<PlainForm>(() => defaultPlainForm(t))
@@ -167,63 +213,311 @@ export default function MailPage() {
     [selectedTemplateValue, templates],
   )
 
-  const selectedCustomers = React.useMemo(
-    () => {
-      const byId = new Map(customerOptions.map((customer) => [customer.id, customer]))
-      return selectedCustomerIds
-        .map((id) => byId.get(id))
-        .filter((customer): customer is MailRecipientCustomer => Boolean(customer))
-    },
-    [customerOptions, selectedCustomerIds],
+  const selectedCustomers = React.useMemo(() => {
+    const byId = new Map(customerOptions.map((customer) => [customer.id, customer]))
+    return selectedCustomerIds
+      .map((id) => byId.get(id))
+      .filter((customer): customer is MailRecipientCustomer => Boolean(customer))
+  }, [customerOptions, selectedCustomerIds])
+
+  const selectedContacts = React.useMemo(() => {
+    const byId = new Map(contactOptions.map((contact) => [contact.id, contact]))
+    return selectedContactIds
+      .map((id) => byId.get(id))
+      .filter((contact): contact is MailRecipientContact => Boolean(contact))
+  }, [contactOptions, selectedContactIds])
+
+  const selectedRecipients = React.useMemo<ResolvedRecipient[]>(() => {
+    const customerRecipients = selectedCustomers.map((customer) => ({
+      id: customer.id,
+      type: "customers" as const,
+      name: customer.name,
+      email: customer.email,
+      customerName:
+        customer.primaryContactName?.trim() ||
+        customer.name ||
+        t("mail.send.fallbackCustomer", "Customer"),
+      companyName: customer.name || t("mail.send.fallbackCompany", "Company"),
+    }))
+
+    const contactRecipients = selectedContacts.map((contact) => {
+      const primaryCompany = contact.primaryCustomers[0]?.name
+      const relatedCompany = contact.customers[0]?.name
+      return {
+        id: contact.id,
+        type: "contacts" as const,
+        name: contact.name,
+        email: contact.email,
+        customerName: contact.name || t("mail.send.fallbackCustomer", "Customer"),
+        companyName: primaryCompany || relatedCompany || t("mail.send.fallbackCompany", "Company"),
+      }
+    })
+
+    return [...customerRecipients, ...contactRecipients]
+  }, [selectedContacts, selectedCustomers, t])
+
+  const visibleSelectedRecipients = React.useMemo(
+    () =>
+      showAllSelectedRecipients
+        ? selectedRecipients
+        : selectedRecipients.slice(0, SELECTED_RECIPIENT_PREVIEW_LIMIT),
+    [selectedRecipients, showAllSelectedRecipients],
+  )
+
+  const hiddenSelectedRecipientCount = Math.max(
+    0,
+    selectedRecipients.length - SELECTED_RECIPIENT_PREVIEW_LIMIT,
   )
 
   React.useEffect(() => {
     setPreviewCustomerIndex((current) => {
-      if (selectedCustomers.length === 0) return 0
-      return Math.min(current, selectedCustomers.length - 1)
-    })
-  }, [selectedCustomers])
+    if (selectedRecipients.length === 0) return 0
+    return Math.min(current, selectedRecipients.length - 1)
+  })
+  }, [selectedRecipients])
 
   React.useEffect(() => {
     const customerIdsParam = searchParams.get("customerIds")
-    if (!customerIdsParam) return
+    const contactIdsParam = searchParams.get("contactIds")
 
-    const ids = customerIdsParam
-      .split(",")
-      .map((id) => id.trim())
-      .filter((id) => id.length > 0)
+    if (!customerIdsParam && !contactIdsParam) return
 
-    if (ids.length === 0) return
-    setSelectedCustomerIds(ids)
+    if (customerIdsParam) {
+      const ids = customerIdsParam
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0)
+
+      if (ids.length > 0) {
+        setSelectedCustomerIds(ids)
+        setRecipientType("customers")
+      }
+    }
+
+    if (contactIdsParam) {
+      const ids = contactIdsParam
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0)
+
+      if (ids.length > 0) {
+        setSelectedContactIds(ids)
+        if (!customerIdsParam) {
+          setRecipientType("contacts")
+        }
+      }
+    }
   }, [searchParams])
 
   React.useEffect(() => {
-    async function loadCustomers() {
+    async function loadRecipients() {
       const supabase = createClient()
-      const { data } = await supabase
-        .from("customers")
-        .select("id, name, fortnox_customer_number, email, contact_name")
-        .order("name", { ascending: true })
 
-      setCustomerOptions(
-        ((data ?? []) as Array<{
+      const [{ data: customerData }, { data: customerSegmentRows }, contactsResponse] = await Promise.all([
+        supabase
+          .from("customers")
+          .select("id, name, fortnox_customer_number, status, email, contact_name")
+          .order("name", { ascending: true }),
+        supabase
+          .from("customer_segments")
+          .select("customer_id, segment:segments(id, name, color)"),
+        fetch("/api/contacts", { cache: "no-store" }),
+      ])
+
+      const customerSegmentsMap = new Map<string, string[]>()
+      const segmentMap = new Map<string, RecipientSegment>()
+
+      for (const row of
+        (customerSegmentRows ?? []) as Array<{
+          customer_id: string
+          segment: RecipientSegment | null
+        }>) {
+        if (!row.segment) continue
+        segmentMap.set(row.segment.id, row.segment)
+        const existing = customerSegmentsMap.get(row.customer_id) ?? []
+        customerSegmentsMap.set(row.customer_id, [...existing, row.segment.id])
+      }
+
+      const customers = ((customerData ?? []) as Array<{
           id: string
           name: string
           fortnox_customer_number: string | null
+          status: string | null
           email: string | null
           contact_name: string | null
         }>).map((customer) => ({
           id: customer.id,
           name: customer.name,
           fortnox_customer_number: customer.fortnox_customer_number,
+          status: customer.status,
           email: customer.email,
           primaryContactName: customer.contact_name,
-        })),
+          segmentIds: customerSegmentsMap.get(customer.id) ?? [],
+        }))
+
+      setCustomerOptions(customers)
+      setSegmentOptions(
+        Array.from(segmentMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
       )
+
+      const contactsPayload = (await contactsResponse.json().catch(() => null)) as {
+        contacts?: Array<
+          CustomerContact & {
+            primaryCustomers: CustomerOptionWithStatus[]
+            customers: CustomerOptionWithStatus[]
+          }
+        >
+      } | null
+
+      const contacts = (contactsPayload?.contacts ?? []).map((contact) => {
+        const relatedCustomerIds = [
+          ...contact.primaryCustomers.map((customer) => customer.id),
+          ...contact.customers.map((customer) => customer.id),
+        ]
+        const segmentIds = Array.from(
+          new Set(relatedCustomerIds.flatMap((customerId) => customerSegmentsMap.get(customerId) ?? [])),
+        )
+
+        return {
+          ...contact,
+          segmentIds,
+        }
+      })
+
+      setContactOptions(contacts)
     }
 
-    void loadCustomers()
+    void loadRecipients()
   }, [])
+
+  const filteredCustomerOptions = React.useMemo(() => {
+    return customerOptions.filter((customer) => {
+      if (
+        selectedSegmentIds.length > 0 &&
+        !selectedSegmentIds.some((segmentId) => customer.segmentIds.includes(segmentId))
+      ) {
+        return false
+      }
+
+      const segmentNames = customer.segmentIds
+        .map((segmentId) => segmentOptions.find((segment) => segment.id === segmentId)?.name ?? "")
+        .join(" ")
+
+      const searchableText = [
+        customer.name,
+        customer.email ?? "",
+        customer.fortnox_customer_number ?? "",
+        segmentNames,
+      ].join(" ")
+
+      return includesSearch(searchableText, recipientSearch)
+    })
+  }, [customerOptions, recipientSearch, segmentOptions, selectedSegmentIds])
+
+  const filteredContactOptions = React.useMemo(() => {
+    return contactOptions.filter((contact) => {
+      if (
+        selectedSegmentIds.length > 0 &&
+        !selectedSegmentIds.some((segmentId) => contact.segmentIds.includes(segmentId))
+      ) {
+        return false
+      }
+
+      const linkedCustomers = [
+        ...contact.primaryCustomers.map((customer) => customer.name),
+        ...contact.customers.map((customer) => customer.name),
+      ].join(" ")
+
+      const segmentNames = contact.segmentIds
+        .map((segmentId) => segmentOptions.find((segment) => segment.id === segmentId)?.name ?? "")
+        .join(" ")
+
+      const searchableText = [
+        contact.name,
+        contact.email ?? "",
+        contact.phone ?? "",
+        linkedCustomers,
+        segmentNames,
+      ].join(" ")
+
+      return includesSearch(searchableText, recipientSearch)
+    })
+  }, [contactOptions, recipientSearch, segmentOptions, selectedSegmentIds])
+
+  const activeFilteredOptions = React.useMemo(
+    () => (recipientType === "customers" ? filteredCustomerOptions : filteredContactOptions),
+    [filteredContactOptions, filteredCustomerOptions, recipientType],
+  )
+
+  const activeSelectedIds = recipientType === "customers" ? selectedCustomerIds : selectedContactIds
+
+  const allVisibleSelected = React.useMemo(() => {
+    if (activeFilteredOptions.length === 0) return false
+    return activeFilteredOptions.every((option) => activeSelectedIds.includes(option.id))
+  }, [activeFilteredOptions, activeSelectedIds])
+
+  function toggleSegmentFilter(segmentId: string) {
+    setSelectedSegmentIds((current) =>
+      current.includes(segmentId)
+        ? current.filter((value) => value !== segmentId)
+        : [...current, segmentId],
+    )
+  }
+
+  function toggleRecipientSelection(recipientId: string) {
+    if (recipientType === "customers") {
+      setSelectedCustomerIds((current) =>
+        current.includes(recipientId)
+          ? current.filter((id) => id !== recipientId)
+          : [...current, recipientId],
+      )
+      return
+    }
+
+    setSelectedContactIds((current) =>
+      current.includes(recipientId)
+        ? current.filter((id) => id !== recipientId)
+        : [...current, recipientId],
+    )
+  }
+
+  function toggleSelectAllVisible() {
+    const visibleIds = activeFilteredOptions.map((option) => option.id)
+    if (recipientType === "customers") {
+      setSelectedCustomerIds((current) => {
+        if (allVisibleSelected) {
+          return current.filter((id) => !visibleIds.includes(id))
+        }
+
+        return Array.from(new Set([...current, ...visibleIds]))
+      })
+      return
+    }
+
+    setSelectedContactIds((current) => {
+      if (allVisibleSelected) {
+        return current.filter((id) => !visibleIds.includes(id))
+      }
+
+      return Array.from(new Set([...current, ...visibleIds]))
+    })
+  }
+
+  function clearActiveSelections() {
+    if (recipientType === "customers") {
+      setSelectedCustomerIds([])
+      return
+    }
+    setSelectedContactIds([])
+  }
+
+  function removeSelectedRecipient(recipientId: string, type: RecipientType) {
+    if (type === "customers") {
+      setSelectedCustomerIds((current) => current.filter((id) => id !== recipientId))
+      return
+    }
+    setSelectedContactIds((current) => current.filter((id) => id !== recipientId))
+  }
 
   React.useEffect(() => {
     async function loadTemplates() {
@@ -313,20 +607,18 @@ export default function MailPage() {
     const timeout = window.setTimeout(async () => {
       setPreviewLoading(true)
       try {
-        const previewCustomer = selectedCustomers[previewCustomerIndex] ?? null
-        const previewRecipient = previewCustomer?.email?.trim() || "preview@example.com"
+        const previewRecipient = selectedRecipients[previewCustomerIndex] ?? null
+        const previewEmail = previewRecipient?.email?.trim() || "preview@example.com"
         const previewCustomerName =
-          previewCustomer?.primaryContactName?.trim() ||
-          previewCustomer?.name ||
-          t("mail.send.fallbackCustomer", "Customer")
+          previewRecipient?.customerName || t("mail.send.fallbackCustomer", "Customer")
         const previewCompanyName =
-          previewCustomer?.name || t("mail.send.fallbackCompany", "Company")
+          previewRecipient?.companyName || t("mail.send.fallbackCompany", "Company")
 
         const response = await fetch("/api/email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            to: [previewRecipient],
+            to: [previewEmail],
             template: templateType === "plain" ? "plain" : "content",
             mode: "preview",
             data: personalizePayload(
@@ -360,23 +652,23 @@ export default function MailPage() {
       abortController.abort()
       window.clearTimeout(timeout)
     }
-  }, [activePayload, previewCustomerIndex, selectedCustomers, t, templateType])
+  }, [activePayload, previewCustomerIndex, selectedRecipients, t, templateType])
 
   async function handleSend() {
-    if (selectedCustomers.length === 0) {
-      toast.error(t("mail.send.toast.customerRequired", "Select at least one customer"))
+    if (selectedRecipients.length === 0) {
+      toast.error(t("mail.send.toast.customerRequired", "Select at least one recipient"))
       return
     }
 
-    const recipients = selectedCustomers
-      .map((customer) => ({
-        customer,
-        email: customer.email?.trim() || "",
+    const recipients = selectedRecipients
+      .map((recipient) => ({
+        recipient,
+        email: recipient.email?.trim() || "",
       }))
       .filter((item) => item.email.length > 0)
 
     if (recipients.length === 0) {
-      toast.error(t("mail.send.toast.noEmails", "No selected customers have an email"))
+      toast.error(t("mail.send.toast.noEmails", "No selected recipients have an email"))
       return
     }
 
@@ -384,12 +676,9 @@ export default function MailPage() {
     try {
       let sentCount = 0
 
-      for (const { customer, email } of recipients) {
-        const customerName =
-          customer.primaryContactName?.trim() ||
-          customer.name ||
-          t("mail.send.fallbackCustomer", "Customer")
-        const companyName = customer.name || t("mail.send.fallbackCompany", "Company")
+      for (const { recipient, email } of recipients) {
+        const customerName = recipient.customerName || t("mail.send.fallbackCustomer", "Customer")
+        const companyName = recipient.companyName || t("mail.send.fallbackCompany", "Company")
 
         const response = await fetch("/api/email", {
           method: "POST",
@@ -466,17 +755,186 @@ export default function MailPage() {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>{t("mail.send.sendToCustomers", "Send to customers")}</Label>
-            <CustomerMultiSelect
-              customers={customerOptions}
-              selectedIds={selectedCustomerIds}
-              onChange={setSelectedCustomerIds}
-            />
+          <div className="space-y-3">
+            <Label>{t("mail.send.recipients.title", "Recipients")}</Label>
+            <Tabs value={recipientType} onValueChange={(value) => setRecipientType(value as RecipientType)}>
+              <TabsList variant="line" className="w-full justify-start">
+                <TabsTrigger value="customers">
+                  {t("mail.send.recipients.customers", "Customers")}
+                  <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1 text-xs">
+                    {selectedCustomerIds.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="contacts">
+                  {t("mail.send.recipients.contacts", "Contacts")}
+                  <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1 text-xs">
+                    {selectedContactIds.length}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <Popover open={recipientPickerOpen} onOpenChange={setRecipientPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-between font-normal">
+                  <span className="truncate">
+                    {recipientType === "customers"
+                      ? t("mail.send.recipients.chooseCustomers", "Choose customers")
+                      : t("mail.send.recipients.chooseContacts", "Choose contacts")}
+                  </span>
+                  <ChevronDown className="size-4 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-(--radix-popover-trigger-width) space-y-3 p-3" align="start">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={recipientSearch}
+                    onChange={(event) => setRecipientSearch(event.target.value)}
+                    placeholder={
+                      recipientType === "customers"
+                        ? t("mail.send.recipients.searchCustomers", "Search customers...")
+                        : t("mail.send.recipients.searchContacts", "Search contacts...")
+                    }
+                    className="pl-9"
+                  />
+                </div>
+
+                {segmentOptions.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {t("mail.send.recipients.filterSegments", "Filter by segments")}
+                    </p>
+                    <div className="flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
+                      {segmentOptions.map((segment) => {
+                        const selected = selectedSegmentIds.includes(segment.id)
+                        return (
+                          <button
+                            key={segment.id}
+                            type="button"
+                            onClick={() => toggleSegmentFilter(segment.id)}
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs transition-colors",
+                              selected ? "bg-muted" : "hover:bg-muted/50",
+                            )}
+                            style={{ borderColor: segment.color, color: segment.color }}
+                          >
+                            {selected ? <Check className="size-3" /> : null}
+                            {segment.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="flex items-center justify-between gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={toggleSelectAllVisible}>
+                    {allVisibleSelected
+                      ? t("mail.send.recipients.clearVisible", "Clear visible")
+                      : t("mail.send.recipients.selectEveryone", "Select everyone")}
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={clearActiveSelections}>
+                    {t("mail.send.recipients.clearSelection", "Clear selection")}
+                  </Button>
+                </div>
+
+                <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border p-1">
+                  {activeFilteredOptions.length === 0 ? (
+                    <p className="px-2 py-3 text-sm text-muted-foreground">
+                      {t("mail.send.recipients.noMatches", "No recipients match this filter")}
+                    </p>
+                  ) : (
+                    activeFilteredOptions.map((recipient) => {
+                      const selected = activeSelectedIds.includes(recipient.id)
+                      const segmentCount = recipient.segmentIds.length
+                      const secondaryLabel =
+                        recipientType === "customers"
+                          ? (recipient as MailRecipientCustomer).fortnox_customer_number
+                            ? `#${(recipient as MailRecipientCustomer).fortnox_customer_number}`
+                            : recipient.email ?? ""
+                          : (recipient as MailRecipientContact).email ?? (recipient as MailRecipientContact).phone ?? ""
+
+                      return (
+                        <div
+                          key={recipient.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => toggleRecipientSelection(recipient.id)}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" && event.key !== " ") return
+                            event.preventDefault()
+                            toggleRecipientSelection(recipient.id)
+                          }}
+                          className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted/60"
+                        >
+                          <Checkbox checked={selected} className="mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{recipient.name}</p>
+                            {secondaryLabel ? (
+                              <p className="truncate text-xs text-muted-foreground">{secondaryLabel}</p>
+                            ) : null}
+                          </div>
+                          {segmentCount > 0 ? (
+                            <span className="text-xs text-muted-foreground">{segmentCount}</span>
+                          ) : null}
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {selectedRecipients.length > 0 ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {visibleSelectedRecipients.map((recipient) => (
+                  <span
+                    key={`${recipient.type}-${recipient.id}`}
+                    className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs"
+                  >
+                    <span className="max-w-48 truncate">{recipient.name}</span>
+                    <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                      {recipient.type === "customers"
+                        ? t("mail.send.recipients.customerShort", "C")
+                        : t("mail.send.recipients.contactShort", "P")}
+                    </Badge>
+                    <button
+                      type="button"
+                      className="rounded-sm opacity-60 transition-opacity hover:opacity-100"
+                      onClick={() => removeSelectedRecipient(recipient.id, recipient.type)}
+                    >
+                      <X className="size-3" />
+                      <span className="sr-only">Remove {recipient.name}</span>
+                    </button>
+                  </span>
+                  ))}
+                </div>
+
+                {hiddenSelectedRecipientCount > 0 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-0 text-xs text-muted-foreground"
+                    onClick={() => setShowAllSelectedRecipients((current) => !current)}
+                  >
+                    {showAllSelectedRecipients
+                      ? t("mail.send.recipients.showLess", "Show less")
+                      : t(
+                          "mail.send.recipients.showAll",
+                          `Show all (${hiddenSelectedRecipientCount} more)`,
+                        )}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+
             <p className="text-xs text-muted-foreground">
               {t(
                 "mail.send.customerTokenHelp",
-                "@customer is replaced with each selected customer's primary contact name. @company is replaced with the company name.",
+                "@customer is replaced with each selected recipient name. @company is replaced with the company name.",
               )}
             </p>
           </div>
@@ -638,7 +1096,7 @@ export default function MailPage() {
           <CardDescription>
             {t("settings.mail.previewDescription", "Live server-rendered template output.")}
           </CardDescription>
-          {selectedCustomers.length > 1 ? (
+          {selectedRecipients.length > 1 ? (
             <div className="flex items-center gap-2 pt-1">
               <Button
                 type="button"
@@ -646,14 +1104,14 @@ export default function MailPage() {
                 size="sm"
                 onClick={() =>
                   setPreviewCustomerIndex((current) =>
-                    current <= 0 ? selectedCustomers.length - 1 : current - 1,
+                    current <= 0 ? selectedRecipients.length - 1 : current - 1,
                   )
                 }
               >
                 <ChevronLeft className="size-4" />
               </Button>
               <span className="text-xs text-muted-foreground">
-                {t("mail.send.previewFor", "Preview for")}: {selectedCustomers[previewCustomerIndex]?.name} ({previewCustomerIndex + 1}/{selectedCustomers.length})
+                {t("mail.send.previewFor", "Preview for")}: {selectedRecipients[previewCustomerIndex]?.name} ({previewCustomerIndex + 1}/{selectedRecipients.length})
               </span>
               <Button
                 type="button"
@@ -661,7 +1119,7 @@ export default function MailPage() {
                 size="sm"
                 onClick={() =>
                   setPreviewCustomerIndex((current) =>
-                    current >= selectedCustomers.length - 1 ? 0 : current + 1,
+                    current >= selectedRecipients.length - 1 ? 0 : current + 1,
                   )
                 }
               >

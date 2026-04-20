@@ -240,6 +240,20 @@ export default function SettingsFilesPage() {
     }
 
     toast.success("File uploaded")
+    void fetch("/api/documents/ingest", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        storage_path: objectPath,
+        file_name: selectedFile.name,
+        file_type: selectedFile.type || "application/octet-stream",
+        document_type: currentFolderLabel,
+      }),
+    }).catch(() => {
+      return null
+    })
     setSelectedFile(null)
     setUploading(false)
     await loadFolder(currentFolder)
