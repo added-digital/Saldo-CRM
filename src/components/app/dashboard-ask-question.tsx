@@ -140,24 +140,14 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
         <div
           className={cn(
             "mx-auto flex max-w-2xl flex-col items-center text-center transition-all duration-500",
-            hasMessages
-              ? "max-h-0 -translate-y-3 overflow-hidden opacity-0"
-              : "max-h-[26rem] translate-y-0 opacity-100"
+            hasMessages ? "pt-6" : "justify-center pt-32"
           )}
         >
-          <Image
-            src="/brand/logo.svg"
-            alt="Saldo"
-            width={160}
-            height={40}
-            className="h-10 w-auto"
-            priority
-          />
           <h1 className="mt-8 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-            What can we help you with today?
+            What can I help you with today?
           </h1>
           <p className="mt-3 text-sm text-muted-foreground md:text-base">
-            Ask questions about our services, packages and how we can help your business
+            Ask anything about our services, packages and how they fit your clients.
           </p>
         </div>
 
