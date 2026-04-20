@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { DashboardHomeContent } from "@/components/app/dashboard-home-content";
+import { DashboardAskQuestion } from "@/components/app/dashboard-ask-question";
 
 type DashboardCustomerOptionRow = {
   id: string;
@@ -49,6 +49,8 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <DashboardHomeContent customers={customerOptions} users={userOptions} />
+    <div className="-m-6 h-[calc(100vh-3.5rem)]">
+      <DashboardAskQuestion customers={customerOptions} users={userOptions} />
+    </div>
   );
 }
