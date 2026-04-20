@@ -6,8 +6,9 @@ declare const Deno: {
 }
 
 const RATE_LIMIT_DELAY_MS = 350
-const BATCH_SIZE = 300
+const BATCH_SIZE = 80
 const KPI_BATCH_SIZE = 3000
+const MAX_INVOCATION_MS = 110_000
 
 function readNumberField(
   record: Record<string, unknown>,
@@ -144,8 +145,14 @@ Deno.serve(async (req) => {
 
       let synced = prevSynced
       let errors = prevErrors
+      let processedInBatch = 0
+      const startedAt = Date.now()
 
       for (const contractNumber of batch) {
+        if (Date.now() - startedAt > MAX_INVOCATION_MS) {
+          console.log(`[sync-contracts] time budget reached at offset ${offset + processedInBatch}/${total}`)
+          break
+        }
         try {
           const detail = await client.getContract(contractNumber)
           const c = detail.Contract as Record<string, unknown>
@@ -201,12 +208,13 @@ Deno.serve(async (req) => {
           errors++
         }
 
+        processedInBatch++
         await delay(RATE_LIMIT_DELAY_MS)
       }
 
-      const nextOffset = offset + BATCH_SIZE
+      const nextOffset = offset + processedInBatch
       const isDone = nextOffset >= total
-      const progress = Math.round((Math.min(nextOffset, total) / total) * (isDone ? 95 : 90))
+      const progress = total > 0 ? Math.round((Math.min(nextOffset, total) / total) * (isDone ? 95 : 90)) : 95
 
       if (jobId) {
         await updateSyncJob(supabase, jobId, {
@@ -275,11 +283,19 @@ Deno.serve(async (req) => {
         .update({ contract_value: 0 } as never)
         .neq("id", "00000000-0000-0000-0000-000000000000" as never)
 
-      for (const [customerNumber, contractValue] of valueByCustomer) {
-        await supabase
-          .from("customers")
-          .update({ contract_value: contractValue } as never)
-          .eq("fortnox_customer_number", customerNumber as never)
+      const updates = Array.from(valueByCustomer.entries())
+      const UPDATE_CONCURRENCY = 20
+
+      for (let i = 0; i < updates.length; i += UPDATE_CONCURRENCY) {
+        const slice = updates.slice(i, i + UPDATE_CONCURRENCY)
+        await Promise.all(
+          slice.map(([customerNumber, contractValue]) =>
+            supabase
+              .from("customers")
+              .update({ contract_value: contractValue } as never)
+              .eq("fortnox_customer_number", customerNumber as never)
+          )
+        )
       }
 
       let finalSynced = 0
