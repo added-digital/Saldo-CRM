@@ -69,7 +69,6 @@ const REPORT_MONTH_OPTIONS_COUNT = 36;
 const TIME_REPORTS_PAGE_SIZE = 1000;
 const FETCH_ALL_PAGE_SIZE = 1000;
 const MONTHLY_UNMAPPED_ARTICLE_GROUP = "__UNMAPPED__";
-const MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP = "Licenser";
 
 const sekFormatter = new Intl.NumberFormat("sv-SE", {
   style: "currency",
@@ -96,6 +95,13 @@ function toMonthKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
+}
+
+function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 const SWEDISH_MONTH_SHORT = [
@@ -198,7 +204,7 @@ function getReportingWindowRange(
 
     return {
       from: toMonthKey(startDate) + "-01",
-      to: endDate.toISOString().slice(0, 10),
+      to: toDateKey(endDate),
       months,
       title: formatSwedishMonthYear(monthDate),
     };
@@ -222,7 +228,7 @@ function getReportingWindowRange(
 
   return {
     from: toMonthKey(startDate) + "-01",
-    to: endDate.toISOString().slice(0, 10),
+    to: toDateKey(endDate),
     months,
     title:
       mode === "rolling-year"
@@ -237,7 +243,7 @@ function getMonthDateRange(monthKey: string): { from: string; to: string } {
   const lastDay = new Date(year, month, 0);
   return {
     from: toMonthKey(firstDay) + "-01",
-    to: lastDay.toISOString().slice(0, 10),
+    to: toDateKey(lastDay),
   };
 }
 
@@ -3601,11 +3607,7 @@ function renderWorkloadShareCell(percentage: number) {
       const nextGroupValues = Array.from(groupValueSet.values()).sort((a, b) =>
         monthlyArticleGroupLabel(a).localeCompare(monthlyArticleGroupLabel(b)),
       );
-      const defaultSelected = nextGroupValues.filter(
-        (groupValue) => groupValue !== MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP,
-      );
-      const fallbackSelected =
-        defaultSelected.length > 0 ? defaultSelected : nextGroupValues;
+      const fallbackSelected = nextGroupValues;
 
       setMonthlyHourGroupRows(groupedHourRows);
       setMonthlyArticleGroupValues(nextGroupValues);

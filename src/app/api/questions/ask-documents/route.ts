@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,21 +15,6 @@ type EmbeddingResponse = {
     embedding?: number[];
     index?: number;
   }>;
-};
-
-type ResponsesTextContent = {
-  type?: string;
-  text?: string;
-};
-
-type ResponsesOutputItem = {
-  type?: string;
-  content?: ResponsesTextContent[];
-};
-
-type ResponsesPayload = {
-  output_text?: string;
-  output?: ResponsesOutputItem[];
 };
 
 type ChunkSearchRow = {
@@ -109,33 +95,36 @@ function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 async function embedQuestion(question: string): Promise<number[]> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.VOYAGE_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is missing");
+    throw new Error("VOYAGE_API_KEY is missing");
   }
 
-  const response = await fetch("https://api.openai.com/v1/embeddings", {
+  const response = await fetch("https://api.voyageai.com/v1/embeddings", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "text-embedding-3-small",
-      input: question,
+      model: "voyage-3",
+      input: [question],
     }),
   });
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`OpenAI question embedding failed: ${text}`);
+    throw new Error(`Voyage embedding failed: ${text}`);
   }
 
   const payload = (await response.json()) as EmbeddingResponse;
-  const embedding = payload.data?.[0]?.embedding ?? [];
+  console.log('Voyage response:', JSON.stringify(payload))
 
-  if (embedding.length !== 1536) {
-    throw new Error("OpenAI question embedding payload was invalid");
+  const firstItem = Array.isArray(payload.data) ? payload.data[0] : null;
+  const embedding = Array.isArray(firstItem?.embedding) ? firstItem.embedding : [];
+
+  if (embedding.length !== 1024) {
+    throw new Error("Voyage question embedding payload was invalid");
   }
 
   return embedding;
@@ -160,12 +149,12 @@ async function callOpenAiForDocumentAnswer(input: {
   question: string;
   context: string;
 }) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is missing");
+    throw new Error("ANTHROPIC_API_KEY is missing");
   }
 
-  const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+  const anthropic = new Anthropic({ apiKey });
 
   const systemPrompt = [
     "You answer questions only using the provided document context.",
@@ -175,47 +164,28 @@ async function callOpenAiForDocumentAnswer(input: {
   ].join(" ");
 
   const prompt = [
-    `Instructions: ${systemPrompt}`,
-    "",
     `Question: ${input.question}`,
     "",
     "Document context:",
     input.context,
   ].join("\n");
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      input: prompt,
-    }),
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-5",
+    max_tokens: 1200,
+    system: systemPrompt,
+    messages: [
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
   });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`OpenAI document answer failed: ${text}`);
-  }
-
-  const payload = (await response.json()) as ResponsesPayload;
-  const outputTexts: string[] = [];
-
-  if (typeof payload.output_text === "string" && payload.output_text.trim()) {
-    outputTexts.push(payload.output_text);
-  }
-
-  const outputItems = Array.isArray(payload.output) ? payload.output : [];
-  for (const item of outputItems) {
-    const contentItems = Array.isArray(item.content) ? item.content : [];
-    for (const contentItem of contentItems) {
-      if (typeof contentItem.text === "string" && contentItem.text.trim()) {
-        outputTexts.push(contentItem.text);
-      }
-    }
-  }
+  const outputTexts = response.content
+    .filter((item) => item.type === "text")
+    .map((item) => item.text.trim())
+    .filter((text) => text.length > 0);
 
   return outputTexts.join("\n").trim();
 }

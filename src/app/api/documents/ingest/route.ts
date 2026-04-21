@@ -20,6 +20,8 @@ type EmbeddingResponse = {
   }>;
 };
 
+type PdfParserErrorEvent = Error | { parserError: Error };
+
 type Chunk = {
   chunk_index: number;
   chunk_text: string;
@@ -71,7 +73,14 @@ async function extractTextFromFile(input: {
     const PDFParser = (await import("pdf2json")).default;
     return new Promise((resolve, reject) => {
       const parser = new PDFParser(null, true);
-      parser.on("pdfParser_dataError", (err: any) => reject(new Error(err.parserError)));
+      parser.on("pdfParser_dataError", (err: PdfParserErrorEvent) => {
+        if (err instanceof Error) {
+          reject(err);
+          return;
+        }
+
+        reject(err.parserError);
+      });
       parser.on("pdfParser_dataReady", () => {
         resolve(normalizeWhitespace(parser.getRawTextContent()));
       });
@@ -120,38 +129,32 @@ function splitIntoWordChunks(text: string, chunkSize = 400, overlap = 50): Chunk
 }
 
 async function embedChunks(chunks: Chunk[]): Promise<number[][]> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.VOYAGE_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is missing");
+    throw new Error("VOYAGE_API_KEY is missing");
   }
 
-  const response = await fetch("https://api.openai.com/v1/embeddings", {
+  const response = await fetch("https://api.voyageai.com/v1/embeddings", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "text-embedding-3-small",
-      input: chunks.map((chunk) => chunk.chunk_text),
+      model: "voyage-3",
+      input: chunks.map((c) => c.chunk_text),
     }),
   });
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`OpenAI embedding request failed: ${text}`);
+    throw new Error(`Voyage embedding failed: ${text}`);
   }
 
   const payload = (await response.json()) as EmbeddingResponse;
-  const embeddings = (payload.data ?? [])
+  return (payload.data ?? [])
     .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
-    .map((entry) => entry.embedding ?? []);
-
-  if (embeddings.length !== chunks.length || embeddings.some((row) => row.length !== 1536)) {
-    throw new Error("OpenAI embedding payload was invalid");
-  }
-
-  return embeddings;
+    .map((d) => d.embedding ?? []);
 }
 
 function toVectorLiteral(values: number[]): string {

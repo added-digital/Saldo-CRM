@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import ReactMarkdown from "react-markdown"
 import { ArrowUp, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -145,7 +146,9 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
             ) : (
               <div className="max-w-[90%] md:max-w-[78%]">
                 <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Assistant</p>
-                <p className="text-sm leading-relaxed text-foreground">{message.content}</p>
+                <div className="prose prose-sm prose-zinc dark:prose-invert max-w-none text-sm leading-relaxed text-foreground [&_p]:text-foreground [&_li]:text-foreground [&_strong]:text-foreground [&_em]:text-foreground [&_code]:text-foreground [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_blockquote]:text-muted-foreground [&_a]:text-primary">
+                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                </div>
                 {message.sources && message.sources.length > 0 && (
                   <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                     {message.sources.map((source) => (
