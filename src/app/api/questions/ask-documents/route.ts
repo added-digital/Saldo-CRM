@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import mammoth from "mammoth";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -8,6 +9,12 @@ export const runtime = "nodejs";
 
 type AskDocumentsBody = {
   question?: string;
+};
+
+type AskDocumentsInput = {
+  question: string;
+  attachmentContext: string;
+  attachmentSources: SourceRow[];
 };
 
 type EmbeddingResponse = {
@@ -33,6 +40,8 @@ type SourceRow = {
   similarity: number;
 };
 
+type PdfParserErrorEvent = Error | { parserError: Error };
+
 type DirectChunkRow = {
   id: string;
   document_id: string;
@@ -50,6 +59,119 @@ type DirectChunkRow = {
 
 function toVectorString(values: number[]): string {
   return `[${values.join(",")}]`;
+}
+
+function normalizeWhitespace(input: string): string {
+  return input.replace(/\s+/g, " ").trim();
+}
+
+function getFileExtension(fileName: string): string {
+  const parts = fileName.toLowerCase().split(".");
+  if (parts.length < 2) return "";
+  return parts[parts.length - 1];
+}
+
+function getFileKind(fileName: string, fileType: string): "pdf" | "docx" | "txt" | "unsupported" {
+  const normalizedType = fileType.toLowerCase();
+  const extension = getFileExtension(fileName);
+
+  if (normalizedType === "application/pdf" || extension === "pdf") return "pdf";
+  if (
+    normalizedType ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    extension === "docx"
+  ) {
+    return "docx";
+  }
+  if (normalizedType.startsWith("text/") || extension === "txt") return "txt";
+
+  return "unsupported";
+}
+
+async function extractTextFromAttachment(input: {
+  fileBuffer: Buffer;
+  fileName: string;
+  fileType: string;
+}): Promise<string> {
+  const kind = getFileKind(input.fileName, input.fileType);
+
+  if (kind === "pdf") {
+    const PDFParser = (await import("pdf2json")).default;
+    return new Promise((resolve, reject) => {
+      const parser = new PDFParser(null, true);
+      parser.on("pdfParser_dataError", (err: PdfParserErrorEvent) => {
+        if (err instanceof Error) {
+          reject(err);
+          return;
+        }
+        reject(err.parserError);
+      });
+      parser.on("pdfParser_dataReady", () => {
+        resolve(normalizeWhitespace(parser.getRawTextContent()));
+      });
+      parser.parseBuffer(input.fileBuffer);
+    });
+  }
+
+  if (kind === "docx") {
+    const result = await mammoth.extractRawText({ buffer: input.fileBuffer });
+    return normalizeWhitespace(result.value ?? "");
+  }
+
+  if (kind === "txt") {
+    return normalizeWhitespace(input.fileBuffer.toString("utf8"));
+  }
+
+  return "";
+}
+
+async function parseAskDocumentsInput(request: Request): Promise<AskDocumentsInput> {
+  const contentType = request.headers.get("content-type") ?? "";
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData();
+    const question = normalizeWhitespace(String(formData.get("question") ?? ""));
+    const files = formData.getAll("files").filter((entry): entry is File => entry instanceof File);
+
+    const attachmentParts: string[] = [];
+    const attachmentSources: SourceRow[] = [];
+
+    for (const file of files) {
+      const fileBuffer = Buffer.from(await file.arrayBuffer());
+      const extracted = await extractTextFromAttachment({
+        fileBuffer,
+        fileName: file.name,
+        fileType: file.type || "application/octet-stream",
+      });
+
+      if (!extracted) continue;
+
+      attachmentParts.push([
+        `Attachment file: ${file.name}`,
+        "Attachment document type: Chat attachment",
+        `Attachment content: ${extracted}`,
+      ].join("\n"));
+
+      attachmentSources.push({
+        file_name: file.name,
+        document_type: "Chat attachment",
+        similarity: 1,
+      });
+    }
+
+    return {
+      question,
+      attachmentContext: attachmentParts.join("\n\n"),
+      attachmentSources,
+    };
+  }
+
+  const body = (await request.json()) as AskDocumentsBody;
+  return {
+    question: normalizeWhitespace(body.question ?? ""),
+    attachmentContext: "",
+    attachmentSources: [],
+  };
 }
 
 function parseVectorEmbedding(value: unknown): number[] {
@@ -118,8 +240,6 @@ async function embedQuestion(question: string): Promise<number[]> {
   }
 
   const payload = (await response.json()) as EmbeddingResponse;
-  console.log('Voyage response:', JSON.stringify(payload))
-
   const firstItem = Array.isArray(payload.data) ? payload.data[0] : null;
   const embedding = Array.isArray(firstItem?.embedding) ? firstItem.embedding : [];
 
@@ -204,8 +324,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = (await request.json()) as AskDocumentsBody;
-    const question = body.question?.trim() ?? "";
+    const input = await parseAskDocumentsInput(request);
+    const question = input.question;
 
     if (!question) {
       return NextResponse.json(
@@ -228,12 +348,16 @@ export async function POST(request: Request) {
       } as never,
     );
 
-    console.log("RPC error:", rpcError);
-    console.log("RPC data:", JSON.stringify(rpcData));
-    console.log("Embedding length:", questionEmbedding.length);
-    console.log("Embedding sample:", questionEmbedding.slice(0, 3));
+    if (rpcError) {
+      console.error("search_chunks rpc failed", {
+        code: rpcError.code,
+        message: rpcError.message,
+      });
+    }
 
     let rows = Array.isArray(rpcData) ? (rpcData as ChunkSearchRow[]) : [];
+
+    const embeddingDimension = questionEmbedding.length;
 
     if (rows.length === 0) {
       const sql = [
@@ -243,11 +367,11 @@ export async function POST(request: Request) {
         "  dc.chunk_text,",
         "  d.file_name,",
         "  d.document_type,",
-        `  1 - (dc.embedding <=> '${vectorString}'::vector(1536)) AS similarity,`,
+        `  1 - (dc.embedding <=> '${vectorString}'::vector(${embeddingDimension})) AS similarity,`,
         "  d.storage_path",
         "FROM document_chunks dc",
         "INNER JOIN documents d ON d.id = dc.document_id",
-        `ORDER BY dc.embedding <=> '${vectorString}'::vector(1536)`,
+        `ORDER BY dc.embedding <=> '${vectorString}'::vector(${embeddingDimension})`,
         "LIMIT 5",
       ].join("\n");
 
@@ -258,8 +382,12 @@ export async function POST(request: Request) {
         } as never,
       );
 
-      console.log("Raw SQL fallback error:", rawSqlError);
-      console.log("Raw SQL fallback data:", JSON.stringify(rawSqlData));
+      if (rawSqlError) {
+        console.error("run_generated_sql fallback failed", {
+          code: rawSqlError.code,
+          message: rawSqlError.message,
+        });
+      }
 
       rows = Array.isArray(rawSqlData) ? (rawSqlData as ChunkSearchRow[]) : [];
     }
@@ -272,7 +400,12 @@ export async function POST(request: Request) {
         )
         .limit(500);
 
-      console.log("Direct fallback error:", directError);
+      if (directError) {
+        console.error("document_chunks direct fallback failed", {
+          code: directError.code,
+          message: directError.message,
+        });
+      }
 
       const directRows = (directData ?? []) as DirectChunkRow[];
 
@@ -300,14 +433,15 @@ export async function POST(request: Request) {
         .slice(0, 5);
     }
 
-    if (rows.length === 0) {
+    if (rows.length === 0 && !input.attachmentContext) {
       return NextResponse.json({
         answer: "I could not find relevant information in the uploaded documents.",
         sources: [],
       });
     }
 
-    const context = buildContextFromChunks(rows);
+    const indexedContext = buildContextFromChunks(rows);
+    const context = [indexedContext, input.attachmentContext].filter((value) => value.trim().length > 0).join("\n\n");
     const answer = await callOpenAiForDocumentAnswer({
       question,
       context,
@@ -326,9 +460,11 @@ export async function POST(request: Request) {
       }
     }
 
+    const indexedSources = Array.from(sourceMap.values());
+
     return NextResponse.json({
       answer,
-      sources: Array.from(sourceMap.values()),
+      sources: [...input.attachmentSources, ...indexedSources],
     });
   } catch (error) {
     return NextResponse.json(

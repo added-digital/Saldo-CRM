@@ -69,6 +69,7 @@ const REPORT_MONTH_OPTIONS_COUNT = 36;
 const TIME_REPORTS_PAGE_SIZE = 1000;
 const FETCH_ALL_PAGE_SIZE = 1000;
 const MONTHLY_UNMAPPED_ARTICLE_GROUP = "__UNMAPPED__";
+const MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP = "Licenser";
 
 const sekFormatter = new Intl.NumberFormat("sv-SE", {
   style: "currency",
@@ -3607,7 +3608,11 @@ function renderWorkloadShareCell(percentage: number) {
       const nextGroupValues = Array.from(groupValueSet.values()).sort((a, b) =>
         monthlyArticleGroupLabel(a).localeCompare(monthlyArticleGroupLabel(b)),
       );
-      const fallbackSelected = nextGroupValues;
+      const defaultSelected = nextGroupValues.filter(
+        (groupValue) => groupValue !== MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP,
+      );
+      const fallbackSelected =
+        defaultSelected.length > 0 ? defaultSelected : nextGroupValues;
 
       setMonthlyHourGroupRows(groupedHourRows);
       setMonthlyArticleGroupValues(nextGroupValues);

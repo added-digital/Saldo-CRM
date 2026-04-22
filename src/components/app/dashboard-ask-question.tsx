@@ -2,12 +2,13 @@
 
 import * as React from "react"
 import ReactMarkdown from "react-markdown"
-import { ArrowUp, Loader2, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Trash2 } from "lucide-react"
+import { ArrowUp, Loader2, Paperclip, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { useTranslation } from "@/hooks/use-translation"
+import { useUser } from "@/hooks/use-user"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/app/confirm-dialog"
 import {
@@ -54,6 +55,12 @@ type ConversationHistoryItem = {
   updated_at: string
 }
 
+type ChatAttachment = {
+  id: string
+  name: string
+  file: File
+}
+
 function getConversationTitle(messages: ChatMessage[]): string {
   const firstUserMessage = messages.find((message) => message.role === "user")
   const content = firstUserMessage?.content?.trim()
@@ -64,6 +71,7 @@ function getConversationTitle(messages: ChatMessage[]): string {
 
 export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const { t } = useTranslation()
+  const { user } = useUser()
   const [selectedCustomerId] = React.useState<string | null>(customers[0]?.id ?? null)
   const [selectedUserId] = React.useState<string | null>(users[0]?.id ?? null)
   const [question, setQuestion] = React.useState("")
@@ -79,8 +87,16 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const [renameValue, setRenameValue] = React.useState("")
   const [renamingConversation, setRenamingConversation] = React.useState(false)
   const [historyCollapsed, setHistoryCollapsed] = React.useState(false)
+  const [chatAttachments, setChatAttachments] = React.useState<ChatAttachment[]>([])
   const hasMessages = messages.length > 0
   const persistTimerRef = React.useRef<number | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
+
+  const firstName = React.useMemo(() => {
+    const fullName = user.full_name?.trim()
+    if (!fullName) return "there"
+    return fullName.split(/\s+/)[0]
+  }, [user.full_name])
 
   void selectedCustomerId
   void selectedUserId
@@ -244,12 +260,14 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
 
     setConversationId(selectedConversation.id)
     setMessages(selectedConversation.messages)
+    setChatAttachments([])
   }
 
   function handleStartNewConversation() {
     setConversationId(null)
     setMessages([])
     setQuestion("")
+    setChatAttachments([])
   }
 
   async function handleRenameConversation(target: ConversationHistoryItem) {
@@ -341,15 +359,30 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     setLoading(true)
 
     try {
-      const response = await fetch("/api/questions/ask-documents", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          question: trimmedQuestion,
-        }),
-      })
+      const response = await (async () => {
+        if (chatAttachments.length === 0) {
+          return fetch("/api/questions/ask-documents", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              question: trimmedQuestion,
+            }),
+          })
+        }
+
+        const formData = new FormData()
+        formData.append("question", trimmedQuestion)
+        for (const attachment of chatAttachments) {
+          formData.append("files", attachment.file, attachment.file.name)
+        }
+
+        return fetch("/api/questions/ask-documents", {
+          method: "POST",
+          body: formData,
+        })
+      })()
 
       const data = (await response.json()) as AskQuestionResponse | AskQuestionErrorResponse
       if (!response.ok) {
@@ -396,6 +429,29 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleAttachmentSelected(file: File) {
+    setChatAttachments((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        name: file.name,
+        file,
+      },
+    ])
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  function handleAttachmentClick() {
+    fileInputRef.current?.click()
+  }
+
+  function handleAttachmentRemove(attachmentId: string) {
+    setChatAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId))
   }
 
   return (
@@ -474,6 +530,17 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
       </aside>
 
       <div className="relative h-full overflow-hidden bg-background">
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (!file) return
+            handleAttachmentSelected(file)
+          }}
+        />
+
         <div className={cn(
           "h-full overflow-y-auto transition-all duration-500",
           hasMessages ? "opacity-100" : "pointer-events-none opacity-0"
@@ -511,7 +578,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-4">
             <div className="text-center">
               <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-                How can I help the team today?
+                {`Hello, ${firstName} — how can I help you today?`}
               </h1>
               <p className="mt-3 text-sm text-muted-foreground md:text-base">
                 Ask questions about our services, offerings, and how to support customer needs.
@@ -521,13 +588,46 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
               onSubmit={(e) => { e.preventDefault(); void submitQuestion() }}
               className="w-full max-w-[600px] rounded-2xl border bg-background p-2 shadow-sm"
             >
+              {chatAttachments.length > 0 ? (
+                <div className="mb-2 flex flex-wrap gap-1.5 px-1">
+                  {chatAttachments.map((attachment) => (
+                    <span
+                      key={attachment.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs text-foreground"
+                    >
+                      <span className="max-w-56 truncate">{attachment.name}</span>
+                      <button
+                        type="button"
+                        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        onClick={() => handleAttachmentRemove(attachment.id)}
+                        aria-label={`Remove ${attachment.name}`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               <div className="relative">
                 <Input
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder="Ask about our services..."
-                  className="h-12 rounded-xl border-0 bg-transparent pr-12 text-sm shadow-none focus-visible:ring-0"
+                  className="h-12 rounded-xl border-0 bg-transparent pl-12 pr-12 text-sm shadow-none focus-visible:ring-0"
                 />
+                <button
+                  type="button"
+                  onClick={handleAttachmentClick}
+                  disabled={loading}
+                  className={cn(
+                    "absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border transition-colors",
+                    loading
+                      ? "cursor-not-allowed border-muted-foreground/30 text-muted-foreground/50"
+                      : "border-border text-foreground hover:bg-muted"
+                  )}
+                >
+                  <Paperclip className="size-4" />
+                </button>
                 <button
                   type="submit"
                   disabled={loading || question.trim().length === 0}
@@ -551,13 +651,46 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
               onSubmit={(e) => { e.preventDefault(); void submitQuestion() }}
               className="rounded-2xl border bg-background p-2 shadow-sm"
             >
+              {chatAttachments.length > 0 ? (
+                <div className="mb-2 flex flex-wrap gap-1.5 px-1">
+                  {chatAttachments.map((attachment) => (
+                    <span
+                      key={attachment.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs text-foreground"
+                    >
+                      <span className="max-w-56 truncate">{attachment.name}</span>
+                      <button
+                        type="button"
+                        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        onClick={() => handleAttachmentRemove(attachment.id)}
+                        aria-label={`Remove ${attachment.name}`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               <div className="relative">
                 <Input
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   placeholder="Ask about our services..."
-                  className="h-12 rounded-xl border-0 bg-transparent pr-12 text-sm shadow-none focus-visible:ring-0"
+                  className="h-12 rounded-xl border-0 bg-transparent pl-12 pr-12 text-sm shadow-none focus-visible:ring-0"
                 />
+                <button
+                  type="button"
+                  onClick={handleAttachmentClick}
+                  disabled={loading}
+                  className={cn(
+                    "absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border transition-colors",
+                    loading
+                      ? "cursor-not-allowed border-muted-foreground/30 text-muted-foreground/50"
+                      : "border-border text-foreground hover:bg-muted"
+                  )}
+                >
+                  <Paperclip className="size-4" />
+                </button>
                 <button
                   type="submit"
                   disabled={loading || question.trim().length === 0}
