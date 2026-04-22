@@ -408,6 +408,15 @@ export interface DocumentChunk {
   created_at: string
 }
 
+export interface Conversation {
+  id: string
+  user_id: string
+  title: string | null
+  messages: Record<string, unknown>[]
+  created_at: string
+  updated_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -545,6 +554,11 @@ export interface Database {
         Row: DocumentChunk
         Insert: Omit<DocumentChunk, "id" | "created_at">
         Update: Partial<Omit<DocumentChunk, "id" | "created_at">>
+      }
+      conversations: {
+        Row: Conversation
+        Insert: Omit<Conversation, "id" | "created_at" | "updated_at">
+        Update: Partial<Omit<Conversation, "id" | "created_at" | "updated_at">>
       }
       sync_jobs: {
         Row: SyncJob

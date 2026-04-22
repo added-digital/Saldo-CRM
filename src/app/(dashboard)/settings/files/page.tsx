@@ -15,7 +15,6 @@ import { toast } from "sonner"
 const STORAGE_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_FILES_BUCKET ?? "crm-files"
 const ROOT_FOLDER = process.env.NEXT_PUBLIC_SUPABASE_FILES_ROOT ?? "files"
 const SERVICES_FOLDER_KEY = process.env.NEXT_PUBLIC_SUPABASE_SERVICES_FOLDER ?? "Tjanster"
-const INITIAL_FOLDER = joinStoragePath(ROOT_FOLDER, SERVICES_FOLDER_KEY)
 const EMPTY_FOLDER_PLACEHOLDER = ".emptyFolderPlaceholder"
 
 type StorageListItem = {
@@ -115,7 +114,7 @@ export default function SettingsFilesPage() {
   const { isAdmin } = useUser()
   const { t } = useTranslation()
 
-  const [currentFolder, setCurrentFolder] = React.useState(INITIAL_FOLDER)
+  const [currentFolder, setCurrentFolder] = React.useState(ROOT_FOLDER)
   const [items, setItems] = React.useState<StorageListItem[]>([])
   const [loading, setLoading] = React.useState(true)
   const [creatingFolder, setCreatingFolder] = React.useState(false)
@@ -124,6 +123,7 @@ export default function SettingsFilesPage() {
   const [deleteTarget, setDeleteTarget] = React.useState<DeleteTarget | null>(null)
   const [folderName, setFolderName] = React.useState("")
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const pathSegments = React.useMemo(() => currentFolder.split("/").filter(Boolean), [currentFolder])
   const canUploadToCurrentFolder = currentFolder !== ROOT_FOLDER
@@ -172,13 +172,13 @@ export default function SettingsFilesPage() {
 
       const { error: servicesError } = await supabase.storage
         .from(STORAGE_BUCKET)
-        .upload(joinStoragePath(INITIAL_FOLDER, EMPTY_FOLDER_PLACEHOLDER), new Blob([]), {
+        .upload(joinStoragePath(ROOT_FOLDER, SERVICES_FOLDER_KEY, EMPTY_FOLDER_PLACEHOLDER), new Blob([]), {
           contentType: "text/plain",
           upsert: false,
         })
 
       if (!servicesError) {
-        await loadFolder(INITIAL_FOLDER)
+        await loadFolder(ROOT_FOLDER)
       }
     }
 
@@ -217,19 +217,21 @@ export default function SettingsFilesPage() {
     await loadFolder(currentFolder)
   }
 
-  async function handleUploadFile() {
-    if (!selectedFile) {
+  async function handleUploadFile(fileOverride?: File | null) {
+    const fileToUpload = fileOverride ?? selectedFile
+
+    if (!fileToUpload) {
       toast.error("Choose a file first")
       return
     }
 
     setUploading(true)
     const supabase = createClient()
-    const normalizedFileName = normalizeFileName(selectedFile.name)
+    const normalizedFileName = normalizeFileName(fileToUpload.name)
     const objectPath = joinStoragePath(currentFolder, `${crypto.randomUUID()}-${normalizedFileName || "file"}`)
 
-    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(objectPath, selectedFile, {
-      contentType: selectedFile.type || "application/octet-stream",
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(objectPath, fileToUpload, {
+      contentType: fileToUpload.type || "application/octet-stream",
       upsert: false,
     })
 
@@ -247,8 +249,8 @@ export default function SettingsFilesPage() {
       },
       body: JSON.stringify({
         storage_path: objectPath,
-        file_name: selectedFile.name,
-        file_type: selectedFile.type || "application/octet-stream",
+        file_name: fileToUpload.name,
+        file_type: fileToUpload.type || "application/octet-stream",
         document_type: currentFolderLabel,
       }),
     }).catch(() => {
@@ -257,6 +259,10 @@ export default function SettingsFilesPage() {
     setSelectedFile(null)
     setUploading(false)
     await loadFolder(currentFolder)
+  }
+
+  function handleUploadButtonClick() {
+    fileInputRef.current?.click()
   }
 
   async function handleDownloadFile(itemName: string) {
@@ -414,10 +420,18 @@ export default function SettingsFilesPage() {
           {canUploadToCurrentFolder ? (
             <div className="grid gap-3 md:grid-cols-[1fr_auto]">
               <Input
+                ref={fileInputRef}
                 type="file"
-                onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null
+                  setSelectedFile(file)
+
+                  if (file) {
+                    void handleUploadFile(file)
+                  }
+                }}
               />
-              <Button onClick={handleUploadFile} disabled={uploading || !selectedFile}>
+              <Button onClick={handleUploadButtonClick} disabled={uploading}>
                 {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
                 Upload file
               </Button>

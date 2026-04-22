@@ -2,11 +2,22 @@
 
 import * as React from "react"
 import ReactMarkdown from "react-markdown"
-import { ArrowUp, Loader2 } from "lucide-react"
+import { ArrowUp, Loader2, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Trash2 } from "lucide-react"
 
+import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { useTranslation } from "@/hooks/use-translation"
+import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/app/confirm-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 type PickerOption = {
   id: string
@@ -36,6 +47,21 @@ type ChatMessage = {
   sources?: Array<{ file_name: string; document_type: string; similarity: number }>
 }
 
+type ConversationHistoryItem = {
+  id: string
+  title: string | null
+  messages: ChatMessage[]
+  updated_at: string
+}
+
+function getConversationTitle(messages: ChatMessage[]): string {
+  const firstUserMessage = messages.find((message) => message.role === "user")
+  const content = firstUserMessage?.content?.trim()
+  if (!content) return "New conversation"
+
+  return content.length > 80 ? `${content.slice(0, 77)}...` : content
+}
+
 export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const { t } = useTranslation()
   const [selectedCustomerId] = React.useState<string | null>(customers[0]?.id ?? null)
@@ -43,10 +69,253 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const [question, setQuestion] = React.useState("")
   const [loading, setLoading] = React.useState(false)
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
+  const [userId, setUserId] = React.useState<string | null>(null)
+  const [conversationId, setConversationId] = React.useState<string | null>(null)
+  const [conversationHistory, setConversationHistory] = React.useState<ConversationHistoryItem[]>([])
+  const [loadingConversation, setLoadingConversation] = React.useState(true)
+  const [conversationDeleteTarget, setConversationDeleteTarget] = React.useState<ConversationHistoryItem | null>(null)
+  const [deletingConversation, setDeletingConversation] = React.useState(false)
+  const [conversationRenameTarget, setConversationRenameTarget] = React.useState<ConversationHistoryItem | null>(null)
+  const [renameValue, setRenameValue] = React.useState("")
+  const [renamingConversation, setRenamingConversation] = React.useState(false)
+  const [historyCollapsed, setHistoryCollapsed] = React.useState(false)
   const hasMessages = messages.length > 0
+  const persistTimerRef = React.useRef<number | null>(null)
 
   void selectedCustomerId
   void selectedUserId
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function loadConversation() {
+      const supabase = createClient()
+      const { data: authData } = await supabase.auth.getUser()
+      const authUserId = authData.user?.id ?? null
+
+      if (cancelled) return
+
+      if (!authUserId) {
+        setLoadingConversation(false)
+        return
+      }
+
+      setUserId(authUserId)
+
+      const { data } = await supabase
+        .from("conversations")
+        .select("id, title, messages, updated_at")
+        .eq("user_id", authUserId)
+        .order("updated_at", { ascending: false })
+        .limit(20)
+
+      if (cancelled) return
+
+      const history = ((data ?? []) as Array<{
+        id: string
+        title: string | null
+        messages: unknown
+        updated_at: string
+      }>).map((row) => ({
+        id: row.id,
+        title: row.title,
+        messages: Array.isArray(row.messages) ? (row.messages as ChatMessage[]) : [],
+        updated_at: row.updated_at,
+      }))
+
+      setConversationHistory(history)
+
+      setLoadingConversation(false)
+    }
+
+    void loadConversation()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const persistConversation = React.useCallback(
+    async (nextMessages: ChatMessage[]) => {
+      if (!userId || nextMessages.length === 0) {
+        return
+      }
+
+      const supabase = createClient()
+      const title = getConversationTitle(nextMessages)
+
+      if (!conversationId) {
+        const { data } = await supabase
+          .from("conversations")
+          .insert({
+            user_id: userId,
+            title,
+            messages: nextMessages as unknown as Record<string, unknown>[],
+          } as never)
+          .select("id, title, messages, updated_at")
+          .single()
+
+        if (!data) return
+
+        const inserted = data as {
+          id: string
+          title: string | null
+          messages: unknown
+          updated_at: string
+        }
+
+        setConversationId(inserted.id)
+        setConversationHistory((current) => [
+          {
+            id: inserted.id,
+            title: inserted.title,
+            messages: Array.isArray(inserted.messages) ? (inserted.messages as ChatMessage[]) : nextMessages,
+            updated_at: inserted.updated_at,
+          },
+          ...current,
+        ])
+        return
+      }
+
+      const { data } = await supabase
+        .from("conversations")
+        .update({
+          title,
+          messages: nextMessages as unknown as Record<string, unknown>[],
+        } as never)
+        .eq("id", conversationId)
+        .select("id, title, messages, updated_at")
+        .single()
+
+      if (!data) return
+
+      const updated = data as {
+        id: string
+        title: string | null
+        messages: unknown
+        updated_at: string
+      }
+
+      setConversationHistory((current) => {
+        const next = current
+          .map((item) =>
+            item.id === updated.id
+              ? {
+                  ...item,
+                  title: updated.title,
+                  messages: Array.isArray(updated.messages)
+                    ? (updated.messages as ChatMessage[])
+                    : nextMessages,
+                  updated_at: updated.updated_at,
+                }
+              : item,
+          )
+          .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+
+        return next
+      })
+    },
+    [conversationId, userId],
+  )
+
+  React.useEffect(() => {
+    if (loadingConversation) return
+
+    if (persistTimerRef.current != null) {
+      window.clearTimeout(persistTimerRef.current)
+    }
+
+    persistTimerRef.current = window.setTimeout(() => {
+      void persistConversation(messages)
+    }, 250)
+
+    return () => {
+      if (persistTimerRef.current != null) {
+        window.clearTimeout(persistTimerRef.current)
+      }
+    }
+  }, [loadingConversation, messages, persistConversation])
+
+  function handleConversationSwitch(nextConversationId: string) {
+    const selectedConversation = conversationHistory.find(
+      (conversation) => conversation.id === nextConversationId,
+    )
+    if (!selectedConversation) return
+
+    setConversationId(selectedConversation.id)
+    setMessages(selectedConversation.messages)
+  }
+
+  function handleStartNewConversation() {
+    setConversationId(null)
+    setMessages([])
+    setQuestion("")
+  }
+
+  async function handleRenameConversation(target: ConversationHistoryItem) {
+    const nextTitle = renameValue.trim()
+    if (!nextTitle || nextTitle === target.title) {
+      setConversationRenameTarget(null)
+      setRenameValue("")
+      return
+    }
+
+    setRenamingConversation(true)
+    const supabase = createClient()
+    const { data } = await supabase
+      .from("conversations")
+      .update({ title: nextTitle } as never)
+      .eq("id", target.id)
+      .select("id, title, updated_at")
+      .single()
+
+    if (!data) {
+      setRenamingConversation(false)
+      return
+    }
+
+    setConversationHistory((current) =>
+      current
+        .map((item) =>
+          item.id === target.id
+            ? {
+                ...item,
+                title: (data as { title: string | null }).title,
+                updated_at: (data as { updated_at: string }).updated_at,
+              }
+            : item,
+        )
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+    )
+
+    setRenamingConversation(false)
+    setConversationRenameTarget(null)
+    setRenameValue("")
+  }
+
+  async function handleDeleteConversation(target: ConversationHistoryItem) {
+    setDeletingConversation(true)
+    const supabase = createClient()
+    const { error } = await supabase.from("conversations").delete().eq("id", target.id)
+    if (error) {
+      setDeletingConversation(false)
+      return
+    }
+
+    setConversationHistory((current) => current.filter((item) => item.id !== target.id))
+    setConversationDeleteTarget(null)
+    setDeletingConversation(false)
+
+    if (conversationId === target.id) {
+      const next = conversationHistory.find((item) => item.id !== target.id)
+      if (next) {
+        setConversationId(next.id)
+        setMessages(next.messages)
+      } else {
+        handleStartNewConversation()
+      }
+    }
+  }
 
   async function submitQuestion() {
     const trimmedQuestion = question.trim()
@@ -130,110 +399,249 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   }
 
   return (
-  <div className="relative h-full overflow-hidden bg-background">
-    {/* Messages - only visible when chat has started */}
     <div className={cn(
-      "h-full overflow-y-auto transition-all duration-500",
-      hasMessages ? "opacity-100" : "pointer-events-none opacity-0"
+      "grid h-full overflow-hidden",
+      historyCollapsed ? "grid-cols-[52px_1fr]" : "grid-cols-[280px_1fr]",
     )}>
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pb-36 pt-6">
-        {messages.map((message) => (
-          <div key={message.id} className={cn("flex w-full", message.role === "user" ? "justify-end" : "justify-start")}>
-            {message.role === "user" ? (
-              <div className="max-w-[85%] rounded-2xl bg-foreground px-4 py-3 text-sm text-background md:max-w-[70%]">
-                {message.content}
-              </div>
-            ) : (
-              <div className="max-w-[90%] md:max-w-[78%]">
-                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Assistant</p>
-                <div className="prose prose-sm prose-zinc dark:prose-invert max-w-none text-sm leading-relaxed text-foreground [&_p]:text-foreground [&_li]:text-foreground [&_strong]:text-foreground [&_em]:text-foreground [&_code]:text-foreground [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_blockquote]:text-muted-foreground [&_a]:text-primary">
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
+      <aside className="flex h-full flex-col border-r bg-muted/20 p-2">
+        <Button
+          variant="outline"
+          className={cn("h-9 gap-2", historyCollapsed ? "justify-center px-0" : "justify-start")}
+          onClick={handleStartNewConversation}
+        >
+          <Plus className="size-4" />
+          {historyCollapsed ? null : "New chat"}
+        </Button>
+
+        <div className={cn("mt-3 flex-1 space-y-1 overflow-y-auto pr-1", historyCollapsed && "hidden")}>
+          {conversationHistory.length === 0 ? (
+            <p className="px-2 py-3 text-xs text-muted-foreground">No saved conversations yet.</p>
+          ) : (
+            conversationHistory.map((conversation) => {
+              const isActive = conversation.id === conversationId
+
+              return (
+                <div
+                  key={conversation.id}
+                  className={cn(
+                    "group flex h-9 items-center rounded-md border px-2 transition-colors",
+                    isActive ? "border-border bg-background" : "border-transparent hover:bg-background/70",
+                  )}
+                >
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 truncate text-left text-sm"
+                    onClick={() => handleConversationSwitch(conversation.id)}
+                  >
+                    {conversation.title ?? "Untitled conversation"}
+                  </button>
+                  <div className="ml-2 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      type="button"
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      onClick={() => {
+                        setConversationRenameTarget(conversation)
+                        setRenameValue(conversation.title ?? "")
+                      }}
+                      aria-label="Rename conversation"
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                      onClick={() => setConversationDeleteTarget(conversation)}
+                      aria-label="Delete conversation"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
                 </div>
-                {message.sources && message.sources.length > 0 && (
-                  <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                    {message.sources.map((source) => (
-                      <p key={`${message.id}-${source.file_name}`}>
-                        {`Källa: ${source.file_name} (${Math.round(source.similarity * 100)}% match)`}
-                      </p>
-                    ))}
+              )
+            })
+          )}
+        </div>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn("mt-2 h-8", historyCollapsed ? "justify-center px-0" : "justify-start")}
+          onClick={() => setHistoryCollapsed((current) => !current)}
+        >
+          {historyCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          {historyCollapsed ? null : "Collapse"}
+        </Button>
+      </aside>
+
+      <div className="relative h-full overflow-hidden bg-background">
+        <div className={cn(
+          "h-full overflow-y-auto transition-all duration-500",
+          hasMessages ? "opacity-100" : "pointer-events-none opacity-0"
+        )}>
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pb-36 pt-6">
+            {messages.map((message) => (
+              <div key={message.id} className={cn("flex w-full", message.role === "user" ? "justify-end" : "justify-start")}>
+                {message.role === "user" ? (
+                  <div className="max-w-[85%] rounded-2xl bg-foreground px-4 py-3 text-sm text-background md:max-w-[70%]">
+                    {message.content}
+                  </div>
+                ) : (
+                  <div className="max-w-[90%] md:max-w-[78%]">
+                    <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Assistant</p>
+                    <div className="prose prose-sm prose-zinc dark:prose-invert max-w-none text-sm leading-relaxed text-foreground [&_p]:text-foreground [&_li]:text-foreground [&_strong]:text-foreground [&_em]:text-foreground [&_code]:text-foreground [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_blockquote]:text-muted-foreground [&_a]:text-primary">
+                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                    </div>
+                    {message.sources && message.sources.length > 0 && (
+                      <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                        {message.sources.map((source) => (
+                          <p key={`${message.id}-${source.file_name}`}>
+                            {`Källa: ${source.file_name} (${Math.round(source.similarity * 100)}% match)`}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
+            ))}
           </div>
-        ))}
+        </div>
+
+        {!hasMessages && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-4">
+            <div className="text-center">
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+                How can I help the team today?
+              </h1>
+              <p className="mt-3 text-sm text-muted-foreground md:text-base">
+                Ask questions about our services, offerings, and how to support customer needs.
+              </p>
+            </div>
+            <form
+              onSubmit={(e) => { e.preventDefault(); void submitQuestion() }}
+              className="w-full max-w-[600px] rounded-2xl border bg-background p-2 shadow-sm"
+            >
+              <div className="relative">
+                <Input
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="Ask about our services..."
+                  className="h-12 rounded-xl border-0 bg-transparent pr-12 text-sm shadow-none focus-visible:ring-0"
+                />
+                <button
+                  type="submit"
+                  disabled={loading || question.trim().length === 0}
+                  className={cn(
+                    "absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border transition-colors",
+                    loading || question.trim().length === 0
+                      ? "cursor-not-allowed border-muted-foreground/30 text-muted-foreground/50"
+                      : "border-border text-foreground hover:bg-muted"
+                  )}
+                >
+                  {loading ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {hasMessages && (
+          <div className="absolute bottom-6 left-1/2 z-20 w-[min(700px,calc(100%-2rem))] -translate-x-1/2">
+            <form
+              onSubmit={(e) => { e.preventDefault(); void submitQuestion() }}
+              className="rounded-2xl border bg-background p-2 shadow-sm"
+            >
+              <div className="relative">
+                <Input
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="Ask about our services..."
+                  className="h-12 rounded-xl border-0 bg-transparent pr-12 text-sm shadow-none focus-visible:ring-0"
+                />
+                <button
+                  type="submit"
+                  disabled={loading || question.trim().length === 0}
+                  className={cn(
+                    "absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border transition-colors",
+                    loading || question.trim().length === 0
+                      ? "cursor-not-allowed border-muted-foreground/30 text-muted-foreground/50"
+                      : "border-border text-foreground hover:bg-muted"
+                  )}
+                >
+                  {loading ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {loadingConversation ? (
+          <div className="absolute right-4 top-4 text-xs text-muted-foreground">
+            Loading chat history...
+          </div>
+        ) : null}
+
+        <Dialog
+          open={!!conversationRenameTarget}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConversationRenameTarget(null)
+              setRenameValue("")
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rename conversation</DialogTitle>
+              <DialogDescription>Choose a clearer title for this chat.</DialogDescription>
+            </DialogHeader>
+            <Input
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              placeholder="Conversation title"
+              autoFocus
+            />
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setConversationRenameTarget(null)
+                  setRenameValue("")
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!conversationRenameTarget) return
+                  await handleRenameConversation(conversationRenameTarget)
+                }}
+                disabled={renamingConversation || renameValue.trim().length === 0}
+              >
+                {renamingConversation ? "Saving..." : "Save"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <ConfirmDialog
+          open={!!conversationDeleteTarget}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConversationDeleteTarget(null)
+            }
+          }}
+          title="Delete conversation"
+          description={conversationDeleteTarget ? `Permanently delete "${conversationDeleteTarget.title ?? "Untitled conversation"}"?` : "Permanently delete conversation?"}
+          confirmLabel="Delete"
+          variant="destructive"
+          loading={deletingConversation}
+          onConfirm={async () => {
+            if (!conversationDeleteTarget) return
+            await handleDeleteConversation(conversationDeleteTarget)
+          }}
+        />
       </div>
     </div>
-
-    {/* Centered hero — only visible before first message */}
-    {!hasMessages && (
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-4">
-        <div className="text-center">
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-            What can I help you with today?
-          </h1>
-          <p className="mt-3 text-sm text-muted-foreground md:text-base">
-            Ask anything about our services, packages and how they fit your clients.
-          </p>
-        </div>
-        <form
-          onSubmit={(e) => { e.preventDefault(); void submitQuestion() }}
-          className="w-full max-w-[600px] rounded-2xl border bg-background p-2 shadow-sm"
-        >
-          <div className="relative">
-            <Input
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ask about our services..."
-              className="h-12 rounded-xl border-0 bg-transparent pr-12 text-sm shadow-none focus-visible:ring-0"
-            />
-            <button
-              type="submit"
-              disabled={loading || question.trim().length === 0}
-              className={cn(
-                "absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border transition-colors",
-                loading || question.trim().length === 0
-                  ? "cursor-not-allowed border-muted-foreground/30 text-muted-foreground/50"
-                  : "border-border text-foreground hover:bg-muted"
-              )}
-            >
-              {loading ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
-            </button>
-          </div>
-        </form>
-      </div>
-    )}
-
-    {/* Bottom input — only visible after first message */}
-    {hasMessages && (
-      <div className="absolute bottom-6 left-1/2 z-20 w-[min(700px,calc(100%-2rem))] -translate-x-1/2">
-        <form
-          onSubmit={(e) => { e.preventDefault(); void submitQuestion() }}
-          className="rounded-2xl border bg-background p-2 shadow-sm"
-        >
-          <div className="relative">
-            <Input
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ask about our services..."
-              className="h-12 rounded-xl border-0 bg-transparent pr-12 text-sm shadow-none focus-visible:ring-0"
-            />
-            <button
-              type="submit"
-              disabled={loading || question.trim().length === 0}
-              className={cn(
-                "absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border transition-colors",
-                loading || question.trim().length === 0
-                  ? "cursor-not-allowed border-muted-foreground/30 text-muted-foreground/50"
-                  : "border-border text-foreground hover:bg-muted"
-              )}
-            >
-              {loading ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
-            </button>
-          </div>
-        </form>
-      </div>
-    )}
-  </div>
-)
+  )
 }

@@ -253,7 +253,7 @@ function CustomerFilters({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5">
+        <Button variant="outline" size="sm" className="h-9 gap-1.5">
           <Filter className="size-3.5" />
           {t("customers.filters.button", "Filters")}
           {activeCount > 0 ? (

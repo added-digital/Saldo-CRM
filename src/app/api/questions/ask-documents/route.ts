@@ -159,8 +159,10 @@ async function callOpenAiForDocumentAnswer(input: {
   const systemPrompt = [
     "You answer questions only using the provided document context.",
     "Only answer about the firm's services, products, and packages.",
-    "If the answer is not explicitly present in context, say that the information is unavailable.",
+    "If a specific industry is not mentioned in the documents, apply the general services (Redovisning, System, Tillväxt) to that industry context and explain how they would be beneficial.",
+    "Think like a knowledgeable consultant — map Saldo Redo's offerings to whatever the user asks about.",
     "Do not invent details, pricing, or offerings.",
+    "Never say information is unavailable if general services could still apply — instead bridge the gap helpfully.",
   ].join(" ");
 
   const prompt = [

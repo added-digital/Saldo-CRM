@@ -583,7 +583,7 @@ export default function CustomersPage() {
           setPageSize(Number(event.target.value))
           setPageIndex(0)
         }}
-        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+        className="h-9 rounded-md border border-input bg-background px-2 text-xs"
         aria-label={t("customers.pagination.rowsPerPage", "Rows per page")}
       >
         <option value={15}>{t("customers.pagination.perPage15", "15 / page")}</option>
@@ -595,8 +595,8 @@ export default function CustomersPage() {
       </span>
       <Button
         variant="outline"
-        size="icon"
-        className="size-8"
+        size="sm"
+        className="h-9 w-9"
         onClick={() => setPageIndex((current) => Math.max(current - 1, 0))}
         disabled={pageIndex === 0}
       >
@@ -604,8 +604,8 @@ export default function CustomersPage() {
       </Button>
       <Button
         variant="outline"
-        size="icon"
-        className="size-8"
+        size="sm"
+        className="h-9 w-9"
         onClick={() => setPageIndex((current) => Math.min(current + 1, pageCount - 1))}
         disabled={pageIndex >= pageCount - 1}
       >
@@ -623,6 +623,10 @@ export default function CustomersPage() {
         className="w-full lg:max-w-sm"
       />
       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={handleExportCsv} disabled={loading || filteredCustomers.length === 0}>
+          <Download className="size-3.5" />
+          {t("customers.export.csv", "Export CSV")}
+        </Button>
         {paginationControl}
         <CustomerFilters
           customers={customers}
@@ -652,13 +656,6 @@ export default function CustomersPage() {
         onRowNavigate={(customer) => router.push(`/customers/${customer.id}`)}
         emptyState={emptyState}
       />
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={handleExportCsv} disabled={loading || filteredCustomers.length === 0}>
-          <Download className="size-4" />
-          {t("customers.export.csv", "Export CSV")}
-        </Button>
-      </div>
 
       <ActionBar
         selectedCount={selectedCustomers.length}
