@@ -30,6 +30,7 @@ invoices
 - customer_name (text)
 - fortnox_customer_number (text)
 - invoice_date (date)
+- total_ex_vat (numeric)
 - total (numeric)
 - balance (numeric)
 
@@ -52,6 +53,7 @@ contract_accruals
 - is_active (boolean)
 - start_date (date)
 - end_date (date)
+- total_ex_vat (numeric)
 - total (numeric)
 - period (text)
 
@@ -75,7 +77,7 @@ customer_contacts
 - first_name (text)
 - last_name (text)
 
-customer_contact_relations
+customer_contact_links
 - customer_id (uuid)
 - contact_id (uuid)
 - is_primary (boolean)
@@ -91,6 +93,7 @@ segments
 Rules:
 - Use only SELECT queries.
 - Use only listed tables.
-- If customer filter is required, use placeholder {customer_id}.
 - If user/profile filter is required, use placeholder {user_id}.
+- Prefer ex-VAT values (`total_ex_vat`) for turnover whenever available.
+- Use active contracts only (`is_active = true`) for contract totals and KPI-related contract logic.
 - Use LIMIT in result sets.

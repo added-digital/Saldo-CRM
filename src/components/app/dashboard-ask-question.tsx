@@ -33,7 +33,7 @@ type AskQuestionProps = {
 
 type AskQuestionResponse = {
   answer: string
-  sources: Array<{ file_name: string; document_type: string; similarity: number }>
+  sources: Array<{ file_name: string; document_type: string | null; similarity: number }>
 }
 
 type AskQuestionErrorResponse = {
@@ -45,7 +45,7 @@ type ChatMessage = {
   id: string
   role: "user" | "assistant"
   content: string
-  sources?: Array<{ file_name: string; document_type: string; similarity: number }>
+  sources?: Array<{ file_name: string; document_type: string | null; similarity: number }>
 }
 
 type ConversationHistoryItem = {
@@ -72,8 +72,6 @@ function getConversationTitle(messages: ChatMessage[]): string {
 export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const { t } = useTranslation()
   const { user } = useUser()
-  const [selectedCustomerId] = React.useState<string | null>(customers[0]?.id ?? null)
-  const [selectedUserId] = React.useState<string | null>(users[0]?.id ?? null)
   const [question, setQuestion] = React.useState("")
   const [loading, setLoading] = React.useState(false)
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
@@ -98,8 +96,8 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     return fullName.split(/\s+/)[0]
   }, [user.full_name])
 
-  void selectedCustomerId
-  void selectedUserId
+  void customers
+  void users
 
   React.useEffect(() => {
     let cancelled = false

@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import mammoth from "mammoth";
@@ -15,6 +18,26 @@ type AskDocumentsInput = {
   question: string;
   attachmentContext: string;
   attachmentSources: SourceRow[];
+};
+
+type OpenAiSqlResponse = {
+  sql: string;
+  raw_response?: string;
+};
+
+type ResponsesTextContent = {
+  type?: string;
+  text?: string;
+};
+
+type ResponsesOutputItem = {
+  type?: string;
+  content?: ResponsesTextContent[];
+};
+
+type ResponsesPayload = {
+  output_text?: string;
+  output?: ResponsesOutputItem[];
 };
 
 type EmbeddingResponse = {
@@ -56,6 +79,21 @@ type DirectChunkRow = {
       }
     | null;
 };
+
+const ALLOWED_TABLES = new Set([
+  "customers",
+  "profiles",
+  "teams",
+  "invoices",
+  "time_reports",
+  "contract_accruals",
+  "customer_kpis",
+  "customer_segments",
+  "segments",
+]);
+
+const CRM_ENABLED_ROLES = new Set(["admin", "team_lead"]);
+const FORBIDDEN_SQL_COLUMN_PATTERN = /\b(email|phone|linkedin|notes)\b/i;
 
 function toVectorString(values: number[]): string {
   return `[${values.join(",")}]`;
@@ -174,6 +212,294 @@ async function parseAskDocumentsInput(request: Request): Promise<AskDocumentsInp
   };
 }
 
+async function readDbContext(): Promise<string> {
+  const filePath = path.join(
+    process.cwd(),
+    "src/app/api/questions/ask-sql/db-context.md",
+  );
+
+  return readFile(filePath, "utf8");
+}
+
+function toSafeUuidLiteral(value: string | null | undefined): string {
+  if (!value) return "NULL";
+
+  const trimmed = value.trim();
+  const uuidPattern =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (!uuidPattern.test(trimmed)) return "NULL";
+
+  return `'${trimmed}'`;
+}
+
+function extractCteNames(sql: string): Set<string> {
+  const cteNames = new Set<string>();
+  const withMatches = sql.matchAll(/\bwith\s+([a-z_][a-z0-9_]*)\s+as\b/gi);
+  const chainedMatches = sql.matchAll(/,\s*([a-z_][a-z0-9_]*)\s+as\b/gi);
+
+  for (const match of withMatches) {
+    cteNames.add(match[1].toLowerCase());
+  }
+
+  for (const match of chainedMatches) {
+    cteNames.add(match[1].toLowerCase());
+  }
+
+  return cteNames;
+}
+
+function extractRelationNames(sql: string): string[] {
+  const matches = sql.matchAll(
+    /\b(?:from|join)\s+(?:lateral\s+)?([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?)/gi,
+  );
+
+  return Array.from(matches, (match) => {
+    const raw = match[1].toLowerCase();
+    const parts = raw.split(".");
+    return parts[parts.length - 1];
+  });
+}
+
+function validateSql(
+  query: string,
+): { valid: true; sql: string } | { valid: false; error: string } {
+  const fencedMatch = query.match(/```(?:sql)?\s*([\s\S]*?)\s*```/i);
+  const unfenced = (fencedMatch?.[1] ?? query).trim();
+  const firstSelectOrWith = unfenced.match(/(?:^|[\s\S]*?)(\b(?:select|with)\b[\s\S]*)/i);
+  const extracted = (firstSelectOrWith?.[1] ?? unfenced).trim();
+
+  const trimmed = extracted.replace(/;+\s*$/, "");
+  const lowered = trimmed.toLowerCase();
+
+  if (!lowered.startsWith("select") && !lowered.startsWith("with")) {
+    return { valid: false, error: "Only SELECT queries are allowed." };
+  }
+
+  const forbiddenKeywords = [
+    "insert",
+    "update",
+    "delete",
+    "drop",
+    "alter",
+    "truncate",
+    "grant",
+    "revoke",
+  ];
+
+  for (const keyword of forbiddenKeywords) {
+    if (new RegExp(`\\b${keyword}\\b`, "i").test(trimmed)) {
+      return { valid: false, error: `Forbidden SQL keyword: ${keyword}` };
+    }
+  }
+
+  const cteNames = extractCteNames(trimmed);
+  const tableNames = extractRelationNames(trimmed);
+
+  for (const tableName of tableNames) {
+    if (cteNames.has(tableName)) {
+      continue;
+    }
+
+    if (!ALLOWED_TABLES.has(tableName)) {
+      return { valid: false, error: `Table not allowed: ${tableName}` };
+    }
+  }
+
+  const hasLimit = /\blimit\s+\d+/i.test(trimmed);
+  const limited = hasLimit ? trimmed : `${trimmed} LIMIT 200`;
+
+  return { valid: true, sql: limited };
+}
+
+async function callOpenAiForSql(input: {
+  question: string;
+  userId: string;
+  dbContext: string;
+}): Promise<OpenAiSqlResponse> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is missing");
+  }
+
+  const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+  const prompt = [
+    "You generate SQL for Postgres.",
+    "Return only JSON that matches the provided schema.",
+    "Generate a read-only query using only allowed tables from context.",
+    "Use placeholder {user_id} only when relevant.",
+    "Do not use markdown fences.",
+    "Keep the query focused on the user's question and return only fields needed to answer it.",
+    "If the question is not about CRM or reporting data, return JSON with sql as an empty string.",
+    "Never query or return direct personal contact details such as email addresses, phone numbers, linkedin links, or free-text notes.",
+    "Do not use contact tables for this endpoint.",
+    "For turnover values, prefer total_ex_vat when available.",
+    "For contract totals or KPI questions, use active contract_accruals only.",
+    "",
+    `Question: ${input.question}`,
+    `Authenticated user id: ${input.userId}`,
+    "",
+    "Database context:",
+    input.dbContext,
+  ].join("\n");
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      input: prompt,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "generated_sql",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              sql: {
+                type: "string",
+              },
+            },
+            required: ["sql"],
+            strict: true,
+          },
+        },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`OpenAI SQL generation failed: ${text}`);
+  }
+
+  const payload = (await response.json()) as ResponsesPayload;
+  const outputTexts: string[] = [];
+
+  if (typeof payload.output_text === "string" && payload.output_text.trim()) {
+    outputTexts.push(payload.output_text);
+  }
+
+  const outputItems = Array.isArray(payload.output) ? payload.output : [];
+  for (const item of outputItems) {
+    const contentItems = Array.isArray(item.content) ? item.content : [];
+    for (const contentItem of contentItems) {
+      if (typeof contentItem.text === "string" && contentItem.text.trim()) {
+        outputTexts.push(contentItem.text);
+      }
+    }
+  }
+
+  const joinedOutput = outputTexts.join("\n").trim();
+  const fencedMatch = joinedOutput.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const rawJson = (fencedMatch?.[1] ?? joinedOutput).trim();
+
+  let parsed: OpenAiSqlResponse | null = null;
+
+  try {
+    parsed = JSON.parse(rawJson) as OpenAiSqlResponse;
+  } catch {
+    const payloadSnippet = JSON.stringify(payload).slice(0, 400);
+    throw new Error(`OpenAI SQL generation returned non-JSON payload: ${payloadSnippet}`);
+  }
+
+  if (!parsed || typeof parsed.sql !== "string") {
+    throw new Error("OpenAI SQL generation returned invalid payload");
+  }
+
+  return {
+    sql: parsed.sql.trim(),
+    raw_response: joinedOutput,
+  };
+}
+
+function buildContextFromRows(rows: Array<Record<string, unknown>>): string {
+  return rows
+    .slice(0, 50)
+    .map((row, index) => `CRM row ${index + 1}: ${JSON.stringify(row)}`)
+    .join("\n");
+}
+
+async function buildDatabaseContext(input: {
+  question: string;
+  userId: string;
+  role: string | null;
+}): Promise<{ context: string; sources: SourceRow[] }> {
+  try {
+    if (!input.role || !CRM_ENABLED_ROLES.has(input.role)) {
+      return { context: "", sources: [] };
+    }
+
+    const dbContext = await readDbContext();
+    const generated = await callOpenAiForSql({
+      question: input.question,
+      userId: input.userId,
+      dbContext,
+    });
+
+    if (!generated.sql) {
+      return { context: "", sources: [] };
+    }
+
+    const withTokensReplaced = generated.sql.replaceAll(
+      "{user_id}",
+      toSafeUuidLiteral(input.userId),
+    );
+
+    const validated = validateSql(withTokensReplaced);
+    if (!validated.valid) {
+      console.error("crm sql validation failed", { error: validated.error });
+      return { context: "", sources: [] };
+    }
+
+    if (FORBIDDEN_SQL_COLUMN_PATTERN.test(validated.sql)) {
+      console.error("crm sql rejected forbidden columns");
+      return { context: "", sources: [] };
+    }
+
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient.rpc("run_generated_sql" as never, {
+      query_text: validated.sql,
+    } as never);
+
+    if (error) {
+      console.error("crm sql execution failed", { message: error.message });
+      return { context: "", sources: [] };
+    }
+
+    const rows = Array.isArray(data) ? (data as Array<Record<string, unknown>>) : [];
+    if (rows.length === 0) {
+      return { context: "", sources: [] };
+    }
+
+    const context = [
+      `CRM SQL: ${validated.sql}`,
+      "CRM query results:",
+      buildContextFromRows(rows),
+    ].join("\n");
+
+    return {
+      context,
+      sources: [
+        {
+          file_name: "CRM database",
+          document_type: "Structured data",
+          similarity: 1,
+        },
+      ],
+    };
+  } catch (error) {
+    console.error("crm context build failed", {
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+    return { context: "", sources: [] };
+  }
+}
+
 function parseVectorEmbedding(value: unknown): number[] {
   if (Array.isArray(value)) {
     const numbers = value.filter((item): item is number => typeof item === "number");
@@ -267,7 +593,8 @@ function buildContextFromChunks(chunks: ChunkSearchRow[]): string {
 
 async function callOpenAiForDocumentAnswer(input: {
   question: string;
-  context: string;
+  documentContext: string;
+  crmContext: string;
 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -277,19 +604,23 @@ async function callOpenAiForDocumentAnswer(input: {
   const anthropic = new Anthropic({ apiKey });
 
   const systemPrompt = [
-    "You answer questions only using the provided document context.",
-    "Only answer about the firm's services, products, and packages.",
-    "If a specific industry is not mentioned in the documents, apply the general services (Redovisning, System, Tillväxt) to that industry context and explain how they would be beneficial.",
-    "Think like a knowledgeable consultant — map Saldo Redo's offerings to whatever the user asks about.",
-    "Do not invent details, pricing, or offerings.",
-    "Never say information is unavailable if general services could still apply — instead bridge the gap helpfully.",
+    "You answer questions only using the provided context.",
+    "The context may include structured CRM database results and document excerpts.",
+    "Use CRM data for operational facts, counts, customers, contacts, invoices, KPIs, and reporting questions.",
+    "Use document context for service, offering, package, and attachment questions.",
+    "If both are present, combine them carefully and make the answer clear for a business user.",
+    "Do not invent details that are not grounded in the provided context.",
+    "If the context is insufficient, say so briefly instead of guessing.",
   ].join(" ");
 
   const prompt = [
     `Question: ${input.question}`,
     "",
+    "CRM database context:",
+    input.crmContext || "No CRM database context available.",
+    "",
     "Document context:",
-    input.context,
+    input.documentContext || "No document context available.",
   ].join("\n");
 
   const response = await anthropic.messages.create({
@@ -334,7 +665,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const questionEmbedding = await embedQuestion(question);
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const profile = profileData as { role: string | null } | null;
+
+    const [questionEmbedding, crmContextResult] = await Promise.all([
+      embedQuestion(question),
+      buildDatabaseContext({
+        question,
+        userId: user.id,
+        role: profile?.role ?? null,
+      }),
+    ]);
+
     const adminClient = createAdminClient();
 
     const vectorString = toVectorString(questionEmbedding);
@@ -357,8 +704,6 @@ export async function POST(request: Request) {
 
     let rows = Array.isArray(rpcData) ? (rpcData as ChunkSearchRow[]) : [];
 
-    const embeddingDimension = questionEmbedding.length;
-
     if (rows.length === 0) {
       const sql = [
         "SELECT",
@@ -367,11 +712,11 @@ export async function POST(request: Request) {
         "  dc.chunk_text,",
         "  d.file_name,",
         "  d.document_type,",
-        `  1 - (dc.embedding <=> '${vectorString}'::vector(${embeddingDimension})) AS similarity,`,
+        `  1 - (dc.embedding <=> '${vectorString}'::vector(${questionEmbedding.length})) AS similarity,`,
         "  d.storage_path",
         "FROM document_chunks dc",
         "INNER JOIN documents d ON d.id = dc.document_id",
-        `ORDER BY dc.embedding <=> '${vectorString}'::vector(${embeddingDimension})`,
+        `ORDER BY dc.embedding <=> '${vectorString}'::vector(${questionEmbedding.length})`,
         "LIMIT 5",
       ].join("\n");
 
@@ -433,18 +778,21 @@ export async function POST(request: Request) {
         .slice(0, 5);
     }
 
-    if (rows.length === 0 && !input.attachmentContext) {
+    if (rows.length === 0 && !input.attachmentContext && !crmContextResult.context) {
       return NextResponse.json({
-        answer: "I could not find relevant information in the uploaded documents.",
-        sources: [],
+        answer: "I could not find relevant information in the available documents or CRM data.",
+        sources: crmContextResult.sources,
       });
     }
 
-    const indexedContext = buildContextFromChunks(rows);
-    const context = [indexedContext, input.attachmentContext].filter((value) => value.trim().length > 0).join("\n\n");
+    const documentContext = [buildContextFromChunks(rows), input.attachmentContext]
+      .filter((value) => value.trim().length > 0)
+      .join("\n\n");
+
     const answer = await callOpenAiForDocumentAnswer({
       question,
-      context,
+      documentContext,
+      crmContext: crmContextResult.context,
     });
 
     const sourceMap = new Map<string, SourceRow>();
@@ -464,7 +812,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       answer,
-      sources: [...input.attachmentSources, ...indexedSources],
+      sources: [...crmContextResult.sources, ...input.attachmentSources, ...indexedSources],
     });
   } catch (error) {
     return NextResponse.json(

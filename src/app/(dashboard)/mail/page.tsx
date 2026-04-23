@@ -188,6 +188,19 @@ function isActiveCustomer(status: string | null): boolean {
   return !status || status.toLowerCase() === "active"
 }
 
+function isArchivedCustomer(status: string | null): boolean {
+  return status?.toLowerCase() === "archived"
+}
+
+function isActiveContact(contact: MailRecipientContact): boolean {
+  const relatedCustomers = [...contact.primaryCustomers, ...contact.customers]
+  if (relatedCustomers.length === 0) {
+    return true
+  }
+
+  return relatedCustomers.some((customer) => !isArchivedCustomer(customer.status))
+}
+
 export default function MailPage() {
   const { t } = useTranslation()
   const { user } = useUser()
@@ -233,6 +246,7 @@ export default function MailPage() {
     return selectedContactIds
       .map((id) => byId.get(id))
       .filter((contact): contact is MailRecipientContact => Boolean(contact))
+      .filter((contact) => isActiveContact(contact))
   }, [contactOptions, selectedContactIds])
 
   const selectedRecipients = React.useMemo<ResolvedRecipient[]>(() => {
@@ -484,6 +498,10 @@ export default function MailPage() {
 
   const filteredContactOptions = React.useMemo(() => {
     return contactOptions.filter((contact) => {
+      if (!isActiveContact(contact)) {
+        return false
+      }
+
       if (
         selectedSegmentIds.length > 0 &&
         !selectedSegmentIds.some((segmentId) => contact.segmentIds.includes(segmentId))
@@ -952,7 +970,7 @@ export default function MailPage() {
                       ? t("mail.send.recipients.clearSelection", "Clear selection")
                       : recipientType === "customers"
                         ? t("mail.send.recipients.selectAllActiveCustomers", "Select all active customers")
-                        : t("mail.send.recipients.selectEveryone", "Select everyone")}
+                        : t("mail.send.recipients.selectAllActiveContacts", "Select all active contacts")}
                   </Button>
                   {myRecipientIds.length > 0 ? (
                     <Button type="button" variant="ghost" size="sm" onClick={toggleSelectMyRecipients}>

@@ -42,7 +42,7 @@ const ALLOWED_TABLES = new Set([
   "contract_accruals",
   "customer_kpis",
   "customer_contacts",
-  "customer_contact_relations",
+  "customer_contact_links",
   "customer_segments",
   "segments",
 ]);
