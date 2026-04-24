@@ -558,8 +558,8 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
                     </div>
                     {message.sources && message.sources.length > 0 && (
                       <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                        {message.sources.map((source) => (
-                          <p key={`${message.id}-${source.file_name}`}>
+                        {message.sources.map((source, index) => (
+                          <p key={`${message.id}-${source.file_name}-${source.document_type ?? "unknown"}-${index}`}>
                             {`Källa: ${source.file_name} (${Math.round(source.similarity * 100)}% match)`}
                           </p>
                         ))}

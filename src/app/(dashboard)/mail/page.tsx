@@ -21,7 +21,7 @@ import { useUser } from "@/hooks/use-user"
 import type { CustomerContact, MailTemplate, Segment } from "@/types/database"
 import { toast } from "sonner"
 
-type MailTemplateType = "plain" | "plain_os"
+type MailTemplateType = "plain" | "plain_os" | "default"
 
 type MailRecipientCustomer = {
   id: string
@@ -95,7 +95,7 @@ function defaultPlainForm(t: (key: string, fallback?: string) => string): PlainF
 function defaultPlainOsForm(t: (key: string, fallback?: string) => string): PlainOsForm {
   return {
     subject: "",
-    title: t("settings.mail.defaults.title", "Headline"),
+    title: t("settings.mail.defaults.title", "Hello, @customer"),
     previewText: t("settings.mail.defaults.previewText", "Quick update from Saldo"),
     greeting: "",
     paragraphs: t(
@@ -215,8 +215,8 @@ export default function MailPage() {
   const [selectedSegmentIds, setSelectedSegmentIds] = React.useState<string[]>([])
   const [recipientPickerOpen, setRecipientPickerOpen] = React.useState(false)
   const [showAllSelectedRecipients, setShowAllSelectedRecipients] = React.useState(false)
-  const [selectedTemplateValue, setSelectedTemplateValue] = React.useState<string>("plain_os")
-  const [templateType, setTemplateType] = React.useState<MailTemplateType>("plain_os")
+  const [selectedTemplateValue, setSelectedTemplateValue] = React.useState<string>("default")
+  const [templateType, setTemplateType] = React.useState<MailTemplateType>("default")
   const [plainForm, setPlainForm] = React.useState<PlainForm>(() => defaultPlainForm(t))
   const [plainOsForm, setPlainOsForm] = React.useState<PlainOsForm>(() => defaultPlainOsForm(t))
   const [templates, setTemplates] = React.useState<MailTemplate[]>([])
@@ -224,13 +224,20 @@ export default function MailPage() {
   const [previewLoading, setPreviewLoading] = React.useState(false)
   const [sending, setSending] = React.useState(false)
   const [previewCustomerIndex, setPreviewCustomerIndex] = React.useState(0)
+  const hasAutoSelectedMyCustomersRef = React.useRef(false)
 
   const selectedSavedTemplate = React.useMemo(
     () =>
       selectedTemplateValue === "plain" || selectedTemplateValue === "plain_os"
+        || selectedTemplateValue === "default"
         ? null
         : templates.find((template) => template.id === selectedTemplateValue) ?? null,
     [selectedTemplateValue, templates],
+  )
+
+  const hasRecipientSearchParams = React.useMemo(
+    () => Boolean(searchParams.get("customerIds") || searchParams.get("contactIds")),
+    [searchParams],
   )
 
   const selectedCustomers = React.useMemo(() => {
@@ -255,10 +262,7 @@ export default function MailPage() {
       type: "customers" as const,
       name: customer.name,
       email: customer.email,
-      customerName:
-        customer.primaryContactName?.trim() ||
-        customer.name ||
-        t("mail.send.fallbackCustomer", "Customer"),
+      customerName: customer.primaryContactName?.trim() || customer.name,
       companyName: customer.name || t("mail.send.fallbackCompany", "Company"),
     }))
 
@@ -270,7 +274,7 @@ export default function MailPage() {
         type: "contacts" as const,
         name: contact.name,
         email: contact.email,
-        customerName: contact.name || t("mail.send.fallbackCustomer", "Customer"),
+        customerName: contact.name || primaryCompany || relatedCompany || t("mail.send.fallbackCompany", "Company"),
         companyName: primaryCompany || relatedCompany || t("mail.send.fallbackCompany", "Company"),
       }
     })
@@ -572,6 +576,35 @@ export default function MailPage() {
     return myRecipientIds.every((id) => activeSelectedIds.includes(id))
   }, [activeSelectedIds, myRecipientIds])
 
+  React.useEffect(() => {
+    if (hasAutoSelectedMyCustomersRef.current) {
+      return
+    }
+
+    if (hasRecipientSearchParams) {
+      hasAutoSelectedMyCustomersRef.current = true
+      return
+    }
+
+    if (selectedCustomerIds.length > 0 || selectedContactIds.length > 0) {
+      hasAutoSelectedMyCustomersRef.current = true
+      return
+    }
+
+    if (myCustomerIds.length === 0) {
+      return
+    }
+
+    setSelectedCustomerIds(myCustomerIds)
+    setRecipientType("customers")
+    hasAutoSelectedMyCustomersRef.current = true
+  }, [
+    hasRecipientSearchParams,
+    myCustomerIds,
+    selectedContactIds.length,
+    selectedCustomerIds.length,
+  ])
+
   const allVisibleSelected = React.useMemo(() => {
     if (activeFilteredOptions.length === 0) return false
     return activeFilteredOptions.every((option) => activeSelectedIds.includes(option.id))
@@ -682,6 +715,10 @@ export default function MailPage() {
       setTemplateType("plain_os")
       return
     }
+    if (selectedTemplateValue === "default") {
+      setTemplateType("default")
+      return
+    }
 
     const selected = templates.find((template) => template.id === selectedTemplateValue)
     if (!selected) return
@@ -746,7 +783,7 @@ export default function MailPage() {
         const previewRecipient = selectedRecipients[previewCustomerIndex] ?? null
         const previewEmail = previewRecipient?.email?.trim() || "preview@example.com"
         const previewCustomerName =
-          previewRecipient?.customerName || t("mail.send.fallbackCustomer", "Customer")
+          previewRecipient?.customerName || previewRecipient?.name || t("mail.send.fallbackCustomer", "Customer")
         const previewCompanyName =
           previewRecipient?.companyName || t("mail.send.fallbackCompany", "Company")
 
@@ -813,7 +850,7 @@ export default function MailPage() {
       let sentCount = 0
 
       for (const { recipient, email } of recipients) {
-        const customerName = recipient.customerName || t("mail.send.fallbackCustomer", "Customer")
+        const customerName = recipient.customerName || recipient.name || recipient.companyName
         const companyName = recipient.companyName || t("mail.send.fallbackCompany", "Company")
 
         const response = await fetch("/api/email", {
@@ -881,6 +918,7 @@ export default function MailPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="plain">{t("mail.send.optionPlain", "Plain")}</SelectItem>
+                <SelectItem value="default">{t("mail.send.optionDefault", "Default")}</SelectItem>
                 <SelectItem value="plain_os">{t("mail.send.optionPlainOs", "Plain OS")}</SelectItem>
                 {templates.map((template) => (
                   <SelectItem key={template.id} value={template.id}>

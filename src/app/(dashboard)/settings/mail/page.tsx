@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import type { MailTemplate } from "@/types/database"
 import { toast } from "sonner"
 
-type MailTemplateType = "plain" | "plain_os"
+type MailTemplateType = "plain" | "plain_os" | "default"
 
 type TemplateEditorState = {
   id: string | null
@@ -48,11 +48,11 @@ function createDefaultEditorState(
   return {
     id: null,
     name: "",
-    templateType: "plain_os",
+    templateType: "default",
     isActive: true,
     subject: "",
     body: "",
-    title: t("settings.mail.defaults.title", "Headline"),
+    title: t("settings.mail.defaults.title", "Hello, @customer"),
     previewText: t("settings.mail.defaults.previewText", "Quick update from Saldo"),
     greeting: "",
     paragraphs: t(
@@ -319,7 +319,9 @@ export default function SettingsMailPage() {
                     <CardDescription>
                       {template.template_type === "plain"
                         ? t("mail.send.optionPlain", "Plain")
-                        : t("mail.send.optionPlainOs", "Plain OS")}
+                        : template.template_type === "plain_os"
+                          ? t("mail.send.optionPlainOs", "Plain OS")
+                          : t("mail.send.optionDefault", "Default")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex items-center justify-between pt-0">
@@ -401,6 +403,7 @@ export default function SettingsMailPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="plain">{t("mail.send.optionPlain", "Plain")}</SelectItem>
+                      <SelectItem value="default">{t("mail.send.optionDefault", "Default")}</SelectItem>
                       <SelectItem value="plain_os">{t("mail.send.optionPlainOs", "Plain OS")}</SelectItem>
                     </SelectContent>
                   </Select>
