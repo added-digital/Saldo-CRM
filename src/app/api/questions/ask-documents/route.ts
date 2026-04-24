@@ -424,6 +424,22 @@ function buildContextFromRows(rows: Array<Record<string, unknown>>): string {
     .join("\n");
 }
 
+function dedupeSources(sources: SourceRow[]): SourceRow[] {
+  const deduped = new Map<string, SourceRow>();
+
+  for (const source of sources) {
+    const fileNameKey = source.file_name.trim().toLowerCase();
+    const key = fileNameKey;
+    const existing = deduped.get(key);
+
+    if (!existing || source.similarity > existing.similarity) {
+      deduped.set(key, source);
+    }
+  }
+
+  return Array.from(deduped.values());
+}
+
 async function buildDatabaseContext(input: {
   question: string;
   userId: string;
@@ -809,10 +825,15 @@ export async function POST(request: Request) {
     }
 
     const indexedSources = Array.from(sourceMap.values());
+    const mergedSources = dedupeSources([
+      ...crmContextResult.sources,
+      ...input.attachmentSources,
+      ...indexedSources,
+    ]);
 
     return NextResponse.json({
       answer,
-      sources: [...crmContextResult.sources, ...input.attachmentSources, ...indexedSources],
+      sources: mergedSources,
     });
   } catch (error) {
     return NextResponse.json(

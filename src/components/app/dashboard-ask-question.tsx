@@ -69,6 +69,23 @@ function getConversationTitle(messages: ChatMessage[]): string {
   return content.length > 80 ? `${content.slice(0, 77)}...` : content
 }
 
+function dedupeSourcesForDisplay(
+  sources: Array<{ file_name: string; document_type: string | null; similarity: number }>,
+): Array<{ file_name: string; document_type: string | null; similarity: number }> {
+  const deduped = new Map<string, { file_name: string; document_type: string | null; similarity: number }>()
+
+  for (const source of sources) {
+    const key = source.file_name.trim().toLowerCase()
+    const existing = deduped.get(key)
+
+    if (!existing || source.similarity > existing.similarity) {
+      deduped.set(key, source)
+    }
+  }
+
+  return Array.from(deduped.values())
+}
+
 export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const { t } = useTranslation()
   const { user } = useUser()
@@ -558,7 +575,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
                     </div>
                     {message.sources && message.sources.length > 0 && (
                       <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                        {message.sources.map((source, index) => (
+                        {dedupeSourcesForDisplay(message.sources).map((source, index) => (
                           <p key={`${message.id}-${source.file_name}-${source.document_type ?? "unknown"}-${index}`}>
                             {`Källa: ${source.file_name} (${Math.round(source.similarity * 100)}% match)`}
                           </p>
