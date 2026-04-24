@@ -92,8 +92,41 @@ const ALLOWED_TABLES = new Set([
   "segments",
 ]);
 
-const CRM_ENABLED_ROLES = new Set(["admin", "team_lead"]);
+const CRM_ENABLED_ROLES = new Set(["admin", "team_lead", "user"]);
+const CRM_CUSTOMER_SCOPED_ROLES = new Set(["team_lead", "user"]);
 const FORBIDDEN_SQL_COLUMN_PATTERN = /\b(email|phone|linkedin|notes)\b/i;
+
+type FinancialReportWindow = {
+  month: number;
+  year: number;
+};
+
+type MonthToken = {
+  month: number;
+  index: number;
+};
+
+const REPORTING_KEYWORDS = [
+  "report",
+  "rapport",
+  "financial",
+  "ekonom",
+  "omsattning",
+  "omsättning",
+  "turnover",
+  "revenue",
+  "invoice",
+  "faktura",
+  "kpi",
+  "resultat",
+  "budget",
+  "cost",
+  "kostnad",
+  "hours",
+  "timmar",
+  "contract",
+  "kontrakt",
+];
 
 function toVectorString(values: number[]): string {
   return `[${values.join(",")}]`;
@@ -233,6 +266,305 @@ function toSafeUuidLiteral(value: string | null | undefined): string {
   return `'${trimmed}'`;
 }
 
+function toSafeTextLiteral(value: string | null | undefined): string {
+  if (!value) return "NULL";
+  const trimmed = value.trim();
+  if (!trimmed) return "NULL";
+  return `'${trimmed.replace(/'/g, "''")}'`;
+}
+
+function parseFinancialReportWindow(question: string): FinancialReportWindow | null {
+  const normalized = question.toLowerCase();
+
+  const monthPatterns: Array<{ month: number; patterns: string[] }> = [
+    { month: 1, patterns: ["january", "jan", "januari"] },
+    { month: 2, patterns: ["february", "feb", "februari"] },
+    { month: 3, patterns: ["march", "mar", "mars"] },
+    { month: 4, patterns: ["april", "apr"] },
+    { month: 5, patterns: ["may", "maj"] },
+    { month: 6, patterns: ["june", "jun", "juni"] },
+    { month: 7, patterns: ["july", "jul", "juli"] },
+    { month: 8, patterns: ["august", "aug"] },
+    { month: 9, patterns: ["september", "sep", "sept"] },
+    { month: 10, patterns: ["october", "oct", "oktober", "okt"] },
+    { month: 11, patterns: ["november", "nov"] },
+    { month: 12, patterns: ["december", "dec", "december", "dec"] },
+  ];
+
+  let detectedMonth: number | null = null;
+  for (const monthPattern of monthPatterns) {
+    if (monthPattern.patterns.some((pattern) => new RegExp(`\\b${pattern}\\b`, "i").test(normalized))) {
+      detectedMonth = monthPattern.month;
+      break;
+    }
+  }
+
+  if (!detectedMonth) {
+    return null;
+  }
+
+  const detectedYear = normalized.match(/\b(20\d{2})\b/)?.[1];
+  const year = detectedYear ? Number(detectedYear) : new Date().getUTCFullYear();
+
+  return {
+    month: detectedMonth,
+    year,
+  };
+}
+
+function getMonthTokensInQuestion(question: string): MonthToken[] {
+  const normalized = question.toLowerCase();
+
+  const monthTokenPatterns: Array<{ month: number; patterns: string[] }> = [
+    { month: 1, patterns: ["january", "jan", "januari"] },
+    { month: 2, patterns: ["february", "feb", "februari"] },
+    { month: 3, patterns: ["march", "mar", "mars"] },
+    { month: 4, patterns: ["april", "apr"] },
+    { month: 5, patterns: ["may", "maj"] },
+    { month: 6, patterns: ["june", "jun", "juni"] },
+    { month: 7, patterns: ["july", "jul", "juli"] },
+    { month: 8, patterns: ["august", "aug"] },
+    { month: 9, patterns: ["september", "sep", "sept"] },
+    { month: 10, patterns: ["october", "oct", "oktober", "okt"] },
+    { month: 11, patterns: ["november", "nov"] },
+    { month: 12, patterns: ["december", "dec", "december", "dec"] },
+  ];
+
+  const tokens: MonthToken[] = [];
+  for (const monthPattern of monthTokenPatterns) {
+    for (const pattern of monthPattern.patterns) {
+      const regex = new RegExp(`\\b${pattern}\\b`, "gi");
+      let match = regex.exec(normalized);
+      while (match) {
+        tokens.push({
+          month: monthPattern.month,
+          index: match.index,
+        });
+        match = regex.exec(normalized);
+      }
+    }
+  }
+
+  return tokens.sort((a, b) => a.index - b.index);
+}
+
+function parseFinancialComparisonWindows(question: string): [FinancialReportWindow, FinancialReportWindow] | null {
+  const tokens = getMonthTokensInQuestion(question);
+  if (tokens.length < 2) {
+    return null;
+  }
+
+  const uniqueMonthsInOrder: number[] = [];
+  for (const token of tokens) {
+    if (!uniqueMonthsInOrder.includes(token.month)) {
+      uniqueMonthsInOrder.push(token.month);
+    }
+  }
+
+  if (uniqueMonthsInOrder.length < 2) {
+    return null;
+  }
+
+  const normalized = question.toLowerCase();
+  const detectedYear = normalized.match(/\b(20\d{2})\b/)?.[1];
+  const year = detectedYear ? Number(detectedYear) : new Date().getUTCFullYear();
+
+  return [
+    { month: uniqueMonthsInOrder[0], year },
+    { month: uniqueMonthsInOrder[1], year },
+  ];
+}
+
+function isReportingQuestion(question: string): boolean {
+  const normalized = question
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  return REPORTING_KEYWORDS.some((keyword) => normalized.includes(keyword));
+}
+
+function buildGeneralReportFallbackSql(input: {
+  role: string;
+}): string {
+  if (CRM_CUSTOMER_SCOPED_ROLES.has(input.role)) {
+    return [
+      "WITH scoped_customers AS (",
+      "  SELECT id, fortnox_customer_number",
+      "  FROM customers",
+      "  WHERE fortnox_cost_center = {user_cost_center}",
+      "    AND (status = 'active' OR status IS NULL)",
+      "),",
+      "scoped_invoices AS (",
+      "  SELECT i.*",
+      "  FROM invoices i",
+      "  INNER JOIN scoped_customers sc",
+      "    ON sc.fortnox_customer_number = i.fortnox_customer_number",
+      "),",
+      "current_month AS (",
+      "  SELECT *",
+      "  FROM scoped_invoices",
+      "  WHERE invoice_date >= date_trunc('month', now())::date",
+      "    AND invoice_date < (date_trunc('month', now())::date + INTERVAL '1 month')",
+      "),",
+      "rolling_12 AS (",
+      "  SELECT *",
+      "  FROM scoped_invoices",
+      "  WHERE invoice_date >= (date_trunc('month', now())::date - INTERVAL '12 months')",
+      ")",
+      "SELECT",
+      "  (SELECT COUNT(*) FROM scoped_customers) AS active_customers,",
+      "  (SELECT COUNT(*) FROM current_month) AS current_month_invoice_count,",
+      "  (SELECT COALESCE(SUM(total_ex_vat), 0) FROM current_month) AS current_month_turnover_ex_vat,",
+      "  (SELECT COALESCE(SUM(balance), 0) FROM current_month) AS current_month_outstanding_balance,",
+      "  (SELECT COUNT(*) FROM rolling_12) AS rolling_12_invoice_count,",
+      "  (SELECT COALESCE(SUM(total_ex_vat), 0) FROM rolling_12) AS rolling_12_turnover_ex_vat",
+      "LIMIT 1",
+    ].join("\n");
+  }
+
+  return [
+    "WITH active_customers AS (",
+    "  SELECT id, fortnox_customer_number",
+    "  FROM customers",
+    "  WHERE status = 'active' OR status IS NULL",
+    "),",
+    "active_invoices AS (",
+    "  SELECT i.*",
+    "  FROM invoices i",
+    "  INNER JOIN active_customers c",
+    "    ON c.fortnox_customer_number = i.fortnox_customer_number",
+    "),",
+    "current_month AS (",
+    "  SELECT *",
+    "  FROM active_invoices",
+    "  WHERE invoice_date >= date_trunc('month', now())::date",
+    "    AND invoice_date < (date_trunc('month', now())::date + INTERVAL '1 month')",
+    "),",
+    "rolling_12 AS (",
+    "  SELECT *",
+    "  FROM active_invoices",
+    "  WHERE invoice_date >= (date_trunc('month', now())::date - INTERVAL '12 months')",
+    ")",
+    "SELECT",
+    "  (SELECT COUNT(*) FROM active_customers) AS active_customers,",
+    "  (SELECT COUNT(*) FROM current_month) AS current_month_invoice_count,",
+    "  (SELECT COALESCE(SUM(total_ex_vat), 0) FROM current_month) AS current_month_turnover_ex_vat,",
+    "  (SELECT COALESCE(SUM(balance), 0) FROM current_month) AS current_month_outstanding_balance,",
+    "  (SELECT COUNT(*) FROM rolling_12) AS rolling_12_invoice_count,",
+    "  (SELECT COALESCE(SUM(total_ex_vat), 0) FROM rolling_12) AS rolling_12_turnover_ex_vat",
+    "LIMIT 1",
+  ].join("\n");
+}
+
+function buildFinancialReportFallbackSql(input: {
+  role: string;
+  userCostCenter: string | null;
+  window: FinancialReportWindow;
+}): string {
+  const monthStart = `${input.window.year}-${String(input.window.month).padStart(2, "0")}-01`;
+
+  if (CRM_CUSTOMER_SCOPED_ROLES.has(input.role)) {
+    return [
+      "WITH scoped_customers AS (",
+      "  SELECT fortnox_customer_number",
+      "  FROM customers",
+      "  WHERE fortnox_cost_center = {user_cost_center}",
+      "    AND (status = 'active' OR status IS NULL)",
+      "),",
+      "monthly_invoices AS (",
+      "  SELECT i.*",
+      "  FROM invoices i",
+      "  INNER JOIN scoped_customers sc",
+      "    ON sc.fortnox_customer_number = i.fortnox_customer_number",
+      `  WHERE i.invoice_date >= '${monthStart}'::date`,
+      `    AND i.invoice_date < ('${monthStart}'::date + INTERVAL '1 month')`,
+      ")",
+      "SELECT",
+      "  COUNT(*) AS invoice_count,",
+      "  COALESCE(SUM(total_ex_vat), 0) AS turnover_ex_vat,",
+      "  COALESCE(SUM(total), 0) AS turnover_incl_vat,",
+      "  COALESCE(SUM(balance), 0) AS outstanding_balance",
+      "FROM monthly_invoices",
+    ].join("\n");
+  }
+
+  return [
+    "SELECT",
+    "  COUNT(*) AS invoice_count,",
+    "  COALESCE(SUM(total_ex_vat), 0) AS turnover_ex_vat,",
+    "  COALESCE(SUM(total), 0) AS turnover_incl_vat,",
+    "  COALESCE(SUM(balance), 0) AS outstanding_balance",
+    "FROM invoices",
+    `WHERE invoice_date >= '${monthStart}'::date`,
+    `  AND invoice_date < ('${monthStart}'::date + INTERVAL '1 month')`,
+  ].join("\n");
+}
+
+function buildFinancialComparisonFallbackSql(input: {
+  role: string;
+  periods: [FinancialReportWindow, FinancialReportWindow];
+}): string {
+  const [first, second] = input.periods;
+  const firstStart = `${first.year}-${String(first.month).padStart(2, "0")}-01`;
+  const secondStart = `${second.year}-${String(second.month).padStart(2, "0")}-01`;
+
+  const scopedCustomersCte = CRM_CUSTOMER_SCOPED_ROLES.has(input.role)
+    ? [
+        "scoped_customers AS (",
+        "  SELECT fortnox_customer_number",
+        "  FROM customers",
+        "  WHERE fortnox_cost_center = {user_cost_center}",
+        "    AND (status = 'active' OR status IS NULL)",
+        "),",
+      ]
+    : [];
+
+  const invoiceSource = CRM_CUSTOMER_SCOPED_ROLES.has(input.role)
+    ? [
+        "  FROM invoices i",
+        "  INNER JOIN scoped_customers sc",
+        "    ON sc.fortnox_customer_number = i.fortnox_customer_number",
+      ]
+    : ["  FROM invoices i"];
+
+  return [
+    "WITH",
+    ...scopedCustomersCte,
+    "periods AS (",
+    "  SELECT 'period_a'::text AS label,",
+    `         '${firstStart}'::date AS start_date,`,
+    `         ('${firstStart}'::date + INTERVAL '1 month')::date AS end_date`,
+    "  UNION ALL",
+    "  SELECT 'period_b'::text AS label,",
+    `         '${secondStart}'::date AS start_date,`,
+    `         ('${secondStart}'::date + INTERVAL '1 month')::date AS end_date`,
+    "),",
+    "monthly AS (",
+    "  SELECT",
+    "    p.label,",
+    "    COUNT(*) AS invoice_count,",
+    "    COALESCE(SUM(i.total_ex_vat), 0) AS turnover_ex_vat,",
+    "    COALESCE(SUM(i.total), 0) AS turnover_incl_vat,",
+    "    COALESCE(SUM(i.balance), 0) AS outstanding_balance",
+    ...invoiceSource,
+    "  INNER JOIN periods p",
+    "    ON i.invoice_date >= p.start_date",
+    "   AND i.invoice_date < p.end_date",
+    "  GROUP BY p.label",
+    ")",
+    "SELECT",
+    "  p.label,",
+    "  COALESCE(m.invoice_count, 0) AS invoice_count,",
+    "  COALESCE(m.turnover_ex_vat, 0) AS turnover_ex_vat,",
+    "  COALESCE(m.turnover_incl_vat, 0) AS turnover_incl_vat,",
+    "  COALESCE(m.outstanding_balance, 0) AS outstanding_balance",
+    "FROM periods p",
+    "LEFT JOIN monthly m ON m.label = p.label",
+    "ORDER BY p.label",
+  ].join("\n");
+}
+
 function extractCteNames(sql: string): Set<string> {
   const cteNames = new Set<string>();
   const withMatches = sql.matchAll(/\bwith\s+([a-z_][a-z0-9_]*)\s+as\b/gi);
@@ -315,6 +647,8 @@ function validateSql(
 async function callOpenAiForSql(input: {
   question: string;
   userId: string;
+  role: string;
+  userCostCenter: string | null;
   dbContext: string;
 }): Promise<OpenAiSqlResponse> {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -323,6 +657,19 @@ async function callOpenAiForSql(input: {
   }
 
   const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+  const requiresCustomerScope = CRM_CUSTOMER_SCOPED_ROLES.has(input.role);
+  const scopeInstructions = requiresCustomerScope
+    ? [
+        "The authenticated user is customer-scoped, not global.",
+        "You MUST scope the query to the user's own customers using placeholder {user_cost_center}.",
+        "Use a customers CTE filtered on customers.fortnox_cost_center = {user_cost_center} and status = 'active'.",
+        "For invoices, time_reports, contract_accruals, and customer_kpis, join through the scoped customers set using fortnox_customer_number.",
+        "Never return data outside the scoped customer set.",
+      ]
+    : [
+        "The authenticated user is admin-scoped and may query reporting data across all customers.",
+      ];
+
   const prompt = [
     "You generate SQL for Postgres.",
     "Return only JSON that matches the provided schema.",
@@ -335,9 +682,12 @@ async function callOpenAiForSql(input: {
     "Do not use contact tables for this endpoint.",
     "For turnover values, prefer total_ex_vat when available.",
     "For contract totals or KPI questions, use active contract_accruals only.",
+    ...scopeInstructions,
     "",
     `Question: ${input.question}`,
     `Authenticated user id: ${input.userId}`,
+    `Authenticated user role: ${input.role}`,
+    `Authenticated user cost center: ${input.userCostCenter ?? "none"}`,
     "",
     "Database context:",
     input.dbContext,
@@ -444,29 +794,79 @@ async function buildDatabaseContext(input: {
   question: string;
   userId: string;
   role: string | null;
+  userCostCenter: string | null;
 }): Promise<{ context: string; sources: SourceRow[] }> {
   try {
     if (!input.role || !CRM_ENABLED_ROLES.has(input.role)) {
       return { context: "", sources: [] };
     }
 
-    const dbContext = await readDbContext();
-    const generated = await callOpenAiForSql({
-      question: input.question,
-      userId: input.userId,
-      dbContext,
-    });
-
-    if (!generated.sql) {
+    if (CRM_CUSTOMER_SCOPED_ROLES.has(input.role) && !input.userCostCenter) {
       return { context: "", sources: [] };
     }
 
-    const withTokensReplaced = generated.sql.replaceAll(
+    const fallbackComparison = parseFinancialComparisonWindows(input.question);
+    const fallbackWindow = parseFinancialReportWindow(input.question);
+    const dbContext = await readDbContext();
+    let generatedSql = "";
+
+    try {
+      const generated = await callOpenAiForSql({
+        question: input.question,
+        userId: input.userId,
+        role: input.role,
+        userCostCenter: input.userCostCenter,
+        dbContext,
+      });
+
+      generatedSql = generated.sql;
+    } catch (error) {
+      console.error("crm sql generation failed", {
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+
+    const sqlCandidate = generatedSql ||
+      (fallbackComparison
+        ? buildFinancialComparisonFallbackSql({
+            role: input.role,
+            periods: fallbackComparison,
+          })
+        : fallbackWindow
+          ? buildFinancialReportFallbackSql({
+              role: input.role,
+              userCostCenter: input.userCostCenter,
+              window: fallbackWindow,
+            })
+          : isReportingQuestion(input.question)
+            ? buildGeneralReportFallbackSql({
+                role: input.role,
+              })
+            : "");
+
+    if (!sqlCandidate) {
+      return { context: "", sources: [] };
+    }
+
+    if (
+      CRM_CUSTOMER_SCOPED_ROLES.has(input.role) &&
+      !/\{user_cost_center\}/i.test(sqlCandidate)
+    ) {
+      console.error("crm sql rejected missing scope token", { role: input.role });
+      return { context: "", sources: [] };
+    }
+
+    const withTokensReplaced = sqlCandidate.replaceAll(
       "{user_id}",
       toSafeUuidLiteral(input.userId),
     );
 
-    const validated = validateSql(withTokensReplaced);
+    const withAllTokensReplaced = withTokensReplaced.replaceAll(
+      "{user_cost_center}",
+      toSafeTextLiteral(input.userCostCenter),
+    );
+
+    const validated = validateSql(withAllTokensReplaced);
     if (!validated.valid) {
       console.error("crm sql validation failed", { error: validated.error });
       return { context: "", sources: [] };
@@ -683,44 +1083,49 @@ export async function POST(request: Request) {
 
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, fortnox_cost_center")
       .eq("id", user.id)
       .maybeSingle();
 
-    const profile = profileData as { role: string | null } | null;
+    const profile = profileData as { role: string | null; fortnox_cost_center: string | null } | null;
 
-    const [questionEmbedding, crmContextResult] = await Promise.all([
-      embedQuestion(question),
-      buildDatabaseContext({
-        question,
-        userId: user.id,
-        role: profile?.role ?? null,
-      }),
-    ]);
+    const crmContextResult = await buildDatabaseContext({
+      question,
+      userId: user.id,
+      role: profile?.role ?? null,
+      userCostCenter: profile?.fortnox_cost_center ?? null,
+    });
+
+    const preferReportingOnly =
+      isReportingQuestion(question) && !input.attachmentContext && Boolean(crmContextResult.context);
+
+    let rows: ChunkSearchRow[] = [];
 
     const adminClient = createAdminClient();
 
-    const vectorString = toVectorString(questionEmbedding);
-    const vectorWithCast = `${vectorString}::vector`;
+    if (!preferReportingOnly) {
+      const questionEmbedding = await embedQuestion(question);
+      const vectorString = toVectorString(questionEmbedding);
+      const vectorWithCast = `${vectorString}::vector`;
 
-    const { data: rpcData, error: rpcError } = await adminClient.rpc(
-      "search_chunks" as never,
-      {
-        query_embedding: vectorWithCast,
-        match_count: 5,
-      } as never,
-    );
+      const { data: rpcData, error: rpcError } = await adminClient.rpc(
+        "search_chunks" as never,
+        {
+          query_embedding: vectorWithCast,
+          match_count: 5,
+        } as never,
+      );
 
-    if (rpcError) {
-      console.error("search_chunks rpc failed", {
-        code: rpcError.code,
-        message: rpcError.message,
-      });
-    }
+      if (rpcError) {
+        console.error("search_chunks rpc failed", {
+          code: rpcError.code,
+          message: rpcError.message,
+        });
+      }
 
-    let rows = Array.isArray(rpcData) ? (rpcData as ChunkSearchRow[]) : [];
+      rows = Array.isArray(rpcData) ? (rpcData as ChunkSearchRow[]) : [];
 
-    if (rows.length === 0) {
+      if (rows.length === 0) {
       const sql = [
         "SELECT",
         "  dc.id AS chunk_id,",
@@ -750,10 +1155,10 @@ export async function POST(request: Request) {
         });
       }
 
-      rows = Array.isArray(rawSqlData) ? (rawSqlData as ChunkSearchRow[]) : [];
-    }
+        rows = Array.isArray(rawSqlData) ? (rawSqlData as ChunkSearchRow[]) : [];
+      }
 
-    if (rows.length === 0) {
+      if (rows.length === 0) {
       const { data: directData, error: directError } = await adminClient
         .from("document_chunks")
         .select(
@@ -770,7 +1175,7 @@ export async function POST(request: Request) {
 
       const directRows = (directData ?? []) as DirectChunkRow[];
 
-      rows = directRows
+        rows = directRows
         .map((row) => {
           const parsedEmbedding = parseVectorEmbedding(row.embedding);
           const similarity = cosineSimilarity(questionEmbedding, parsedEmbedding);
@@ -792,6 +1197,7 @@ export async function POST(request: Request) {
         .filter((row): row is ChunkSearchRow => Boolean(row))
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, 5);
+      }
     }
 
     if (rows.length === 0 && !input.attachmentContext && !crmContextResult.context) {
