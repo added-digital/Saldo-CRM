@@ -283,6 +283,24 @@ export default function SettingsFilesPage() {
     URL.revokeObjectURL(downloadUrl)
   }
 
+  async function removeIndexedDocuments(storagePaths: string[]) {
+    if (storagePaths.length === 0) return
+
+    const response = await fetch("/api/documents/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        storage_paths: storagePaths,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to delete indexed document records")
+    }
+  }
+
   async function handleDeleteFile(itemName: string) {
     const objectPath = joinStoragePath(currentFolder, itemName)
     const supabase = createClient()
@@ -294,6 +312,12 @@ export default function SettingsFilesPage() {
       toast.error(error.message || "Failed to delete file")
       setDeletingPath(null)
       return
+    }
+
+    try {
+      await removeIndexedDocuments([objectPath])
+    } catch {
+      toast.error("File was deleted, but indexed references could not be removed")
     }
 
     toast.success("File deleted")
@@ -357,6 +381,12 @@ export default function SettingsFilesPage() {
         toast.error(error.message || "Failed to delete folder")
         setDeletingPath(null)
         return
+      }
+
+      try {
+        await removeIndexedDocuments(objectPaths)
+      } catch {
+        toast.error("Folder was deleted, but indexed references could not be fully removed")
       }
 
       toast.success("Folder deleted")
