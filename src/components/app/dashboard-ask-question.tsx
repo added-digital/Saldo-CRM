@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import ReactMarkdown from "react-markdown"
-import { ArrowUp, Loader2, Paperclip, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Trash2, X } from "lucide-react"
+import { ArrowUp, GripVertical, Loader2, Paperclip, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Trash2, X } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -86,6 +86,14 @@ function dedupeSourcesForDisplay(
   return Array.from(deduped.values())
 }
 
+function getConversationOrderStorageKey(userId: string): string {
+  return `dashboard.chat.conversation-order.${userId}`
+}
+
+function getMessagesSignature(value: ChatMessage[]): string {
+  return JSON.stringify(value)
+}
+
 export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const { t } = useTranslation()
   const { user } = useUser()
@@ -103,8 +111,11 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const [renamingConversation, setRenamingConversation] = React.useState(false)
   const [historyCollapsed, setHistoryCollapsed] = React.useState(false)
   const [chatAttachments, setChatAttachments] = React.useState<ChatAttachment[]>([])
+  const [conversationOrder, setConversationOrder] = React.useState<string[]>([])
+  const [draggingConversationId, setDraggingConversationId] = React.useState<string | null>(null)
   const hasMessages = messages.length > 0
   const persistTimerRef = React.useRef<number | null>(null)
+  const conversationSignaturesRef = React.useRef<Record<string, string>>({})
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const firstName = React.useMemo(() => {
@@ -115,6 +126,24 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
 
   void customers
   void users
+
+  const orderedConversationHistory = React.useMemo(() => {
+    if (conversationHistory.length === 0) return []
+
+    const mapById = new Map(conversationHistory.map((item) => [item.id, item]))
+    const ordered: ConversationHistoryItem[] = []
+
+    for (const id of conversationOrder) {
+      const found = mapById.get(id)
+      if (found) {
+        ordered.push(found)
+        mapById.delete(id)
+      }
+    }
+
+    const remaining = Array.from(mapById.values()).sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    return [...ordered, ...remaining]
+  }, [conversationHistory, conversationOrder])
 
   React.useEffect(() => {
     let cancelled = false
@@ -154,6 +183,34 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
         updated_at: row.updated_at,
       }))
 
+      const signatures: Record<string, string> = {}
+      for (const item of history) {
+        signatures[item.id] = getMessagesSignature(item.messages)
+      }
+      conversationSignaturesRef.current = signatures
+
+      const orderStorageKey = getConversationOrderStorageKey(authUserId)
+      const savedOrderRaw = localStorage.getItem(orderStorageKey)
+      let savedOrder: string[] = []
+      if (savedOrderRaw) {
+        try {
+          const parsed = JSON.parse(savedOrderRaw)
+          if (Array.isArray(parsed)) {
+            savedOrder = parsed.filter((value): value is string => typeof value === "string")
+          }
+        } catch {
+          savedOrder = []
+        }
+      }
+
+      const historyIds = history.map((item) => item.id)
+      const sanitizedSavedOrder = savedOrder.filter((id) => historyIds.includes(id))
+      const missingIds = historyIds.filter((id) => !sanitizedSavedOrder.includes(id))
+      const nextOrder = [...sanitizedSavedOrder, ...missingIds]
+
+      setConversationOrder(nextOrder)
+      localStorage.setItem(orderStorageKey, JSON.stringify(nextOrder))
+
       setConversationHistory(history)
 
       setLoadingConversation(false)
@@ -166,10 +223,24 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     }
   }, [])
 
+  React.useEffect(() => {
+    if (!userId) return
+    localStorage.setItem(getConversationOrderStorageKey(userId), JSON.stringify(conversationOrder))
+  }, [conversationOrder, userId])
+
   const persistConversation = React.useCallback(
     async (nextMessages: ChatMessage[]) => {
       if (!userId || nextMessages.length === 0) {
         return
+      }
+
+      const nextSignature = getMessagesSignature(nextMessages)
+
+      if (conversationId) {
+        const previousSignature = conversationSignaturesRef.current[conversationId]
+        if (previousSignature === nextSignature) {
+          return
+        }
       }
 
       const supabase = createClient()
@@ -195,6 +266,8 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
           updated_at: string
         }
 
+        conversationSignaturesRef.current[inserted.id] = nextSignature
+
         setConversationId(inserted.id)
         setConversationHistory((current) => [
           {
@@ -205,6 +278,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
           },
           ...current,
         ])
+        setConversationOrder((current) => [inserted.id, ...current.filter((id) => id !== inserted.id)])
         return
       }
 
@@ -227,24 +301,23 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
         updated_at: string
       }
 
-      setConversationHistory((current) => {
-        const next = current
-          .map((item) =>
-            item.id === updated.id
-              ? {
-                  ...item,
-                  title: updated.title,
-                  messages: Array.isArray(updated.messages)
-                    ? (updated.messages as ChatMessage[])
-                    : nextMessages,
-                  updated_at: updated.updated_at,
-                }
-              : item,
-          )
-          .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      conversationSignaturesRef.current[updated.id] = nextSignature
 
-        return next
+      setConversationHistory((current) => {
+        return current.map((item) =>
+          item.id === updated.id
+            ? {
+                ...item,
+                title: updated.title,
+                messages: Array.isArray(updated.messages)
+                  ? (updated.messages as ChatMessage[])
+                  : nextMessages,
+                updated_at: updated.updated_at,
+              }
+            : item,
+        )
       })
+      setConversationOrder((current) => [updated.id, ...current.filter((id) => id !== updated.id)])
     },
     [conversationId, userId],
   )
@@ -285,6 +358,31 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     setChatAttachments([])
   }
 
+  function reorderConversations(draggedId: string, targetId: string) {
+    if (draggedId === targetId) return
+
+    setConversationOrder((current) => {
+      const withMissing = [
+        ...current,
+        ...orderedConversationHistory
+          .map((conversation) => conversation.id)
+          .filter((id) => !current.includes(id)),
+      ]
+      const withoutDragged = withMissing.filter((id) => id !== draggedId)
+      const targetIndex = withoutDragged.indexOf(targetId)
+
+      if (targetIndex === -1) {
+        return [draggedId, ...withoutDragged]
+      }
+
+      return [
+        ...withoutDragged.slice(0, targetIndex),
+        draggedId,
+        ...withoutDragged.slice(targetIndex),
+      ]
+    })
+  }
+
   async function handleRenameConversation(target: ConversationHistoryItem) {
     const nextTitle = renameValue.trim()
     if (!nextTitle || nextTitle === target.title) {
@@ -308,17 +406,15 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     }
 
     setConversationHistory((current) =>
-      current
-        .map((item) =>
-          item.id === target.id
-            ? {
-                ...item,
-                title: (data as { title: string | null }).title,
-                updated_at: (data as { updated_at: string }).updated_at,
-              }
-            : item,
-        )
-        .sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+      current.map((item) =>
+        item.id === target.id
+          ? {
+              ...item,
+              title: (data as { title: string | null }).title,
+              updated_at: (data as { updated_at: string }).updated_at,
+            }
+          : item,
+      ),
     )
 
     setRenamingConversation(false)
@@ -336,11 +432,13 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     }
 
     setConversationHistory((current) => current.filter((item) => item.id !== target.id))
+    setConversationOrder((current) => current.filter((id) => id !== target.id))
+    delete conversationSignaturesRef.current[target.id]
     setConversationDeleteTarget(null)
     setDeletingConversation(false)
 
     if (conversationId === target.id) {
-      const next = conversationHistory.find((item) => item.id !== target.id)
+      const next = orderedConversationHistory.find((item) => item.id !== target.id)
       if (next) {
         setConversationId(next.id)
         setMessages(next.messages)
@@ -485,10 +583,10 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
         </Button>
 
         <div className={cn("mt-3 flex-1 space-y-1 overflow-y-auto pr-1", historyCollapsed && "hidden")}>
-          {conversationHistory.length === 0 ? (
+          {orderedConversationHistory.length === 0 ? (
             <p className="px-2 py-3 text-xs text-muted-foreground">No saved conversations yet.</p>
           ) : (
-            conversationHistory.map((conversation) => {
+            orderedConversationHistory.map((conversation) => {
               const isActive = conversation.id === conversationId
 
               return (
@@ -497,8 +595,25 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
                   className={cn(
                     "group flex h-9 items-center rounded-md border px-2 transition-colors",
                     isActive ? "border-border bg-background" : "border-transparent hover:bg-background/70",
+                    draggingConversationId === conversation.id && "opacity-60",
                   )}
+                  draggable
+                  onDragStart={() => setDraggingConversationId(conversation.id)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => {
+                    if (!draggingConversationId) return
+                    reorderConversations(draggingConversationId, conversation.id)
+                    setDraggingConversationId(null)
+                  }}
+                  onDragEnd={() => setDraggingConversationId(null)}
                 >
+                  <button
+                    type="button"
+                    className="mr-1 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label="Drag conversation"
+                  >
+                    <GripVertical className="size-3.5" />
+                  </button>
                   <button
                     type="button"
                     className="min-w-0 flex-1 truncate text-left text-sm"

@@ -9,6 +9,7 @@ import { useTranslation } from "@/hooks/use-translation"
 import { ConfirmDialog } from "@/components/app/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 
@@ -28,7 +29,7 @@ type StorageListItem = {
 
 type DeleteTarget = {
   name: string
-  kind: "file" | "folder"
+  kind: "file" | "folder" | "files"
 }
 
 function joinStoragePath(...parts: string[]): string {
@@ -70,6 +71,38 @@ function normalizeFileName(value: string): string {
   }
 
   return extension ? `${baseName}.${extension}` : baseName
+}
+
+function splitFileName(value: string): { baseName: string; extension: string } {
+  const extensionIndex = value.lastIndexOf(".")
+
+  if (extensionIndex <= 0 || extensionIndex === value.length - 1) {
+    return {
+      baseName: value,
+      extension: "",
+    }
+  }
+
+  return {
+    baseName: value.slice(0, extensionIndex),
+    extension: value.slice(extensionIndex + 1),
+  }
+}
+
+function isStorageConflictError(message: string | undefined): boolean {
+  if (!message) return false
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes("already exists") ||
+    normalized.includes("duplicate") ||
+    normalized.includes("conflict")
+  )
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 }
 
 function renderSegmentLabel(segment: string, t: (key: string, fallback?: string) => string): string {
@@ -121,13 +154,16 @@ export default function SettingsFilesPage() {
   const [uploading, setUploading] = React.useState(false)
   const [deletingPath, setDeletingPath] = React.useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = React.useState<DeleteTarget | null>(null)
+  const [selectedFileNames, setSelectedFileNames] = React.useState<string[]>([])
   const [folderName, setFolderName] = React.useState("")
-  const [selectedFile, setSelectedFile] = React.useState<File | null>(null)
+  const [selectedFiles, setSelectedFiles] = React.useState<File[]>([])
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const pathSegments = React.useMemo(() => currentFolder.split("/").filter(Boolean), [currentFolder])
   const canUploadToCurrentFolder = currentFolder !== ROOT_FOLDER
   const currentFolderLabel = React.useMemo(() => getCurrentFolderLabel(currentFolder, t), [currentFolder, t])
+  const fileItems = React.useMemo(() => items.filter((item) => item.id !== null), [items])
+  const allFilesSelected = fileItems.length > 0 && fileItems.every((item) => selectedFileNames.includes(item.name))
 
   const loadFolder = React.useCallback(async (folderPath: string) => {
     const supabase = createClient()
@@ -148,6 +184,9 @@ export default function SettingsFilesPage() {
 
     const filteredItems = (data ?? []).filter((item) => item.name !== EMPTY_FOLDER_PLACEHOLDER)
     setItems(filteredItems as StorageListItem[])
+    setSelectedFileNames((current) =>
+      current.filter((name) => filteredItems.some((item) => item.id !== null && item.name === name)),
+    )
     setLoading(false)
   }, [])
 
@@ -217,48 +256,121 @@ export default function SettingsFilesPage() {
     await loadFolder(currentFolder)
   }
 
-  async function handleUploadFile(fileOverride?: File | null) {
-    const fileToUpload = fileOverride ?? selectedFile
+  async function handleUploadFiles(filesOverride?: File[]) {
+    const filesToUpload = filesOverride?.length ? filesOverride : selectedFiles
 
-    if (!fileToUpload) {
-      toast.error("Choose a file first")
+    if (filesToUpload.length === 0) {
+      toast.error("Choose file(s) first")
       return
     }
 
     setUploading(true)
     const supabase = createClient()
-    const normalizedFileName = normalizeFileName(fileToUpload.name)
-    const objectPath = joinStoragePath(currentFolder, `${crypto.randomUUID()}-${normalizedFileName || "file"}`)
+    let successCount = 0
+    const failedFiles: Array<{ name: string; reason: string }> = []
 
-    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(objectPath, fileToUpload, {
-      contentType: fileToUpload.type || "application/octet-stream",
-      upsert: false,
-    })
+    for (const fileToUpload of filesToUpload) {
+      const normalizedFileName = normalizeFileName(fileToUpload.name)
+      const fileNameForStorage = normalizedFileName || "file"
+      const { baseName, extension } = splitFileName(fileNameForStorage)
 
-    if (error) {
-      toast.error(error.message || "Failed to upload file")
-      setUploading(false)
-      return
+      let attempt = 0
+      let objectPath = joinStoragePath(currentFolder, fileNameForStorage)
+      let uploadError: { message?: string } | null = null
+
+      while (attempt < 50) {
+        const uploadResult = await supabase.storage.from(STORAGE_BUCKET).upload(objectPath, fileToUpload, {
+          contentType: fileToUpload.type || "application/octet-stream",
+          upsert: false,
+        })
+
+        if (!uploadResult.error) {
+          uploadError = null
+          break
+        }
+
+        uploadError = uploadResult.error
+        if (!isStorageConflictError(uploadResult.error.message)) {
+          break
+        }
+
+        attempt += 1
+        const candidateName = extension
+          ? `${baseName}-${attempt}.${extension}`
+          : `${baseName}-${attempt}`
+        objectPath = joinStoragePath(currentFolder, candidateName)
+      }
+
+      if (uploadError) {
+        failedFiles.push({
+          name: fileToUpload.name,
+          reason: uploadError.message || "Upload failed",
+        })
+        continue
+      }
+
+      try {
+        await ingestUploadedDocument({
+          objectPath,
+          fileName: fileToUpload.name,
+          fileType: fileToUpload.type || "application/octet-stream",
+          documentType: currentFolderLabel,
+        })
+        successCount += 1
+      } catch (error) {
+        // If ingestion fails, attempt to remove the uploaded object and capture any deletion errors
+        let deletionErrorMessage = ""
+
+        try {
+          const { error: removeError } = await supabase.storage.from(STORAGE_BUCKET).remove([objectPath])
+          if (removeError) {
+            deletionErrorMessage = removeError.message || String(removeError)
+          }
+        } catch (removeErr) {
+          deletionErrorMessage = removeErr instanceof Error ? removeErr.message : String(removeErr)
+        }
+
+        const ingestMessage = error instanceof Error ? error.message : "Indexing failed after upload"
+        const combinedMessage = deletionErrorMessage
+          ? `${ingestMessage}; cleanup failed: ${deletionErrorMessage}`
+          : ingestMessage
+
+        failedFiles.push({
+          name: fileToUpload.name,
+          reason: combinedMessage,
+        })
+      }
     }
 
-    toast.success("File uploaded")
-    void fetch("/api/documents/ingest", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        storage_path: objectPath,
-        file_name: fileToUpload.name,
-        file_type: fileToUpload.type || "application/octet-stream",
-        document_type: currentFolderLabel,
-      }),
-    }).catch(() => {
-      return null
-    })
-    setSelectedFile(null)
+    setSelectedFiles([])
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
     setUploading(false)
     await loadFolder(currentFolder)
+
+    if (successCount > 0) {
+      toast.success(
+        successCount === 1
+          ? "1 file uploaded and indexed"
+          : `${successCount} files uploaded and indexed`,
+      )
+    }
+
+    if (failedFiles.length > 0) {
+      if (failedFiles.length === 1) {
+        toast.error(`Upload failed for ${failedFiles[0].name}: ${failedFiles[0].reason}`)
+      } else {
+        const reasonPreview = failedFiles
+          .slice(0, 3)
+          .map((file) => `${file.name}: ${file.reason}`)
+          .join(" | ")
+        const remaining = failedFiles.length - 3
+        toast.error(
+          `Upload failed for ${failedFiles.length} files. ${reasonPreview}${remaining > 0 ? ` | +${remaining} more` : ""}`,
+        )
+      }
+    }
   }
 
   function handleUploadButtonClick() {
@@ -301,6 +413,49 @@ export default function SettingsFilesPage() {
     }
   }
 
+  async function ingestUploadedDocument(input: {
+    objectPath: string
+    fileName: string
+    fileType: string
+    documentType: string
+  }) {
+    const maxAttempts = 3
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const response = await fetch("/api/documents/ingest", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          storage_path: input.objectPath,
+          file_name: input.fileName,
+          file_type: input.fileType,
+          document_type: input.documentType,
+        }),
+      })
+
+      if (response.ok) {
+        return
+      }
+
+      if (attempt < maxAttempts) {
+        await delay(350 * attempt)
+        continue
+      }
+
+      let detailMessage = ""
+      try {
+        const errorPayload = (await response.json()) as { error?: string; detail?: string; message?: string }
+        detailMessage = errorPayload.detail || errorPayload.message || errorPayload.error || ""
+      } catch {
+        detailMessage = await response.text()
+      }
+
+      throw new Error(detailMessage || "Failed to index uploaded file")
+    }
+  }
+
   async function handleDeleteFile(itemName: string) {
     const objectPath = joinStoragePath(currentFolder, itemName)
     const supabase = createClient()
@@ -324,6 +479,56 @@ export default function SettingsFilesPage() {
     setDeleteTarget(null)
     setDeletingPath(null)
     await loadFolder(currentFolder)
+  }
+
+  async function handleDeleteSelectedFiles(fileNames: string[]) {
+    if (fileNames.length === 0) {
+      setDeleteTarget(null)
+      return
+    }
+
+    const objectPaths = fileNames.map((fileName) => joinStoragePath(currentFolder, fileName))
+    const supabase = createClient()
+
+    setDeletingPath("__batch__")
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).remove(objectPaths)
+
+    if (error) {
+      toast.error(error.message || "Failed to delete selected files")
+      setDeletingPath(null)
+      return
+    }
+
+    try {
+      await removeIndexedDocuments(objectPaths)
+    } catch {
+      toast.error("Some indexed references could not be removed")
+    }
+
+    toast.success(fileNames.length === 1 ? "1 file deleted" : `${fileNames.length} files deleted`)
+    setSelectedFileNames([])
+    setDeleteTarget(null)
+    setDeletingPath(null)
+    await loadFolder(currentFolder)
+  }
+
+  function toggleSelectFile(fileName: string, checked: boolean) {
+    setSelectedFileNames((current) => {
+      if (checked) {
+        return current.includes(fileName) ? current : [...current, fileName]
+      }
+
+      return current.filter((name) => name !== fileName)
+    })
+  }
+
+  function toggleSelectAllFiles(checked: boolean) {
+    if (checked) {
+      setSelectedFileNames(fileItems.map((item) => item.name))
+      return
+    }
+
+    setSelectedFileNames([])
   }
 
   async function collectFolderObjectPaths(folderPath: string): Promise<string[]> {
@@ -452,12 +657,13 @@ export default function SettingsFilesPage() {
               <Input
                 ref={fileInputRef}
                 type="file"
+                multiple
                 onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null
-                  setSelectedFile(file)
+                  const files = Array.from(event.target.files ?? [])
+                  setSelectedFiles(files)
 
-                  if (file) {
-                    void handleUploadFile(file)
+                  if (files.length > 0) {
+                    void handleUploadFiles(files)
                   }
                 }}
               />
@@ -476,6 +682,33 @@ export default function SettingsFilesPage() {
             </div>
           ) : (
             <div className="space-y-2">
+              {fileItems.length > 0 ? (
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={allFilesSelected}
+                      onCheckedChange={(checked) => toggleSelectAllFiles(Boolean(checked))}
+                    />
+                    <span>Select all files</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive"
+                    disabled={selectedFileNames.length === 0 || deletingPath === "__batch__"}
+                    onClick={() =>
+                      setDeleteTarget({
+                        name: `${selectedFileNames.length} file${selectedFileNames.length === 1 ? "" : "s"}`,
+                        kind: "files",
+                      })
+                    }
+                  >
+                    {deletingPath === "__batch__" ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                    Delete selected
+                  </Button>
+                </div>
+              ) : null}
+
               {items.map((item) => {
                 const isFolder = item.id === null
 
@@ -488,8 +721,12 @@ export default function SettingsFilesPage() {
                       {isFolder ? (
                         <FolderTree className="size-4 text-muted-foreground" />
                       ) : (
-                        <FileText className="size-4 text-muted-foreground" />
+                        <Checkbox
+                          checked={selectedFileNames.includes(item.name)}
+                          onCheckedChange={(checked) => toggleSelectFile(item.name, Boolean(checked))}
+                        />
                       )}
+                      {!isFolder ? <FileText className="size-4 text-muted-foreground" /> : null}
                       <div>
                         <p className="text-sm font-medium">{item.name}</p>
                         <p className="text-xs text-muted-foreground">
@@ -551,13 +788,35 @@ export default function SettingsFilesPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title={deleteTarget?.kind === "folder" ? "Delete folder" : "Delete file"}
-        description={deleteTarget ? `Permanently delete "${deleteTarget.name}"?` : "Permanently delete item?"}
+        title={
+          deleteTarget?.kind === "folder"
+            ? "Delete folder"
+            : deleteTarget?.kind === "files"
+              ? "Delete files"
+              : "Delete file"
+        }
+        description={
+          deleteTarget?.kind === "files"
+            ? `Permanently delete ${deleteTarget.name}?`
+            : deleteTarget
+              ? `Permanently delete "${deleteTarget.name}"?`
+              : "Permanently delete item?"
+        }
         confirmLabel="Delete"
         variant="destructive"
-        loading={deleteTarget ? deletingPath === joinStoragePath(currentFolder, deleteTarget.name) : false}
+        loading={
+          deleteTarget
+            ? deleteTarget.kind === "files"
+              ? deletingPath === "__batch__"
+              : deletingPath === joinStoragePath(currentFolder, deleteTarget.name)
+            : false
+        }
         onConfirm={async () => {
           if (!deleteTarget) return
+          if (deleteTarget.kind === "files") {
+            await handleDeleteSelectedFiles(selectedFileNames)
+            return
+          }
           if (deleteTarget.kind === "folder") {
             await handleDeleteFolder(deleteTarget.name)
             return

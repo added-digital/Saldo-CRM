@@ -57,7 +57,7 @@ function getFileKind(fileName: string, fileType: string): "pdf" | "docx" | "txt"
   ) {
     return "docx";
   }
-  if (normalizedType.startsWith("text/") || extension === "txt") return "txt";
+  if (normalizedType.startsWith("text/") || extension === "txt" || extension === "md") return "txt";
 
   return "unsupported";
 }
@@ -97,7 +97,7 @@ async function extractTextFromFile(input: {
     return normalizeWhitespace(input.fileBuffer.toString("utf8"));
   }
 
-  throw new Error("Unsupported file type. Supported types are PDF, DOCX, and TXT.");
+  throw new Error("Unsupported file type. Supported types are PDF, DOCX, TXT, and MD.");
 }
 
 function splitIntoWordChunks(text: string, chunkSize = 400, overlap = 50): Chunk[] {

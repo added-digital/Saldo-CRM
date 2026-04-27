@@ -154,7 +154,7 @@ function getFileKind(fileName: string, fileType: string): "pdf" | "docx" | "txt"
   ) {
     return "docx";
   }
-  if (normalizedType.startsWith("text/") || extension === "txt") return "txt";
+  if (normalizedType.startsWith("text/") || extension === "txt" || extension === "md") return "txt";
 
   return "unsupported";
 }

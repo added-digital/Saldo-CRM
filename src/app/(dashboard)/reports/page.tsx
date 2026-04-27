@@ -301,6 +301,49 @@ function normalizeIdentifier(value: string | null | undefined): string {
   return (value ?? "").trim();
 }
 
+function getDefaultReportsMonthKey(): string {
+  const now = new Date();
+  return toMonthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+}
+
+const REPORTS_FILTERS_STORAGE_KEY = "reports.filters.v1";
+
+type SavedReportsFilters = {
+  selectedMonth: string | null;
+  selectedWindowMode: ReportingWindowMode | null;
+  selectedTeamId: string | null;
+  selectedManagerId: string | null;
+  selectedCustomerId: string | null;
+};
+
+function parseSavedReportsFilters(value: string | null): SavedReportsFilters | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as Partial<SavedReportsFilters>;
+    const isWindowMode =
+      parsed.selectedWindowMode === "current-month" ||
+      parsed.selectedWindowMode === "rolling-12-months" ||
+      parsed.selectedWindowMode === "rolling-year";
+
+    return {
+      selectedMonth:
+        typeof parsed.selectedMonth === "string" ? parsed.selectedMonth : null,
+      selectedWindowMode: isWindowMode
+        ? (parsed.selectedWindowMode as ReportingWindowMode)
+        : null,
+      selectedTeamId:
+        typeof parsed.selectedTeamId === "string" ? parsed.selectedTeamId : null,
+      selectedManagerId:
+        typeof parsed.selectedManagerId === "string" ? parsed.selectedManagerId : null,
+      selectedCustomerId:
+        typeof parsed.selectedCustomerId === "string" ? parsed.selectedCustomerId : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 type TeamOption = Pick<Team, "id" | "name">;
 
 type ManagerOption = Pick<
@@ -724,12 +767,13 @@ export default function ReportsPage() {
   const [selectedCustomerId, setSelectedCustomerId] = React.useState<
     string | null
   >(null);
-  const [selectedMonth, setSelectedMonth] = React.useState<string>(() => {
-    const now = new Date();
-    return toMonthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-  });
+  const [selectedMonth, setSelectedMonth] = React.useState<string>(() =>
+    getDefaultReportsMonthKey(),
+  );
   const [selectedWindowMode, setSelectedWindowMode] =
     React.useState<ReportingWindowMode>("rolling-12-months");
+  const savedFiltersRef = React.useRef<SavedReportsFilters | null>(null);
+  const hasAppliedSavedFiltersRef = React.useRef(false);
   const [kpiLoading, setKpiLoading] = React.useState(false);
   const [kpis, setKpis] = React.useState({
     turnover: 0,
@@ -821,6 +865,24 @@ export default function ReportsPage() {
   >([]);
 
   const customerIdFromQuery = searchParams.get("customerId");
+
+  React.useEffect(() => {
+    const saved = parseSavedReportsFilters(
+      localStorage.getItem(REPORTS_FILTERS_STORAGE_KEY),
+    );
+
+    if (!saved) return;
+
+    savedFiltersRef.current = saved;
+
+    if (saved.selectedMonth) {
+      setSelectedMonth(saved.selectedMonth);
+    }
+
+    if (saved.selectedWindowMode) {
+      setSelectedWindowMode(saved.selectedWindowMode);
+    }
+  }, []);
 
   const showTeamFilter = isAdmin || user.role === "team_lead";
   const teamFilterDisabled = user.role === "team_lead" && !isAdmin;
@@ -1023,6 +1085,29 @@ export default function ReportsPage() {
 
     return `${t("reports.filters.all", "All")} ${possessiveTeam} ${t("reports.filters.customerManagers", "customer managers")}`;
   }, [selectedTeam, t]);
+
+  const handleResetFilters = React.useCallback(() => {
+    localStorage.removeItem(REPORTS_FILTERS_STORAGE_KEY);
+    savedFiltersRef.current = null;
+    hasAppliedSavedFiltersRef.current = true;
+
+    setSelectedMonth(getDefaultReportsMonthKey());
+    setSelectedWindowMode("rolling-12-months");
+
+    if (user.role === "user") {
+      setSelectedTeamId(null);
+      setSelectedManagerId(user.id);
+    } else if (user.role === "team_lead" && teams.length === 1 && !isAdmin) {
+      setSelectedTeamId(teams[0].id);
+      setSelectedManagerId(null);
+    } else {
+      setSelectedTeamId(null);
+      setSelectedManagerId(null);
+    }
+
+    setSelectedCustomerId(null);
+    setSelectedMonthlyArticleGroups([]);
+  }, [isAdmin, teams, user.id, user.role]);
 
   const teamNameById = React.useMemo(() => {
     return new Map(teams.map((team) => [team.id, team.name]));
@@ -2416,18 +2501,59 @@ function renderWorkloadShareCell(percentage: number) {
     setManagers(sortedManagers);
     setCustomers(enrichedCustomers);
 
-    if (user.role === "user") {
-      setSelectedManagerId(effectiveProfile.id);
-      setSelectedTeamId(null);
-    } else if (user.role === "team_lead" && scopedTeams.length === 1) {
-      setSelectedTeamId(scopedTeams[0].id);
-      setSelectedManagerId(null);
+    const savedFilters =
+      hasAppliedSavedFiltersRef.current || !savedFiltersRef.current
+        ? null
+        : savedFiltersRef.current;
+
+    if (savedFilters) {
+      const availableTeamIds = new Set(scopedTeams.map((team) => team.id));
+      const availableManagerIds = new Set(sortedManagers.map((manager) => manager.id));
+      const availableCustomerIds = new Set(enrichedCustomers.map((customer) => customer.id));
+
+      if (user.role === "user") {
+        setSelectedTeamId(null);
+        setSelectedManagerId(effectiveProfile.id);
+      } else {
+        setSelectedTeamId(
+          savedFilters.selectedTeamId && availableTeamIds.has(savedFilters.selectedTeamId)
+            ? savedFilters.selectedTeamId
+            : user.role === "team_lead" && scopedTeams.length === 1
+              ? scopedTeams[0].id
+              : null,
+        );
+
+        setSelectedManagerId(
+          savedFilters.selectedManagerId &&
+            availableManagerIds.has(savedFilters.selectedManagerId)
+            ? savedFilters.selectedManagerId
+            : null,
+        );
+      }
+
+      setSelectedCustomerId(
+        savedFilters.selectedCustomerId &&
+          availableCustomerIds.has(savedFilters.selectedCustomerId)
+          ? savedFilters.selectedCustomerId
+          : null,
+      );
+
+      hasAppliedSavedFiltersRef.current = true;
     } else {
-      setSelectedTeamId(null);
-      setSelectedManagerId(null);
+      if (user.role === "user") {
+        setSelectedManagerId(effectiveProfile.id);
+        setSelectedTeamId(null);
+      } else if (user.role === "team_lead" && scopedTeams.length === 1) {
+        setSelectedTeamId(scopedTeams[0].id);
+        setSelectedManagerId(null);
+      } else {
+        setSelectedTeamId(null);
+        setSelectedManagerId(null);
+      }
+
+      setSelectedCustomerId(null);
     }
 
-    setSelectedCustomerId(null);
     setLoading(false);
   }, [
     isAdmin,
@@ -2453,6 +2579,27 @@ function renderWorkloadShareCell(percentage: number) {
     }
     setSelectedCustomerId(customerIdFromQuery);
   }, [customerIdFromQuery, customers]);
+
+  React.useEffect(() => {
+    if (loading) return;
+
+    const payload: SavedReportsFilters = {
+      selectedMonth,
+      selectedWindowMode,
+      selectedTeamId,
+      selectedManagerId,
+      selectedCustomerId,
+    };
+
+    localStorage.setItem(REPORTS_FILTERS_STORAGE_KEY, JSON.stringify(payload));
+  }, [
+    loading,
+    selectedCustomerId,
+    selectedManagerId,
+    selectedMonth,
+    selectedTeamId,
+    selectedWindowMode,
+  ]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -4733,15 +4880,20 @@ function renderWorkloadShareCell(percentage: number) {
           />
         </div>
 
-        <div className="inline-flex h-10 items-center px-1 text-sm font-medium text-muted-foreground lg:shrink-0">
-          <span className="text-[#d4af37]">{filteredCustomers.length}</span>
-          <span>
-            &nbsp;
-            {filteredCustomers.length === 1
-              ? t("reports.filters.customerSingular", "customer")
-              : t("reports.filters.customerPlural", "customers")}{" "}
-            {t("reports.filters.inCurrentFilter", "in current filter")}
-          </span>
+        <div className="flex items-center gap-2 lg:shrink-0">
+          <Button variant="outline" className="h-9 self-center" onClick={handleResetFilters}>
+            {t("reports.filters.reset", "Reset filters")}
+          </Button>
+          <div className="inline-flex h-10 items-center px-1 text-sm font-medium text-muted-foreground">
+            <span className="text-[#d4af37]">{filteredCustomers.length}</span>
+            <span>
+              &nbsp;
+              {filteredCustomers.length === 1
+                ? t("reports.filters.customerSingular", "customer")
+                : t("reports.filters.customerPlural", "customers")}{" "}
+              {t("reports.filters.inCurrentFilter", "in current filter")}
+            </span>
+          </div>
         </div>
       </div>
 
