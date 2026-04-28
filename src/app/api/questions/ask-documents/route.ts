@@ -101,6 +101,8 @@ type FinancialReportWindow = {
   year: number;
 };
 
+type RollingWindowPreset = "last-12-months" | "current-year";
+
 type MonthToken = {
   month: number;
   index: number;
@@ -115,6 +117,8 @@ const REPORTING_KEYWORDS = [
   "omsättning",
   "turnover",
   "revenue",
+  "intakt",
+  "intäkt",
   "invoice",
   "faktura",
   "kpi",
@@ -126,6 +130,12 @@ const REPORTING_KEYWORDS = [
   "timmar",
   "contract",
   "kontrakt",
+  "customer",
+  "customers",
+  "kund",
+  "kunder",
+  "tjanat",
+  "tjänat",
 ];
 
 function toVectorString(values: number[]): string {
@@ -271,6 +281,11 @@ function toSafeTextLiteral(value: string | null | undefined): string {
   const trimmed = value.trim();
   if (!trimmed) return "NULL";
   return `'${trimmed.replace(/'/g, "''")}'`;
+}
+
+function toSqlLikeLiteral(value: string): string {
+  const escaped = value.trim().replace(/'/g, "''").replace(/[%_]/g, "\\$&");
+  return `'%${escaped}%'`;
 }
 
 function parseFinancialReportWindow(question: string): FinancialReportWindow | null {
@@ -472,6 +487,17 @@ function buildFinancialReportFallbackSql(input: {
       "  WHERE fortnox_cost_center = {user_cost_center}",
       "    AND (status = 'active' OR status IS NULL)",
       "),",
+      "monthly_kpis AS (",
+      "  SELECT COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+      "         COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat",
+      "  FROM customer_kpis ck",
+      "  INNER JOIN customers c ON c.id = ck.customer_id",
+      "  INNER JOIN scoped_customers sc",
+      "    ON sc.fortnox_customer_number = c.fortnox_customer_number",
+      "  WHERE ck.period_type = 'month'",
+      `    AND ck.period_year = EXTRACT(YEAR FROM '${monthStart}'::date)::int`,
+      `    AND ck.period_month = EXTRACT(MONTH FROM '${monthStart}'::date)::int`,
+      "),",
       "monthly_invoices AS (",
       "  SELECT i.*",
       "  FROM invoices i",
@@ -481,23 +507,47 @@ function buildFinancialReportFallbackSql(input: {
       `    AND i.invoice_date < ('${monthStart}'::date + INTERVAL '1 month')`,
       ")",
       "SELECT",
-      "  COUNT(*) AS invoice_count,",
-      "  COALESCE(SUM(total_ex_vat), 0) AS turnover_ex_vat,",
-      "  COALESCE(SUM(total), 0) AS turnover_incl_vat,",
-      "  COALESCE(SUM(balance), 0) AS outstanding_balance",
-      "FROM monthly_invoices",
+      "  mk.invoice_count AS invoice_count,",
+      "  mk.turnover_ex_vat AS turnover_ex_vat,",
+      "  COALESCE(SUM(mi.total), 0) AS turnover_incl_vat,",
+      "  COALESCE(SUM(mi.balance), 0) AS outstanding_balance",
+      "FROM monthly_kpis mk",
+      "LEFT JOIN monthly_invoices mi ON TRUE",
+      "GROUP BY mk.invoice_count, mk.turnover_ex_vat",
     ].join("\n");
   }
 
   return [
+    "WITH active_customers AS (",
+    "  SELECT fortnox_customer_number, id",
+    "  FROM customers",
+    "  WHERE status = 'active' OR status IS NULL",
+    "),",
+    "monthly_kpis AS (",
+    "  SELECT COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+    "         COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat",
+    "  FROM customer_kpis ck",
+    "  INNER JOIN active_customers ac ON ac.id = ck.customer_id",
+    "  WHERE ck.period_type = 'month'",
+    `    AND ck.period_year = EXTRACT(YEAR FROM '${monthStart}'::date)::int`,
+    `    AND ck.period_month = EXTRACT(MONTH FROM '${monthStart}'::date)::int`,
+    "),",
+    "monthly_invoices AS (",
+    "  SELECT i.*",
+    "  FROM invoices i",
+    "  INNER JOIN active_customers ac",
+    "    ON ac.fortnox_customer_number = i.fortnox_customer_number",
+    `  WHERE i.invoice_date >= '${monthStart}'::date`,
+    `    AND i.invoice_date < ('${monthStart}'::date + INTERVAL '1 month')`,
+    ")",
     "SELECT",
-    "  COUNT(*) AS invoice_count,",
-    "  COALESCE(SUM(total_ex_vat), 0) AS turnover_ex_vat,",
-    "  COALESCE(SUM(total), 0) AS turnover_incl_vat,",
-    "  COALESCE(SUM(balance), 0) AS outstanding_balance",
-    "FROM invoices",
-    `WHERE invoice_date >= '${monthStart}'::date`,
-    `  AND invoice_date < ('${monthStart}'::date + INTERVAL '1 month')`,
+    "  mk.invoice_count AS invoice_count,",
+    "  mk.turnover_ex_vat AS turnover_ex_vat,",
+    "  COALESCE(SUM(mi.total), 0) AS turnover_incl_vat,",
+    "  COALESCE(SUM(mi.balance), 0) AS outstanding_balance",
+    "FROM monthly_kpis mk",
+    "LEFT JOIN monthly_invoices mi ON TRUE",
+    "GROUP BY mk.invoice_count, mk.turnover_ex_vat",
   ].join("\n");
 }
 
@@ -512,21 +562,47 @@ function buildFinancialComparisonFallbackSql(input: {
   const scopedCustomersCte = CRM_CUSTOMER_SCOPED_ROLES.has(input.role)
     ? [
         "scoped_customers AS (",
-        "  SELECT fortnox_customer_number",
+        "  SELECT fortnox_customer_number, id",
         "  FROM customers",
         "  WHERE fortnox_cost_center = {user_cost_center}",
         "    AND (status = 'active' OR status IS NULL)",
         "),",
       ]
-    : [];
+    : [
+        "active_customers AS (",
+        "  SELECT fortnox_customer_number, id",
+        "  FROM customers",
+        "  WHERE status = 'active' OR status IS NULL",
+        "),",
+      ];
 
-  const invoiceSource = CRM_CUSTOMER_SCOPED_ROLES.has(input.role)
+  const customerScopeSource = CRM_CUSTOMER_SCOPED_ROLES.has(input.role)
     ? [
-        "  FROM invoices i",
-        "  INNER JOIN scoped_customers sc",
-        "    ON sc.fortnox_customer_number = i.fortnox_customer_number",
+        "  FROM scoped_customers c",
       ]
-    : ["  FROM invoices i"];
+    : ["  FROM active_customers c"];
+
+  const invoiceJoinSource = CRM_CUSTOMER_SCOPED_ROLES.has(input.role)
+    ? [
+        "  LEFT JOIN (",
+        "    SELECT i.invoice_date, i.total, i.balance",
+        "    FROM invoices i",
+        "    INNER JOIN scoped_customers sc",
+        "      ON sc.fortnox_customer_number = i.fortnox_customer_number",
+        "  ) i",
+        "    ON i.invoice_date >= p.start_date",
+        "   AND i.invoice_date < p.end_date",
+      ]
+    : [
+        "  LEFT JOIN (",
+        "    SELECT i.invoice_date, i.total, i.balance",
+        "    FROM invoices i",
+        "    INNER JOIN active_customers ac",
+        "      ON ac.fortnox_customer_number = i.fortnox_customer_number",
+        "  ) i",
+        "    ON i.invoice_date >= p.start_date",
+        "   AND i.invoice_date < p.end_date",
+      ];
 
   return [
     "WITH",
@@ -540,18 +616,30 @@ function buildFinancialComparisonFallbackSql(input: {
     `         '${secondStart}'::date AS start_date,`,
     `         ('${secondStart}'::date + INTERVAL '1 month')::date AS end_date`,
     "),",
+    "monthly_kpis AS (",
+    "  SELECT",
+    "    p.label,",
+    "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+    "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat",
+    ...customerScopeSource,
+    "  INNER JOIN customer_kpis ck ON ck.customer_id = c.id",
+    "  INNER JOIN periods p",
+    "    ON ck.period_type = 'month'",
+    "   AND ck.period_year = EXTRACT(YEAR FROM p.start_date)::int",
+    "   AND ck.period_month = EXTRACT(MONTH FROM p.start_date)::int",
+    "  GROUP BY p.label",
+    "),",
     "monthly AS (",
     "  SELECT",
     "    p.label,",
-    "    COUNT(*) AS invoice_count,",
-    "    COALESCE(SUM(i.total_ex_vat), 0) AS turnover_ex_vat,",
+    "    COALESCE(mk.invoice_count, 0) AS invoice_count,",
+    "    COALESCE(mk.turnover_ex_vat, 0) AS turnover_ex_vat,",
     "    COALESCE(SUM(i.total), 0) AS turnover_incl_vat,",
     "    COALESCE(SUM(i.balance), 0) AS outstanding_balance",
-    ...invoiceSource,
-    "  INNER JOIN periods p",
-    "    ON i.invoice_date >= p.start_date",
-    "   AND i.invoice_date < p.end_date",
-    "  GROUP BY p.label",
+    "  FROM periods p",
+    "  LEFT JOIN monthly_kpis mk ON mk.label = p.label",
+    ...invoiceJoinSource,
+    "  GROUP BY p.label, mk.invoice_count, mk.turnover_ex_vat",
     ")",
     "SELECT",
     "  p.label,",
@@ -563,6 +651,457 @@ function buildFinancialComparisonFallbackSql(input: {
     "LEFT JOIN monthly m ON m.label = p.label",
     "ORDER BY p.label",
   ].join("\n");
+}
+
+function buildTopCustomersFallbackSql(input: {
+  role: string;
+  year: number;
+}): string {
+  if (CRM_CUSTOMER_SCOPED_ROLES.has(input.role)) {
+    return [
+      "WITH scoped_customers AS (",
+      "  SELECT id, name, fortnox_customer_number",
+      "  FROM customers",
+      "  WHERE fortnox_cost_center = {user_cost_center}",
+      "    AND (status = 'active' OR status IS NULL)",
+      "),",
+      "yearly_kpis AS (",
+      "  SELECT",
+      "    sc.name AS customer_name,",
+      "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+      "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+      "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+      "  FROM scoped_customers sc",
+      "  INNER JOIN customer_kpis ck ON ck.customer_id = sc.id",
+      "  WHERE ck.period_type = 'month'",
+      `    AND ck.period_year = ${input.year}`,
+      "  GROUP BY sc.name",
+      ")",
+      "SELECT customer_name, turnover_ex_vat, invoice_count, total_hours",
+      "FROM yearly_kpis",
+      "ORDER BY turnover_ex_vat DESC, customer_name ASC",
+      "LIMIT 10",
+    ].join("\n");
+  }
+
+  return [
+    "WITH active_customers AS (",
+    "  SELECT id, name",
+    "  FROM customers",
+    "  WHERE status = 'active' OR status IS NULL",
+    "),",
+    "yearly_kpis AS (",
+    "  SELECT",
+    "    ac.name AS customer_name,",
+    "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+    "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+    "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+    "  FROM active_customers ac",
+    "  INNER JOIN customer_kpis ck ON ck.customer_id = ac.id",
+    "  WHERE ck.period_type = 'month'",
+    `    AND ck.period_year = ${input.year}`,
+    "  GROUP BY ac.name",
+    ")",
+    "SELECT customer_name, turnover_ex_vat, invoice_count, total_hours",
+    "FROM yearly_kpis",
+    "ORDER BY turnover_ex_vat DESC, customer_name ASC",
+    "LIMIT 10",
+  ].join("\n");
+}
+
+function buildTopCustomerForMonthFallbackSql(input: {
+  role: string;
+  window: FinancialReportWindow;
+}): string {
+  if (CRM_CUSTOMER_SCOPED_ROLES.has(input.role)) {
+    return [
+      "WITH scoped_customers AS (",
+      "  SELECT id, name",
+      "  FROM customers",
+      "  WHERE fortnox_cost_center = {user_cost_center}",
+      "    AND (status = 'active' OR status IS NULL)",
+      "),",
+      "monthly AS (",
+      "  SELECT",
+      "    sc.name AS customer_name,",
+      "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+      "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+      "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+      "  FROM scoped_customers sc",
+      "  INNER JOIN customer_kpis ck ON ck.customer_id = sc.id",
+      "  WHERE ck.period_type = 'month'",
+      `    AND ck.period_year = ${input.window.year}`,
+      `    AND ck.period_month = ${input.window.month}`,
+      "  GROUP BY sc.name",
+      ")",
+      "SELECT customer_name, turnover_ex_vat, invoice_count, total_hours",
+      "FROM monthly",
+      "ORDER BY turnover_ex_vat DESC, customer_name ASC",
+      "LIMIT 1",
+    ].join("\n");
+  }
+
+  return [
+    "WITH active_customers AS (",
+    "  SELECT id, name",
+    "  FROM customers",
+    "  WHERE status = 'active' OR status IS NULL",
+    "),",
+    "monthly AS (",
+    "  SELECT",
+    "    ac.name AS customer_name,",
+    "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+    "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+    "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+    "  FROM active_customers ac",
+    "  INNER JOIN customer_kpis ck ON ck.customer_id = ac.id",
+    "  WHERE ck.period_type = 'month'",
+    `    AND ck.period_year = ${input.window.year}`,
+    `    AND ck.period_month = ${input.window.month}`,
+    "  GROUP BY ac.name",
+    ")",
+    "SELECT customer_name, turnover_ex_vat, invoice_count, total_hours",
+    "FROM monthly",
+    "ORDER BY turnover_ex_vat DESC, customer_name ASC",
+    "LIMIT 1",
+  ].join("\n");
+}
+
+function parseTopCustomerForMonthWindow(question: string): FinancialReportWindow | null {
+  const normalized = question
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const hasCustomerKeyword =
+    normalized.includes("customer") ||
+    normalized.includes("customers") ||
+    normalized.includes("kund") ||
+    normalized.includes("kunder");
+  const hasTurnoverKeyword =
+    normalized.includes("turnover") ||
+    normalized.includes("omsattning") ||
+    normalized.includes("revenue") ||
+    normalized.includes("intakt") ||
+    normalized.includes("tjanat");
+  const hasTopKeyword =
+    normalized.includes("highest") ||
+    normalized.includes("greatest") ||
+    normalized.includes("top") ||
+    normalized.includes("hogst") ||
+    normalized.includes("storst") ||
+    normalized.includes("mest");
+
+  if (!hasCustomerKeyword || !hasTurnoverKeyword || !hasTopKeyword) {
+    return null;
+  }
+
+  return parseFinancialReportWindow(question);
+}
+
+function parseRollingWindowPreset(question: string): RollingWindowPreset | null {
+  const normalized = question
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const last12Patterns = [
+    "last 12 months",
+    "past 12 months",
+    "rolling 12",
+    "senaste 12 manader",
+    "rullande 12 manader",
+    "12 manader",
+  ];
+
+  if (last12Patterns.some((pattern) => normalized.includes(pattern))) {
+    return "last-12-months";
+  }
+
+  const currentYearPatterns = [
+    "this year",
+    "current year",
+    "i ar",
+    "innevarande ar",
+    "hittills i ar",
+    "year to date",
+    "ytd",
+  ];
+
+  if (currentYearPatterns.some((pattern) => normalized.includes(pattern))) {
+    return "current-year";
+  }
+
+  return null;
+}
+
+function parseQuotedCustomerName(question: string): string | null {
+  const match = question.match(/(?:customer|kund)\s+["“](.+?)["”]/i);
+  const value = match?.[1]?.trim();
+  return value ? value : null;
+}
+
+function buildRollingWindowKpisFallbackSql(input: {
+  role: string;
+  preset: RollingWindowPreset;
+}): string {
+  const windowBounds =
+    input.preset === "current-year"
+      ? [
+          "date_trunc('year', now())::date AS start_date,",
+          "(date_trunc('month', now())::date + INTERVAL '1 month')::date AS end_date",
+        ]
+      : [
+          "(date_trunc('month', now())::date - INTERVAL '11 months')::date AS start_date,",
+          "(date_trunc('month', now())::date + INTERVAL '1 month')::date AS end_date",
+        ];
+
+  if (CRM_CUSTOMER_SCOPED_ROLES.has(input.role)) {
+    return [
+      "WITH scoped_customers AS (",
+      "  SELECT id",
+      "  FROM customers",
+      "  WHERE fortnox_cost_center = {user_cost_center}",
+      "    AND (status = 'active' OR status IS NULL)",
+      "),",
+      "bounds AS (",
+      "  SELECT",
+      ...windowBounds.map((line) => `    ${line}`),
+      "),",
+      "monthly AS (",
+      "  SELECT",
+      "    ck.period_year,",
+      "    ck.period_month,",
+      "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+      "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+      "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+      "  FROM customer_kpis ck",
+      "  INNER JOIN scoped_customers sc ON sc.id = ck.customer_id",
+      "  CROSS JOIN bounds b",
+      "  WHERE ck.period_type = 'month'",
+      "    AND make_date(ck.period_year, ck.period_month, 1) >= b.start_date",
+      "    AND make_date(ck.period_year, ck.period_month, 1) < b.end_date",
+      "  GROUP BY ck.period_year, ck.period_month",
+      ")",
+      "SELECT period_year, period_month, invoice_count, turnover_ex_vat, total_hours",
+      "FROM monthly",
+      "ORDER BY period_year ASC, period_month ASC",
+      "LIMIT 24",
+    ].join("\n");
+  }
+
+  return [
+    "WITH active_customers AS (",
+    "  SELECT id",
+    "  FROM customers",
+    "  WHERE status = 'active' OR status IS NULL",
+    "),",
+    "bounds AS (",
+    "  SELECT",
+    ...windowBounds.map((line) => `    ${line}`),
+    "),",
+    "monthly AS (",
+    "  SELECT",
+    "    ck.period_year,",
+    "    ck.period_month,",
+    "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+    "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+    "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+    "  FROM customer_kpis ck",
+    "  INNER JOIN active_customers ac ON ac.id = ck.customer_id",
+    "  CROSS JOIN bounds b",
+    "  WHERE ck.period_type = 'month'",
+    "    AND make_date(ck.period_year, ck.period_month, 1) >= b.start_date",
+    "    AND make_date(ck.period_year, ck.period_month, 1) < b.end_date",
+    "  GROUP BY ck.period_year, ck.period_month",
+    ")",
+    "SELECT period_year, period_month, invoice_count, turnover_ex_vat, total_hours",
+    "FROM monthly",
+    "ORDER BY period_year ASC, period_month ASC",
+    "LIMIT 24",
+  ].join("\n");
+}
+
+function buildCustomerRollingWindowKpisFallbackSql(input: {
+  role: string;
+  preset: RollingWindowPreset;
+  customerName: string;
+}): string {
+  const windowBounds =
+    input.preset === "current-year"
+      ? [
+          "date_trunc('year', now())::date AS start_date,",
+          "(date_trunc('month', now())::date + INTERVAL '1 month')::date AS end_date",
+        ]
+      : [
+          "(date_trunc('month', now())::date - INTERVAL '11 months')::date AS start_date,",
+          "(date_trunc('month', now())::date + INTERVAL '1 month')::date AS end_date",
+        ];
+
+  const customerNameFilter = toSqlLikeLiteral(input.customerName);
+
+  if (CRM_CUSTOMER_SCOPED_ROLES.has(input.role)) {
+    return [
+      "WITH scoped_customers AS (",
+      "  SELECT id, name",
+      "  FROM customers",
+      "  WHERE fortnox_cost_center = {user_cost_center}",
+      "    AND (status = 'active' OR status IS NULL)",
+      `    AND name ILIKE ${customerNameFilter} ESCAPE '\\'`,
+      "),",
+      "bounds AS (",
+      "  SELECT",
+      ...windowBounds.map((line) => `    ${line}`),
+      "),",
+      "monthly AS (",
+      "  SELECT",
+      "    sc.name AS customer_name,",
+      "    ck.period_year,",
+      "    ck.period_month,",
+      "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+      "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+      "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+      "  FROM customer_kpis ck",
+      "  INNER JOIN scoped_customers sc ON sc.id = ck.customer_id",
+      "  CROSS JOIN bounds b",
+      "  WHERE ck.period_type = 'month'",
+      "    AND make_date(ck.period_year, ck.period_month, 1) >= b.start_date",
+      "    AND make_date(ck.period_year, ck.period_month, 1) < b.end_date",
+      "  GROUP BY sc.name, ck.period_year, ck.period_month",
+      ")",
+      "SELECT customer_name, period_year, period_month, invoice_count, turnover_ex_vat, total_hours",
+      "FROM monthly",
+      "ORDER BY period_year ASC, period_month ASC",
+      "LIMIT 24",
+    ].join("\n");
+  }
+
+  return [
+    "WITH active_customers AS (",
+    "  SELECT id, name",
+    "  FROM customers",
+    "  WHERE status = 'active' OR status IS NULL",
+    `    AND name ILIKE ${customerNameFilter} ESCAPE '\\'`,
+    "),",
+    "bounds AS (",
+    "  SELECT",
+    ...windowBounds.map((line) => `    ${line}`),
+    "),",
+    "monthly AS (",
+    "  SELECT",
+    "    ac.name AS customer_name,",
+    "    ck.period_year,",
+    "    ck.period_month,",
+    "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+    "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+    "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+    "  FROM customer_kpis ck",
+    "  INNER JOIN active_customers ac ON ac.id = ck.customer_id",
+    "  CROSS JOIN bounds b",
+    "  WHERE ck.period_type = 'month'",
+    "    AND make_date(ck.period_year, ck.period_month, 1) >= b.start_date",
+    "    AND make_date(ck.period_year, ck.period_month, 1) < b.end_date",
+    "  GROUP BY ac.name, ck.period_year, ck.period_month",
+    ")",
+    "SELECT customer_name, period_year, period_month, invoice_count, turnover_ex_vat, total_hours",
+    "FROM monthly",
+    "ORDER BY period_year ASC, period_month ASC",
+    "LIMIT 24",
+  ].join("\n");
+}
+
+function parseTopCustomersYear(question: string): number | null {
+  const normalized = question
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const hasCustomerKeyword =
+    normalized.includes("customer") ||
+    normalized.includes("customers") ||
+    normalized.includes("kund") ||
+    normalized.includes("kunder");
+
+  const hasValueKeyword =
+    normalized.includes("turnover") ||
+    normalized.includes("omsattning") ||
+    normalized.includes("revenue") ||
+    normalized.includes("intakt") ||
+    normalized.includes("tjanat");
+
+  const hasTopKeyword =
+    normalized.includes("top") ||
+    normalized.includes("highest") ||
+    normalized.includes("greatest") ||
+    normalized.includes("best") ||
+    normalized.includes("hogst") ||
+    normalized.includes("storst") ||
+    normalized.includes("mest");
+
+  if (!hasCustomerKeyword || !hasValueKeyword || !hasTopKeyword) {
+    return null;
+  }
+
+  const detectedYear = normalized.match(/\b(20\d{2})\b/)?.[1];
+  return detectedYear ? Number(detectedYear) : new Date().getUTCFullYear();
+}
+
+function buildDeterministicReportingSql(input: {
+  question: string;
+  role: string;
+  userCostCenter: string | null;
+}): string {
+  const topCustomerMonthWindow = parseTopCustomerForMonthWindow(input.question);
+  if (topCustomerMonthWindow) {
+    return buildTopCustomerForMonthFallbackSql({
+      role: input.role,
+      window: topCustomerMonthWindow,
+    });
+  }
+
+  const rollingPreset = parseRollingWindowPreset(input.question);
+  const quotedCustomerName = parseQuotedCustomerName(input.question);
+  if (rollingPreset && quotedCustomerName) {
+    return buildCustomerRollingWindowKpisFallbackSql({
+      role: input.role,
+      preset: rollingPreset,
+      customerName: quotedCustomerName,
+    });
+  }
+
+  if (rollingPreset) {
+    return buildRollingWindowKpisFallbackSql({
+      role: input.role,
+      preset: rollingPreset,
+    });
+  }
+
+  const comparisonWindow = parseFinancialComparisonWindows(input.question);
+  if (comparisonWindow) {
+    return buildFinancialComparisonFallbackSql({
+      role: input.role,
+      periods: comparisonWindow,
+    });
+  }
+
+  const singleWindow = parseFinancialReportWindow(input.question);
+  if (singleWindow) {
+    return buildFinancialReportFallbackSql({
+      role: input.role,
+      userCostCenter: input.userCostCenter,
+      window: singleWindow,
+    });
+  }
+
+  const topCustomersYear = parseTopCustomersYear(input.question);
+  if (topCustomersYear) {
+    return buildTopCustomersFallbackSql({
+      role: input.role,
+      year: topCustomersYear,
+    });
+  }
+
+  return buildGeneralReportFallbackSql({ role: input.role });
 }
 
 function extractCteNames(sql: string): Set<string> {
@@ -668,6 +1207,8 @@ async function callOpenAiForSql(input: {
       ]
     : [
         "The authenticated user is admin-scoped and may query reporting data across all customers.",
+        "For reporting and KPI questions, still scope through active customers (status = 'active' OR status IS NULL).",
+        "For invoices, time_reports, contract_accruals, and customer_kpis, join through the active customer set using fortnox_customer_number (or customer_id for customer_kpis).",
       ];
 
   const prompt = [
@@ -682,6 +1223,7 @@ async function callOpenAiForSql(input: {
     "Do not use contact tables for this endpoint.",
     "For turnover values, prefer total_ex_vat when available.",
     "For contract totals or KPI questions, use active contract_accruals only.",
+    "For monthly/rolling KPI reporting questions, prefer customer_kpis (period_type = 'month') for invoice_count, turnover, and hours so results align with the Reports dashboard.",
     ...scopeInstructions,
     "",
     `Question: ${input.question}`,
@@ -805,44 +1347,36 @@ async function buildDatabaseContext(input: {
       return { context: "", sources: [] };
     }
 
-    const fallbackComparison = parseFinancialComparisonWindows(input.question);
-    const fallbackWindow = parseFinancialReportWindow(input.question);
-    const dbContext = await readDbContext();
+    const deterministicReportingSql = isReportingQuestion(input.question)
+      ? buildDeterministicReportingSql({
+          question: input.question,
+          role: input.role,
+          userCostCenter: input.userCostCenter,
+        })
+      : "";
+
     let generatedSql = "";
 
-    try {
-      const generated = await callOpenAiForSql({
-        question: input.question,
-        userId: input.userId,
-        role: input.role,
-        userCostCenter: input.userCostCenter,
-        dbContext,
-      });
+    if (!deterministicReportingSql && process.env.OPENAI_API_KEY) {
+      const dbContext = await readDbContext();
+      try {
+        const generated = await callOpenAiForSql({
+          question: input.question,
+          userId: input.userId,
+          role: input.role,
+          userCostCenter: input.userCostCenter,
+          dbContext,
+        });
 
-      generatedSql = generated.sql;
-    } catch (error) {
-      console.error("crm sql generation failed", {
-        message: error instanceof Error ? error.message : "Unknown error",
-      });
+        generatedSql = generated.sql;
+      } catch (error) {
+        console.error("crm sql generation failed", {
+          message: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
     }
 
-    const sqlCandidate = generatedSql ||
-      (fallbackComparison
-        ? buildFinancialComparisonFallbackSql({
-            role: input.role,
-            periods: fallbackComparison,
-          })
-        : fallbackWindow
-          ? buildFinancialReportFallbackSql({
-              role: input.role,
-              userCostCenter: input.userCostCenter,
-              window: fallbackWindow,
-            })
-          : isReportingQuestion(input.question)
-            ? buildGeneralReportFallbackSql({
-                role: input.role,
-              })
-            : "");
+    const sqlCandidate = deterministicReportingSql || generatedSql;
 
     if (!sqlCandidate) {
       return { context: "", sources: [] };

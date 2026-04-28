@@ -2509,34 +2509,51 @@ function renderWorkloadShareCell(percentage: number) {
     if (savedFilters) {
       const availableTeamIds = new Set(scopedTeams.map((team) => team.id));
       const availableManagerIds = new Set(sortedManagers.map((manager) => manager.id));
-      const availableCustomerIds = new Set(enrichedCustomers.map((customer) => customer.id));
-
-      if (user.role === "user") {
-        setSelectedTeamId(null);
-        setSelectedManagerId(effectiveProfile.id);
-      } else {
-        setSelectedTeamId(
-          savedFilters.selectedTeamId && availableTeamIds.has(savedFilters.selectedTeamId)
+      const nextTeamId =
+        user.role === "user"
+          ? null
+          : savedFilters.selectedTeamId && availableTeamIds.has(savedFilters.selectedTeamId)
             ? savedFilters.selectedTeamId
             : user.role === "team_lead" && scopedTeams.length === 1
               ? scopedTeams[0].id
-              : null,
-        );
+              : null;
 
-        setSelectedManagerId(
-          savedFilters.selectedManagerId &&
-            availableManagerIds.has(savedFilters.selectedManagerId)
+      const managersInTeam = nextTeamId
+        ? sortedManagers.filter((manager) => manager.team_id === nextTeamId)
+        : sortedManagers;
+      const managersInTeamSet = new Set(managersInTeam.map((manager) => manager.id));
+
+      const nextManagerId =
+        user.role === "user"
+          ? effectiveProfile.id
+          : savedFilters.selectedManagerId &&
+              availableManagerIds.has(savedFilters.selectedManagerId) &&
+              managersInTeamSet.has(savedFilters.selectedManagerId)
             ? savedFilters.selectedManagerId
-            : null,
-        );
-      }
+            : null;
 
-      setSelectedCustomerId(
-        savedFilters.selectedCustomerId &&
-          availableCustomerIds.has(savedFilters.selectedCustomerId)
+      const customersInTeam = nextTeamId
+        ? enrichedCustomers.filter(
+            (customer) =>
+              customer.account_manager &&
+              managersInTeamSet.has(customer.account_manager.id),
+          )
+        : enrichedCustomers;
+      const customersInScope = nextManagerId
+        ? customersInTeam.filter(
+            (customer) => customer.account_manager?.id === nextManagerId,
+          )
+        : customersInTeam;
+      const customersInScopeSet = new Set(customersInScope.map((customer) => customer.id));
+
+      const nextCustomerId =
+        savedFilters.selectedCustomerId && customersInScopeSet.has(savedFilters.selectedCustomerId)
           ? savedFilters.selectedCustomerId
-          : null,
-      );
+          : null;
+
+      setSelectedTeamId(nextTeamId);
+      setSelectedManagerId(nextManagerId);
+      setSelectedCustomerId(nextCustomerId);
 
       hasAppliedSavedFiltersRef.current = true;
     } else {

@@ -95,7 +95,7 @@ function getMessagesSignature(value: ChatMessage[]): string {
 }
 
 export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const { user } = useUser()
   const [question, setQuestion] = React.useState("")
   const [loading, setLoading] = React.useState(false)
@@ -113,16 +113,47 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const [chatAttachments, setChatAttachments] = React.useState<ChatAttachment[]>([])
   const [conversationOrder, setConversationOrder] = React.useState<string[]>([])
   const [draggingConversationId, setDraggingConversationId] = React.useState<string | null>(null)
+  const [dropIndicator, setDropIndicator] = React.useState<{
+    conversationId: string
+    placement: "before" | "after"
+  } | null>(null)
   const hasMessages = messages.length > 0
   const persistTimerRef = React.useRef<number | null>(null)
   const conversationSignaturesRef = React.useRef<Record<string, string>>({})
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
+  const messagesContainerRef = React.useRef<HTMLDivElement | null>(null)
+
+  const scrollMessagesToLatest = React.useCallback((behavior: ScrollBehavior = "auto") => {
+    const container = messagesContainerRef.current
+    if (!container) return
+
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior,
+    })
+  }, [])
 
   const firstName = React.useMemo(() => {
     const fullName = user.full_name?.trim()
     if (!fullName) return "there"
     return fullName.split(/\s+/)[0]
   }, [user.full_name])
+
+  const starterQuestions = React.useMemo(() => {
+    if (language === "sv") {
+      return [
+        "Hur många fakturor skickades förra månaden?",
+        "Vilka kunder har högst omsättning i år?",
+        "Visa mig avtal som är aktiva just nu.",
+      ]
+    }
+
+    return [
+      "How many invoices were sent last month?",
+      "Which customers have the highest turnover this year?",
+      "Show me contracts that are active right now.",
+    ]
+  }, [language])
 
   void customers
   void users
@@ -227,6 +258,18 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     if (!userId) return
     localStorage.setItem(getConversationOrderStorageKey(userId), JSON.stringify(conversationOrder))
   }, [conversationOrder, userId])
+
+  React.useEffect(() => {
+    if (!hasMessages) return
+
+    const frameId = window.requestAnimationFrame(() => {
+      scrollMessagesToLatest("auto")
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+    }
+  }, [conversationId, hasMessages, messages.length, scrollMessagesToLatest])
 
   const persistConversation = React.useCallback(
     async (nextMessages: ChatMessage[]) => {
@@ -358,7 +401,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     setChatAttachments([])
   }
 
-  function reorderConversations(draggedId: string, targetId: string) {
+  function reorderConversations(draggedId: string, targetId: string, placement: "before" | "after") {
     if (draggedId === targetId) return
 
     setConversationOrder((current) => {
@@ -375,10 +418,12 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
         return [draggedId, ...withoutDragged]
       }
 
+      const insertIndex = placement === "after" ? targetIndex + 1 : targetIndex
+
       return [
-        ...withoutDragged.slice(0, targetIndex),
+        ...withoutDragged.slice(0, insertIndex),
         draggedId,
-        ...withoutDragged.slice(targetIndex),
+        ...withoutDragged.slice(insertIndex),
       ]
     })
   }
@@ -448,8 +493,8 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     }
   }
 
-  async function submitQuestion() {
-    const trimmedQuestion = question.trim()
+  async function submitQuestion(questionOverride?: string) {
+    const trimmedQuestion = (questionOverride ?? question).trim()
     if (!trimmedQuestion) return
 
     const userMessage: ChatMessage = {
@@ -468,7 +513,9 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
           content: t("dashboard.ask.thinking", "Thinking..."),
         },
       ])
-    setQuestion("")
+    if (!questionOverride) {
+      setQuestion("")
+    }
     setLoading(true)
 
     try {
@@ -544,6 +591,11 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     }
   }
 
+  function handleStarterQuestionClick(starterQuestion: string) {
+    if (loading) return
+    void submitQuestion(starterQuestion)
+  }
+
   function handleAttachmentSelected(file: File) {
     setChatAttachments((current) => [
       ...current,
@@ -593,20 +645,61 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
                 <div
                   key={conversation.id}
                   className={cn(
-                    "group flex h-9 items-center rounded-md border px-2 transition-colors",
+                    "group relative flex h-9 items-center rounded-md border px-2 transition-colors",
                     isActive ? "border-border bg-background" : "border-transparent hover:bg-background/70",
                     draggingConversationId === conversation.id && "opacity-60",
                   )}
                   draggable
                   onDragStart={() => setDraggingConversationId(conversation.id)}
-                  onDragOver={(event) => event.preventDefault()}
+                  onDragOver={(event) => {
+                    event.preventDefault()
+                    if (!draggingConversationId || draggingConversationId === conversation.id) {
+                      setDropIndicator(null)
+                      return
+                    }
+
+                    const { top, height } = event.currentTarget.getBoundingClientRect()
+                    const placement = event.clientY - top < height / 2 ? "before" : "after"
+                    setDropIndicator({
+                      conversationId: conversation.id,
+                      placement,
+                    })
+                  }}
+                  onDragLeave={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                      setDropIndicator((current) =>
+                        current?.conversationId === conversation.id ? null : current,
+                      )
+                    }
+                  }}
                   onDrop={() => {
                     if (!draggingConversationId) return
-                    reorderConversations(draggingConversationId, conversation.id)
+                    if (draggingConversationId === conversation.id) {
+                      setDraggingConversationId(null)
+                      setDropIndicator(null)
+                      return
+                    }
+                    const placement =
+                      dropIndicator?.conversationId === conversation.id
+                        ? dropIndicator.placement
+                        : "before"
+                    reorderConversations(draggingConversationId, conversation.id, placement)
                     setDraggingConversationId(null)
+                    setDropIndicator(null)
                   }}
-                  onDragEnd={() => setDraggingConversationId(null)}
+                  onDragEnd={() => {
+                    setDraggingConversationId(null)
+                    setDropIndicator(null)
+                  }}
                 >
+                  {dropIndicator?.conversationId === conversation.id && draggingConversationId ? (
+                    <div
+                      className={cn(
+                        "pointer-events-none absolute left-2 right-2 h-0.5 rounded-full bg-primary",
+                        dropIndicator.placement === "before" ? "-top-0.5" : "-bottom-0.5",
+                      )}
+                    />
+                  ) : null}
                   <button
                     type="button"
                     className="mr-1 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -671,10 +764,13 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
           }}
         />
 
-        <div className={cn(
+        <div
+          ref={messagesContainerRef}
+          className={cn(
           "h-full overflow-y-auto transition-all duration-500",
           hasMessages ? "opacity-100" : "pointer-events-none opacity-0"
-        )}>
+          )}
+        >
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pb-36 pt-6">
             {messages.map((message) => (
               <div key={message.id} className={cn("flex w-full", message.role === "user" ? "justify-end" : "justify-start")}>
@@ -708,11 +804,43 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 px-4">
             <div className="text-center">
               <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-                {`Hello, ${firstName} — how can I help you today?`}
+                {`What do you need insights on today?`}
               </h1>
-              <p className="mt-3 text-sm text-muted-foreground md:text-base">
-                Ask questions about our services, offerings, and how to support customer needs.
-              </p>
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {starterQuestions.slice(0, 2).map((starterQuestion) => (
+                    <button
+                      key={starterQuestion}
+                      type="button"
+                      onClick={() => handleStarterQuestionClick(starterQuestion)}
+                      disabled={loading}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                        loading
+                          ? "cursor-not-allowed border-muted-foreground/30 text-muted-foreground/50"
+                          : "border-border bg-background text-foreground hover:bg-muted",
+                      )}
+                    >
+                      {starterQuestion}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleStarterQuestionClick(starterQuestions[2])}
+                    disabled={loading}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                      loading
+                        ? "cursor-not-allowed border-muted-foreground/30 text-muted-foreground/50"
+                        : "border-border bg-background text-foreground hover:bg-muted",
+                    )}
+                  >
+                    {starterQuestions[2]}
+                  </button>
+                </div>
+              </div>
             </div>
             <form
               onSubmit={(e) => { e.preventDefault(); void submitQuestion() }}
