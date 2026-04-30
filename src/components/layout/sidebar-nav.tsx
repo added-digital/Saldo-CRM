@@ -20,7 +20,7 @@ function isItemVisible(
   userRole: string | undefined,
   scopes: string[],
 ): boolean {
-  if (item.href === "/reports" || item.href === "/reports-v2" || item.href === "/settings") {
+  if (item.href === "/reports" || item.href === "/settings") {
     return true;
   }
 

@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { useTranslation } from "@/hooks/use-translation"
+import { useUser } from "@/hooks/use-user"
+import { useCachedData } from "@/hooks/use-cached-data"
 
 function getCustomerColumns(
   t: (key: string, fallback?: string) => string
@@ -215,8 +217,86 @@ function isCustomerFilterState(value: unknown): value is CustomerFilterState {
 export default function CustomersPage() {
   const router = useRouter()
   const { t } = useTranslation()
-  const [customers, setCustomers] = React.useState<CustomerWithRelations[]>([])
-  const [loading, setLoading] = React.useState(true)
+  const { user } = useUser()
+
+  const fetchCustomers = React.useCallback(async (): Promise<CustomerWithRelations[]> => {
+    const supabase = createClient()
+
+    const PAGE_SIZE = 1000
+    let allRows: CustomerWithRelations[] = []
+    let from = 0
+    let hasMore = true
+
+    while (hasMore) {
+      const { data } = await supabase
+        .from("customers")
+        .select("*")
+        .order("name")
+        .range(from, from + PAGE_SIZE - 1)
+
+      const rows = (data ?? []) as unknown as CustomerWithRelations[]
+      allRows = allRows.concat(rows)
+      hasMore = rows.length === PAGE_SIZE
+      from += PAGE_SIZE
+    }
+
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, fortnox_cost_center")
+      .eq("is_active", true)
+      .not("fortnox_cost_center", "is", null)
+
+    const profileByCostCenter = new Map<string, Pick<Profile, "id" | "full_name" | "email">>()
+    for (const p of (profileRows ?? []) as unknown as { id: string; full_name: string | null; email: string; fortnox_cost_center: string }[]) {
+      profileByCostCenter.set(p.fortnox_cost_center, { id: p.id, full_name: p.full_name, email: p.email })
+    }
+
+    const customerIds = allRows.map((c) => c.id)
+
+    const segmentMap: Record<string, Segment[]> = {}
+
+    const BATCH = 200
+    for (let i = 0; i < customerIds.length; i += BATCH) {
+      const batch = customerIds.slice(i, i + BATCH)
+
+      const { data: csRows } = await supabase
+        .from("customer_segments")
+        .select("customer_id, segment:segments(*)")
+        .in("customer_id", batch)
+
+      const rawCs = (csRows ?? []) as unknown as {
+        customer_id: string
+        segment: Segment
+      }[]
+
+      for (const row of rawCs) {
+        if (!segmentMap[row.customer_id]) segmentMap[row.customer_id] = []
+        segmentMap[row.customer_id].push(row.segment)
+      }
+    }
+
+    return allRows.map((c) => ({
+      ...c,
+      account_manager: c.fortnox_cost_center ? profileByCostCenter.get(c.fortnox_cost_center) ?? null : null,
+      segments: segmentMap[c.id] ?? [],
+    }))
+  }, [])
+
+  const {
+    data: cachedCustomers,
+    loading,
+    refresh: refreshCustomers,
+    setData: setCustomers,
+  } = useCachedData<CustomerWithRelations[]>({
+    key: `customers.v1.${user.id}`,
+    fetcher: fetchCustomers,
+  })
+
+  const customers = React.useMemo(
+    () => cachedCustomers ?? [],
+    [cachedCustomers],
+  )
+
   const [selectedCustomers, setSelectedCustomers] = React.useState<CustomerWithRelations[]>([])
   const [segmentsDialogOpen, setSegmentsDialogOpen] = React.useState(false)
   const [allSegments, setAllSegments] = React.useState<Segment[]>([])
@@ -322,76 +402,6 @@ export default function CustomersPage() {
         },
       }
 
-  async function fetchCustomers() {
-    const supabase = createClient()
-
-    const PAGE_SIZE = 1000
-    let allRows: CustomerWithRelations[] = []
-    let from = 0
-    let hasMore = true
-
-    while (hasMore) {
-      const { data } = await supabase
-        .from("customers")
-        .select("*")
-        .order("name")
-        .range(from, from + PAGE_SIZE - 1)
-
-      const rows = (data ?? []) as unknown as CustomerWithRelations[]
-      allRows = allRows.concat(rows)
-      hasMore = rows.length === PAGE_SIZE
-      from += PAGE_SIZE
-    }
-
-    const { data: profileRows } = await supabase
-      .from("profiles")
-      .select("id, full_name, email, fortnox_cost_center")
-      .eq("is_active", true)
-      .not("fortnox_cost_center", "is", null)
-
-    const profileByCostCenter = new Map<string, Pick<Profile, "id" | "full_name" | "email">>()
-    for (const p of (profileRows ?? []) as unknown as { id: string; full_name: string | null; email: string; fortnox_cost_center: string }[]) {
-      profileByCostCenter.set(p.fortnox_cost_center, { id: p.id, full_name: p.full_name, email: p.email })
-    }
-
-    const customerIds = allRows.map((c) => c.id)
-
-    const segmentMap: Record<string, Segment[]> = {}
-
-    const BATCH = 200
-    for (let i = 0; i < customerIds.length; i += BATCH) {
-      const batch = customerIds.slice(i, i + BATCH)
-
-      const { data: csRows } = await supabase
-        .from("customer_segments")
-        .select("customer_id, segment:segments(*)")
-        .in("customer_id", batch)
-
-      const rawCs = (csRows ?? []) as unknown as {
-        customer_id: string
-        segment: Segment
-      }[]
-
-      for (const row of rawCs) {
-        if (!segmentMap[row.customer_id]) segmentMap[row.customer_id] = []
-        segmentMap[row.customer_id].push(row.segment)
-      }
-    }
-
-    const enriched: CustomerWithRelations[] = allRows.map((c) => ({
-      ...c,
-      account_manager: c.fortnox_cost_center ? profileByCostCenter.get(c.fortnox_cost_center) ?? null : null,
-      segments: segmentMap[c.id] ?? [],
-    }))
-
-    setCustomers(enriched)
-    setLoading(false)
-  }
-
-  React.useEffect(() => {
-    fetchCustomers()
-  }, [])
-
   React.useEffect(() => {
     try {
       const storedColumns = window.localStorage.getItem(CUSTOMER_LIST_COLUMNS_STORAGE_KEY)
@@ -478,7 +488,7 @@ export default function CustomersPage() {
       )
       setSegmentsDialogOpen(false)
       clearSelectionRef.current?.()
-      fetchCustomers()
+      void refreshCustomers()
     }
 
     setAssigning(false)

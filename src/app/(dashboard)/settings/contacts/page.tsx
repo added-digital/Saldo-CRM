@@ -3,6 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import {
+  ChevronLeft,
+  ChevronRight,
   Mail,
   Pencil,
   Phone,
@@ -40,6 +42,7 @@ import {
 } from "@/components/ui/popover";
 import { useUser } from "@/hooks/use-user";
 import { useTranslation } from "@/hooks/use-translation";
+import { useCachedData } from "@/hooks/use-cached-data";
 
 type CustomerOptionWithStatus = Pick<
   Customer,
@@ -74,15 +77,19 @@ function toCsvRow(values: string[]): string {
   return values.map(escapeCsvValue).join(",");
 }
 
+type ContactsPagePayload = {
+  contacts: ContactWithCustomers[];
+  customers: CustomerOptionWithStatus[];
+};
+
+const CONTACTS_DEFAULT_PAGE_SIZE = 12;
+
 export default function ContactsPage() {
-  const { isAdmin } = useUser();
+  const { user, isAdmin } = useUser();
   const { t } = useTranslation();
-  const [contacts, setContacts] = React.useState<ContactWithCustomers[]>([]);
-  const [allCustomers, setAllCustomers] = React.useState<
-    CustomerOptionWithStatus[]
-  >([]);
-  const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState("");
+  const [pageIndex, setPageIndex] = React.useState(0);
+  const [pageSize, setPageSize] = React.useState(CONTACTS_DEFAULT_PAGE_SIZE);
   const [advancedFilters, setAdvancedFilters] =
     React.useState<ContactAdvancedFilters>(DEFAULT_CONTACT_ADVANCED_FILTERS);
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -94,9 +101,7 @@ export default function ContactsPage() {
     React.useState<ContactWithCustomers | null>(null);
   const [deleting, setDeleting] = React.useState(false);
 
-  const fetchContacts = React.useCallback(async () => {
-    setLoading(true);
-
+  const fetchContacts = React.useCallback(async (): Promise<ContactsPagePayload> => {
     const response = await fetch("/api/contacts", { cache: "no-store" });
     const payload = (await response.json().catch(() => null)) as {
       contacts?: ContactWithCustomers[];
@@ -105,21 +110,36 @@ export default function ContactsPage() {
     } | null;
 
     if (!response.ok) {
-      toast.error(payload?.error ?? t("settings.contacts.toast.loadFailed", "Failed to load contacts"));
-      setContacts([]);
-      setAllCustomers([]);
-      setLoading(false);
-      return;
+      toast.error(
+        payload?.error ??
+          t("settings.contacts.toast.loadFailed", "Failed to load contacts"),
+      );
+      return { contacts: [], customers: [] };
     }
 
-    setContacts(payload?.contacts ?? []);
-    setAllCustomers(payload?.customers ?? []);
-    setLoading(false);
+    return {
+      contacts: payload?.contacts ?? [],
+      customers: payload?.customers ?? [],
+    };
   }, [t]);
 
-  React.useEffect(() => {
-    fetchContacts();
-  }, [fetchContacts]);
+  const {
+    data: contactsData,
+    loading,
+    refresh: refreshContacts,
+  } = useCachedData<ContactsPagePayload>({
+    key: `contacts.v1.${user.id}`,
+    fetcher: fetchContacts,
+  });
+
+  const contacts = React.useMemo(
+    () => contactsData?.contacts ?? [],
+    [contactsData],
+  );
+  const allCustomers = React.useMemo(
+    () => contactsData?.customers ?? [],
+    [contactsData],
+  );
 
   const getVisibleRelatedCustomers = React.useCallback(
     (relatedCustomers: CustomerOptionWithStatus[]) => {
@@ -225,6 +245,31 @@ export default function ContactsPage() {
     duplicateEmails,
     getVisibleRelatedCustomers,
   ]);
+
+  const pageCount = React.useMemo(
+    () => Math.max(1, Math.ceil(filteredContacts.length / pageSize)),
+    [filteredContacts.length, pageSize],
+  );
+
+  React.useEffect(() => {
+    setPageIndex((current) => {
+      if (current < 0) return 0;
+      if (current >= pageCount) return pageCount - 1;
+      return current;
+    });
+  }, [pageCount]);
+
+  const paginatedContacts = React.useMemo(() => {
+    const from = pageIndex * pageSize;
+    const to = from + pageSize;
+    return filteredContacts.slice(from, to);
+  }, [filteredContacts, pageIndex, pageSize]);
+
+  const pageStart = filteredContacts.length === 0 ? 0 : pageIndex * pageSize + 1;
+  const pageEnd = Math.min(
+    (pageIndex + 1) * pageSize,
+    filteredContacts.length,
+  );
 
   const activeFilterCount = React.useMemo(
     () =>
@@ -552,7 +597,7 @@ export default function ContactsPage() {
 
     toast.success(t("settings.contacts.toast.updated", "Contact updated"));
     setEditingContact(null);
-    await fetchContacts();
+    await refreshContacts();
   }
 
   async function handleDelete() {
@@ -586,7 +631,7 @@ export default function ContactsPage() {
     setDeleting(false);
     setDeleteDialogOpen(false);
     setDeletingContact(null);
-    await fetchContacts();
+    await refreshContacts();
   }
 
   if (!isAdmin) {
@@ -606,6 +651,60 @@ export default function ContactsPage() {
           />
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {filteredContacts.length > 0 ? (
+            <>
+              <select
+                value={pageSize}
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setPageIndex(0);
+                }}
+                className="h-9 rounded-md border border-input bg-background px-2 text-xs"
+                aria-label={t(
+                  "settings.contacts.pagination.perPage",
+                  "Cards per page",
+                )}
+              >
+                <option value={12}>
+                  {t("settings.contacts.pagination.perPage12", "12 / page")}
+                </option>
+                <option value={24}>
+                  {t("settings.contacts.pagination.perPage24", "24 / page")}
+                </option>
+                <option value={48}>
+                  {t("settings.contacts.pagination.perPage48", "48 / page")}
+                </option>
+              </select>
+              <span className="text-sm text-muted-foreground">
+                {pageIndex + 1} {t("settings.contacts.pagination.of", "of")}{" "}
+                {pageCount}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9"
+                onClick={() =>
+                  setPageIndex((current) => Math.max(current - 1, 0))
+                }
+                disabled={pageIndex === 0}
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9"
+                onClick={() =>
+                  setPageIndex((current) =>
+                    Math.min(current + 1, pageCount - 1),
+                  )
+                }
+                disabled={pageIndex >= pageCount - 1}
+              >
+                <ChevronRight className="size-4" />
+              </Button>
+            </>
+          ) : null}
           <Button
             variant="outline"
             size="sm"
@@ -704,8 +803,9 @@ export default function ContactsPage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        {t("settings.contacts.showing", "Showing")} {filteredContacts.length} {t("settings.contacts.of", "of")}{" "}
-        {contactsByArchivedToggle.length} {t("settings.contacts.contacts", "contacts")}
+        {filteredContacts.length === 0
+          ? `${t("settings.contacts.showing", "Showing")} 0 ${t("settings.contacts.of", "of")} ${contactsByArchivedToggle.length} ${t("settings.contacts.contacts", "contacts")}`
+          : `${t("settings.contacts.showing", "Showing")} ${pageStart}–${pageEnd} ${t("settings.contacts.of", "of")} ${filteredContacts.length} ${t("settings.contacts.contacts", "contacts")}`}
       </p>
 
       {loading ? (
@@ -728,7 +828,7 @@ export default function ContactsPage() {
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {filteredContacts.map((contact) => {
+          {paginatedContacts.map((contact) => {
             const visibleRelations = getVisibleRelations(contact);
             const email = contact.email?.trim() || null;
             const phone = contact.phone?.trim() || null;

@@ -20,7 +20,6 @@ import type {
   Customer,
   CustomerWithRelations,
   Profile,
-  Team,
 } from "@/types/database";
 import { EmptyState } from "@/components/app/empty-state";
 import { DataTable } from "@/components/app/data-table";
@@ -29,7 +28,6 @@ import { Button } from "@/components/ui/button";
 import {
   ChartContainer,
   ChartTooltip,
-  type ChartConfig,
 } from "@/components/ui/chart";
 import {
   Command,
@@ -60,524 +58,69 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/hooks/use-translation";
-
-const REPORTS_MANAGER_ALIAS: Record<string, string> = {
-  "added@saldoredo.se": "Matias.a@saldoredo.se",
-};
-
-const REPORT_MONTH_OPTIONS_COUNT = 36;
-const TIME_REPORTS_PAGE_SIZE = 1000;
-const FETCH_ALL_PAGE_SIZE = 1000;
-const MONTHLY_UNMAPPED_ARTICLE_GROUP = "__UNMAPPED__";
-const MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP = "Licenser";
-
-const sekFormatter = new Intl.NumberFormat("sv-SE", {
-  style: "currency",
-  currency: "SEK",
-  maximumFractionDigits: 0,
-});
-
-const hoursFormatter = new Intl.NumberFormat("sv-SE", {
-  maximumFractionDigits: 1,
-  minimumFractionDigits: 1,
-});
-
-function invoiceTurnoverStrictExVat(input: {
-  total_ex_vat: number | null;
-}): { amount: number | null; fromTotal: boolean } {
-  if (input.total_ex_vat != null) {
-    return { amount: Number(input.total_ex_vat), fromTotal: false };
-  }
-
-  return { amount: null, fromTotal: false };
-}
-
-function toMonthKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  return `${year}-${month}`;
-}
-
-function toDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-const SWEDISH_MONTH_SHORT = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "Maj",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Okt",
-  "Nov",
-  "Dec",
-] as const;
-
-function formatSwedishMonthShort(date: Date): string {
-  return SWEDISH_MONTH_SHORT[date.getMonth()] ?? "";
-}
-
-function formatSwedishMonthYear(date: Date): string {
-  return `${formatSwedishMonthShort(date)} ${date.getFullYear()}`;
-}
-
-function parseMonthKey(monthKey: string): { year: number; month: number } {
-  const [yearPart, monthPart] = monthKey.split("-");
-  const year = Number(yearPart);
-  const month = Number(monthPart);
-
-  if (
-    !Number.isInteger(year) ||
-    !Number.isInteger(month) ||
-    month < 1 ||
-    month > 12
-  ) {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() + 1 };
-  }
-
-  return { year, month };
-}
-
-function createMonthOptions(count: number): SelectOption[] {
-  const now = new Date();
-  const minSelectableMonth = "2025-01";
-  const options: SelectOption[] = [];
-
-  for (let i = 0; i < count; i += 1) {
-    const valueDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    options.push({
-      id: toMonthKey(valueDate),
-      label: formatSwedishMonthYear(valueDate),
-    });
-  }
-
-  return options.filter((option) => option.id >= minSelectableMonth);
-}
-
-type RollingMonth = {
-  key: string;
-  label: string;
-  year: number;
-  month: number;
-};
-
-type ReportingWindowMode =
-  | "current-month"
-  | "rolling-12-months"
-  | "rolling-year";
-
-function getReportingWindowRange(
-  selectedMonthKey: string,
-  mode: ReportingWindowMode,
-): {
-  from: string;
-  to: string;
-  months: RollingMonth[];
-  title: string;
-} {
-  const { year, month } = parseMonthKey(selectedMonthKey);
-  const monthDate = new Date(year, month - 1, 1);
-  const endDate =
-    mode === "rolling-year" ? new Date(year, month, 0) : new Date(year, month, 0);
-  const startDate =
-    mode === "current-month"
-      ? new Date(year, month - 1, 1)
-      : mode === "rolling-year"
-        ? new Date(year, 0, 1)
-        : new Date(year, month - 12, 1);
-  const months: RollingMonth[] = [];
-
-  if (mode === "current-month") {
-    months.push({
-      key: toMonthKey(monthDate),
-      label: formatSwedishMonthShort(monthDate),
-      year: monthDate.getFullYear(),
-      month: monthDate.getMonth() + 1,
-    });
-
-    return {
-      from: toMonthKey(startDate) + "-01",
-      to: toDateKey(endDate),
-      months,
-      title: formatSwedishMonthYear(monthDate),
-    };
-  }
-
-  const monthCount = mode === "rolling-year" ? month : 12;
-
-  for (let i = 0; i < monthCount; i += 1) {
-    const monthDate = new Date(
-      startDate.getFullYear(),
-      startDate.getMonth() + i,
-      1,
-    );
-    months.push({
-      key: toMonthKey(monthDate),
-      label: formatSwedishMonthShort(monthDate),
-      year: monthDate.getFullYear(),
-      month: monthDate.getMonth() + 1,
-    });
-  }
-
-  return {
-    from: toMonthKey(startDate) + "-01",
-    to: toDateKey(endDate),
-    months,
-    title:
-      mode === "rolling-year"
-        ? String(year)
-        : formatSwedishMonthYear(new Date(year, month - 1, 1)),
-  };
-}
-
-function getMonthDateRange(monthKey: string): { from: string; to: string } {
-  const { year, month } = parseMonthKey(monthKey);
-  const firstDay = new Date(year, month - 1, 1);
-  const lastDay = new Date(year, month, 0);
-  return {
-    from: toMonthKey(firstDay) + "-01",
-    to: toDateKey(lastDay),
-  };
-}
-
-function chunkArray<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
-
-function annualizeContractTotal(
-  total: number | null,
-  period: string | null,
-): number {
-  const base = Number(total ?? 0);
-  const periodNumber = Number(period ?? "");
-
-  if (periodNumber === 1) return base * 12;
-  if (periodNumber === 3) return base * 4;
-  return base;
-}
-
-function getNiceStep(roughStep: number): number {
-  if (!Number.isFinite(roughStep) || roughStep <= 0) {
-    return 1;
-  }
-
-  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
-  const residual = roughStep / magnitude;
-
-  if (residual <= 1) return magnitude;
-  if (residual <= 2) return 2 * magnitude;
-  if (residual <= 5) return 5 * magnitude;
-  return 10 * magnitude;
-}
-
-function getRoundedChartMax(dataMax: number): number {
-  if (!Number.isFinite(dataMax) || dataMax <= 0) {
-    return 1;
-  }
-
-  const targetSegments = 5;
-  const step = getNiceStep(dataMax / targetSegments);
-  const highestCoveredLine = Math.ceil(dataMax / step);
-  return Math.max(step * 2, (highestCoveredLine + 1) * step);
-}
-
-function normalizeText(value: string | null | undefined): string {
-  return (value ?? "").trim().toLowerCase();
-}
-
-function normalizeIdentifier(value: string | null | undefined): string {
-  return (value ?? "").trim();
-}
-
-function getDefaultReportsMonthKey(): string {
-  const now = new Date();
-  return toMonthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-}
-
-const REPORTS_FILTERS_STORAGE_KEY = "reports.filters.v1";
-
-type SavedReportsFilters = {
-  selectedMonth: string | null;
-  selectedWindowMode: ReportingWindowMode | null;
-  selectedTeamId: string | null;
-  selectedManagerId: string | null;
-  selectedCustomerId: string | null;
-};
-
-function parseSavedReportsFilters(value: string | null): SavedReportsFilters | null {
-  if (!value) return null;
-
-  try {
-    const parsed = JSON.parse(value) as Partial<SavedReportsFilters>;
-    const isWindowMode =
-      parsed.selectedWindowMode === "current-month" ||
-      parsed.selectedWindowMode === "rolling-12-months" ||
-      parsed.selectedWindowMode === "rolling-year";
-
-    return {
-      selectedMonth:
-        typeof parsed.selectedMonth === "string" ? parsed.selectedMonth : null,
-      selectedWindowMode: isWindowMode
-        ? (parsed.selectedWindowMode as ReportingWindowMode)
-        : null,
-      selectedTeamId:
-        typeof parsed.selectedTeamId === "string" ? parsed.selectedTeamId : null,
-      selectedManagerId:
-        typeof parsed.selectedManagerId === "string" ? parsed.selectedManagerId : null,
-      selectedCustomerId:
-        typeof parsed.selectedCustomerId === "string" ? parsed.selectedCustomerId : null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-type TeamOption = Pick<Team, "id" | "name">;
-
-type ManagerOption = Pick<
-  Profile,
-  | "id"
-  | "full_name"
-  | "email"
-  | "team_id"
-  | "fortnox_cost_center"
-  | "fortnox_employee_id"
-  | "fortnox_user_id"
-  | "fortnox_group_name"
->;
-
-type SelectOption = {
-  id: string;
-  label: string;
-  subLabel?: string;
-  showAvatar?: boolean;
-  avatarFallback?: string;
-};
-
-function getInitials(value: string | null | undefined): string {
-  const normalized = (value ?? "").trim();
-  if (!normalized) return "--";
-
-  const parts = normalized.split(/\s+/).filter(Boolean).slice(0, 2);
-
-  if (parts.length === 0) return "--";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
-}
-
-function toPossessive(name: string): string {
-  const normalized = name.trim();
-  if (!normalized) return "";
-  const suffix = normalized.endsWith("s") ? "'" : "'s";
-  return `${normalized}${suffix}`;
-}
-
-function toPossessiveLabel(name: string): string {
-  const possessive = toPossessive(name);
-  if (!possessive) return "All customers";
-  return `${possessive} customers`;
-}
-
-type SearchSelectProps = {
-  placeholder: string;
-  searchPlaceholder: string;
-  options: SelectOption[];
-  value: string | null;
-  onChange: (value: string | null) => void;
-  disabled?: boolean;
-  allLabel?: string;
-  allowClear?: boolean;
-  noOptionsLabel?: string;
-};
-
-type MonthlyTimeReportingRow = {
-  monthKey: string;
-  monthLabel: string;
-  customerHours: number;
-  absenceHours: number;
-  internalHours: number;
-  totalHours: number;
-};
-
-type CustomerTimeReportingRow = {
-  contributorKey: string;
-  managerProfileId: string | null;
-  contributorId: string | null;
-  contributorName: string;
-  groupName: string;
-  customerHours: number;
-  workloadPercentage: number;
-};
-
-type HelpedCustomerManagerRow = {
-  managerProfileId: string;
-  managerName: string;
-  groupName: string;
-  customerHours: number;
-  workloadPercentage: number;
-};
-
-type CustomerMonthlyEconomicsRow = {
-  monthKey: string;
-  monthLabel: string;
-  turnover: number | null;
-  turnoverFromTotal: boolean;
-  hours: number;
-  turnoverPerHour: number | null;
-};
-
-type ManagerCustomerSummaryRow = {
-  customerId: string;
-  customerName: string;
-  turnover: number;
-  invoiceCount: number;
-  contractValue: number;
-  workloadPercentage: number;
-  customerHours: number;
-};
-
-type ArticleGroupItemRow = {
-  articleNumber: string | null;
-  articleName: string;
-  turnoverExVat: number;
-  rowCount: number;
-  quantity: number;
-  shareOfGroup: number;
-  invoiceNumbers: string[];
-};
-
-type ArticleGroupSummaryRow = {
-  groupName: string;
-  turnoverExVat: number;
-  articleCount: number;
-  rowCount: number;
-  quantity: number;
-  shareOfTotal: number;
-  articles: ArticleGroupItemRow[];
-};
-
-type TurnoverMonthRow = {
-  monthKey: string;
-  monthLabel: string;
-  turnover: number;
-  invoiceCount: number;
-};
-
-type MonthlyInvoiceGroupRow = {
-  monthKey: string;
-  groupValue: string;
-  turnover: number;
-};
-
-type MonthlyHourGroupRow = {
-  monthKey: string;
-  groupValue: string;
-  hours: number;
-};
-
-type TimeDetailMetric =
-  | "customerHours"
-  | "absenceHours"
-  | "internalHours"
-  | "otherHours"
-  | "totalHours";
-
-type TimeDetailRow = {
-  id: string;
-  reportDate: string | null;
-  customerName: string | null;
-  employeeName: string | null;
-  entryType: string | null;
-  projectName: string | null;
-  activity: string | null;
-  description: string | null;
-  hours: number;
-};
-
-type InvoiceDetailRow = {
-  id: string;
-  documentNumber: string;
-  invoiceDate: string | null;
-  dueDate: string | null;
-  turnover: number | null;
-  turnoverFromTotal: boolean;
-  currencyCode: string;
-};
-
-function prefixFilterScore(value: string, search: string): number {
-  const normalizedValue = value.trim().toLowerCase();
-  const normalizedSearch = search.trim().toLowerCase();
-  if (!normalizedSearch) return 1;
-  return normalizedValue.startsWith(normalizedSearch) ? 1 : 0;
-}
-
-function metricLabel(metric: TimeDetailMetric): string {
-  if (metric === "customerHours") return "Customer Hours";
-  if (metric === "absenceHours") return "Absence";
-  if (metric === "internalHours") return "Internal";
-  if (metric === "otherHours") return "Other";
-  return "Total Hours";
-}
-
-function createEmptyMonthlyTimeReportingRows(
-  months: RollingMonth[],
-): MonthlyTimeReportingRow[] {
-  return months.map((month) => ({
-    monthKey: month.key,
-    monthLabel: `${month.label} ${String(month.year).slice(-2)}`,
-    customerHours: 0,
-    absenceHours: 0,
-    internalHours: 0,
-    totalHours: 0,
-  }));
-}
-
-function createEmptyTurnoverRows(months: RollingMonth[]): TurnoverMonthRow[] {
-  return months.map((month) => ({
-    monthKey: month.key,
-    monthLabel: `${month.label} ${String(month.year).slice(-2)}`,
-    turnover: 0,
-    invoiceCount: 0,
-  }));
-}
-
-function compareMonthKeys(a: string, b: string): number {
-  if (a === "average" && b === "average") return 0;
-  if (a === "average") return 1;
-  if (b === "average") return -1;
-  return a.localeCompare(b);
-}
-
-function compareMonthKeysWithAverageFixed(
-  a: CustomerMonthlyEconomicsRow,
-  b: CustomerMonthlyEconomicsRow,
-): number {
-  if (a.monthKey === "average" || b.monthKey === "average") {
-    return 0;
-  }
-
-  return a.monthKey.localeCompare(b.monthKey);
-}
-
-const turnoverChartConfig = {
-  turnover: {
-    label: "Turnover",
-    color: "var(--chart-1)",
-  },
-} satisfies ChartConfig;
+import {
+  REPORTS_MANAGER_ALIAS,
+  REPORT_MONTH_OPTIONS_COUNT,
+  TIME_REPORTS_PAGE_SIZE,
+  FETCH_ALL_PAGE_SIZE,
+  MONTHLY_UNMAPPED_ARTICLE_GROUP,
+  MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP,
+  REPORTS_FILTERS_STORAGE_KEY,
+  turnoverChartConfig,
+  parseSavedReportsFilters,
+  sekFormatter,
+  hoursFormatter,
+  formatSwedishMonthShort,
+  formatSwedishMonthYear,
+  normalizeText,
+  normalizeIdentifier,
+  getInitials,
+  toPossessive,
+  toPossessiveLabel,
+  prefixFilterScore,
+  getNiceStep,
+  getRoundedChartMax,
+  chunkArray,
+  toMonthKey,
+  toDateKey,
+  parseMonthKey,
+  createMonthOptions,
+  getReportingWindowRange,
+  getMonthDateRange,
+  getDefaultReportsMonthKey,
+  compareMonthKeys,
+  compareMonthKeysWithAverageFixed,
+  mapInvoicesToDetailRows,
+  createEmptyTurnoverRows,
+  metricLabel,
+  matchesMetric,
+  createEmptyMonthlyTimeReportingRows,
+  annualizeContractTotal,
+} from "@/lib/reports";
+import type {
+  ReportingWindowMode,
+  RollingMonth,
+  SavedReportsFilters,
+  TeamOption,
+  ManagerOption,
+  SelectOption,
+  SearchSelectProps,
+  MonthlyTimeReportingRow,
+  CustomerTimeReportingRow,
+  HelpedCustomerManagerRow,
+  CustomerMonthlyEconomicsRow,
+  ManagerCustomerSummaryRow,
+  ArticleGroupItemRow,
+  ArticleGroupSummaryRow,
+  TurnoverMonthRow,
+  MonthlyInvoiceGroupRow,
+  MonthlyHourGroupRow,
+  TimeDetailMetric,
+  TimeDetailRow,
+  InvoiceDetailRow,
+  InvoiceDetailSource,
+  TurnoverTooltipPayloadItem,
+} from "@/lib/reports";
 
 async function fetchAllPages<T>(
   buildQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }> },
@@ -599,13 +142,6 @@ async function fetchAllPages<T>(
 
   return all;
 }
-
-type TurnoverTooltipPayloadItem = {
-  value?: number | string | null;
-  payload?: {
-    invoiceCount?: number;
-  };
-};
 
 function TurnoverTooltipContent({
   active,
@@ -1205,23 +741,6 @@ export default function ReportsPage() {
     },
     [resolveReporterManagerId, selectedManager],
   );
-
-  function matchesMetric(
-    entryType: string | null,
-    metric: TimeDetailMetric,
-  ): boolean {
-    if (metric === "totalHours") return true;
-
-    const normalized = (entryType ?? "").toLowerCase();
-    if (metric === "customerHours") return normalized === "time";
-    if (metric === "absenceHours") return normalized === "absence";
-    if (metric === "internalHours") return normalized === "internal";
-    return (
-      normalized !== "time" &&
-      normalized !== "absence" &&
-      normalized !== "internal"
-    );
-  }
 
   function formatTimeDetailRows(
     rows: Array<{
@@ -1954,17 +1473,9 @@ function renderWorkloadShareCell(percentage: number) {
       }>;
 
       setInvoiceDetailsRows(
-        rows.map((invoice) => {
-          const turnover = invoiceTurnoverStrictExVat(invoice);
-          return {
-            id: invoice.id,
-            documentNumber: invoice.document_number,
-            invoiceDate: invoice.invoice_date,
-            dueDate: null,
-            turnover: turnover.amount,
-            turnoverFromTotal: turnover.fromTotal,
-            currencyCode: invoice.currency_code ?? "SEK",
-          };
+        mapInvoicesToDetailRows(rows, {
+          fallbackDocumentNumber: "-",
+          includeDueDate: false,
         }),
       );
       setInvoiceDetailsLoading(false);
@@ -1972,17 +1483,9 @@ function renderWorkloadShareCell(percentage: number) {
     }
 
     setInvoiceDetailsRows(
-      dueDateRows.map((invoice) => {
-        const turnover = invoiceTurnoverStrictExVat(invoice);
-        return {
-          id: invoice.id,
-          documentNumber: invoice.document_number ?? "-",
-          invoiceDate: invoice.invoice_date,
-          dueDate: invoice.due_date,
-          turnover: turnover.amount,
-          turnoverFromTotal: turnover.fromTotal,
-          currencyCode: invoice.currency_code ?? "SEK",
-        };
+      mapInvoicesToDetailRows(dueDateRows, {
+        fallbackDocumentNumber: "-",
+        includeDueDate: true,
       }),
     );
     setInvoiceDetailsLoading(false);
@@ -2110,17 +1613,9 @@ function renderWorkloadShareCell(percentage: number) {
       }>;
 
       setInvoiceDetailsRows(
-        rows.map((invoice) => {
-          const turnover = invoiceTurnoverStrictExVat(invoice);
-          return {
-            id: invoice.id,
-            documentNumber: invoice.document_number,
-            invoiceDate: invoice.invoice_date,
-            dueDate: null,
-            turnover: turnover.amount,
-            turnoverFromTotal: turnover.fromTotal,
-            currencyCode: invoice.currency_code ?? "SEK",
-          };
+        mapInvoicesToDetailRows(rows, {
+          fallbackDocumentNumber: "-",
+          includeDueDate: false,
         }),
       );
       setInvoiceDetailsLoading(false);
@@ -2128,17 +1623,9 @@ function renderWorkloadShareCell(percentage: number) {
     }
 
     setInvoiceDetailsRows(
-      dueDateRows.map((invoice) => {
-        const turnover = invoiceTurnoverStrictExVat(invoice);
-        return {
-          id: invoice.id,
-          documentNumber: invoice.document_number ?? "-",
-          invoiceDate: invoice.invoice_date,
-          dueDate: invoice.due_date,
-          turnover: turnover.amount,
-          turnoverFromTotal: turnover.fromTotal,
-          currencyCode: invoice.currency_code ?? "SEK",
-        };
+      mapInvoicesToDetailRows(dueDateRows, {
+        fallbackDocumentNumber: "-",
+        includeDueDate: true,
       }),
     );
     setInvoiceDetailsLoading(false);
@@ -2287,17 +1774,9 @@ function renderWorkloadShareCell(percentage: number) {
     });
 
     setInvoiceDetailsRows(
-      matchingInvoices.map((invoice) => {
-        const turnover = invoiceTurnoverStrictExVat(invoice);
-        return {
-          id: invoice.id,
-          documentNumber: invoice.document_number ?? "-",
-          invoiceDate: invoice.invoice_date,
-          dueDate: invoice.due_date,
-          turnover: turnover.amount,
-          turnoverFromTotal: turnover.fromTotal,
-          currencyCode: invoice.currency_code ?? "SEK",
-        };
+      mapInvoicesToDetailRows(matchingInvoices, {
+        fallbackDocumentNumber: "-",
+        includeDueDate: true,
       }),
     );
     setInvoiceDetailsLoading(false);

@@ -15,7 +15,7 @@ export const FETCH_ALL_PAGE_SIZE = 1000;
 export const MONTHLY_UNMAPPED_ARTICLE_GROUP = "__UNMAPPED__";
 export const MONTHLY_DEFAULT_EXCLUDED_ARTICLE_GROUP = "Licenser";
 
-export const REPORTS_V2_FILTERS_STORAGE_KEY = "reports-v2.filters.v1";
+export const REPORTS_FILTERS_STORAGE_KEY = "reports.filters.v1";
 
 export const turnoverChartConfig = {
   turnover: {
