@@ -5,8 +5,17 @@ import type { ToolHandler } from "./types";
 export type GetKpiSummaryInput = {
   year: number;
   month?: number | null;
+  /** Single customer scope (kept for compatibility). */
   customer_id?: string | null;
+  /** Batch customer scope — pass an array to get a per-customer breakdown. */
+  customer_ids?: string[] | null;
   include_inactive?: boolean;
+  /**
+   * If true, the response includes `by_customer` with one entry per customer
+   * in scope. Defaults to true whenever the caller passes a specific
+   * customer_id or customer_ids; false otherwise (a global rollup).
+   */
+  include_per_customer?: boolean;
 };
 
 type KpiRow = {
@@ -23,12 +32,29 @@ type KpiRow = {
   contract_value: number | null;
 };
 
+type CustomerNameRow = {
+  id: string;
+  name: string;
+  fortnox_customer_number: string | null;
+};
+
 const KPI_COLUMNS =
   "customer_id, period_year, period_month, total_turnover, invoice_count, " +
   "total_hours, customer_hours, absence_hours, internal_hours, other_hours, " +
   "contract_value";
 
 const CUSTOMER_ID_CHUNK = 200;
+
+const ZERO_TOTALS = () => ({
+  total_turnover: 0,
+  invoice_count: 0,
+  total_hours: 0,
+  customer_hours: 0,
+  absence_hours: 0,
+  internal_hours: 0,
+  other_hours: 0,
+  contract_value: 0,
+});
 
 /**
  * Returns aggregated KPI numbers from the precomputed `customer_kpis` rollup
@@ -37,13 +63,13 @@ const CUSTOMER_ID_CHUNK = 200;
  * questions, because the rollup already applies business rules (Licenser
  * exclusion, status filters, etc.) at sync time.
  *
- * Aggregation strategy mirrors the dashboard:
- *   1. Resolve the customer scope: a single customer_id, or all active
- *      customers visible under RLS (set include_inactive=true to widen).
- *   2. Pull customer_kpis rows for those customers in the requested period
- *      (period_type='month' for both the single-month and per-month-of-year
- *      cases; we filter by period_year and optionally period_month).
- *   3. Sum across rows and return totals plus a per-month breakdown.
+ * Single vs batch:
+ *   - No customer_id / customer_ids → global rollup across all in-scope
+ *     customers (active by default).
+ *   - customer_id (string) → single customer view.
+ *   - customer_ids (string[]) → batch view; the response includes
+ *     `by_customer` so Claude can answer "give me each customer's numbers"
+ *     in one call instead of one tool call per customer.
  */
 export const getKpiSummary: ToolHandler<GetKpiSummaryInput> = async (
   input,
@@ -63,23 +89,34 @@ export const getKpiSummary: ToolHandler<GetKpiSummaryInput> = async (
     return { error: "`month` must be an integer between 1 and 12." };
   }
 
-  const customerIdFilter = input.customer_id?.trim() || null;
+  const explicitIds = new Set<string>();
+  if (input.customer_id) {
+    const trimmed = input.customer_id.trim();
+    if (trimmed) explicitIds.add(trimmed);
+  }
+  if (Array.isArray(input.customer_ids)) {
+    for (const id of input.customer_ids) {
+      if (typeof id !== "string") continue;
+      const trimmed = id.trim();
+      if (trimmed) explicitIds.add(trimmed);
+    }
+  }
   const includeInactive = input.include_inactive ?? false;
+  const includePerCustomer =
+    input.include_per_customer ?? explicitIds.size > 0;
 
   // -------------------------------------------------------------------------
   // 1. Resolve customer scope
   // -------------------------------------------------------------------------
   let scopedCustomerIds: string[] | null = null;
 
-  if (customerIdFilter) {
-    scopedCustomerIds = [customerIdFilter];
+  if (explicitIds.size > 0) {
+    scopedCustomerIds = Array.from(explicitIds);
   } else if (!includeInactive) {
-    let customerQuery = supabase
+    const { data, error } = await supabase
       .from("customers")
       .select("id")
       .eq("status", "active");
-
-    const { data, error } = await customerQuery;
     if (error) {
       return { error: error.message };
     }
@@ -93,7 +130,7 @@ export const getKpiSummary: ToolHandler<GetKpiSummaryInput> = async (
   // -------------------------------------------------------------------------
   const allRows: KpiRow[] = [];
 
-  const runQuery = async (idChunk: string[] | null) => {
+  const runKpiQuery = async (idChunk: string[] | null) => {
     let query = supabase
       .from("customer_kpis")
       .select(KPI_COLUMNS)
@@ -114,13 +151,12 @@ export const getKpiSummary: ToolHandler<GetKpiSummaryInput> = async (
 
   try {
     if (scopedCustomerIds == null) {
-      // include_inactive=true and no customer_id → pull every visible KPI row.
-      await runQuery(null);
+      await runKpiQuery(null);
     } else if (scopedCustomerIds.length === 0) {
-      // Nothing in scope — return zeroed result rather than erroring.
+      // Nothing in scope — fall through with zeroed totals.
     } else {
       for (const chunk of chunkArray(scopedCustomerIds, CUSTOMER_ID_CHUNK)) {
-        await runQuery(chunk);
+        await runKpiQuery(chunk);
       }
     }
   } catch (error) {
@@ -130,69 +166,166 @@ export const getKpiSummary: ToolHandler<GetKpiSummaryInput> = async (
   }
 
   // -------------------------------------------------------------------------
-  // 3. Aggregate
+  // 3. Customer name lookup (only when per-customer detail is requested)
   // -------------------------------------------------------------------------
-  const totals = {
-    total_turnover: 0,
-    invoice_count: 0,
-    total_hours: 0,
-    customer_hours: 0,
-    absence_hours: 0,
-    internal_hours: 0,
-    other_hours: 0,
-    contract_value: 0,
-  };
+  const customerIdsToName = new Set<string>();
+  if (includePerCustomer) {
+    for (const row of allRows) customerIdsToName.add(row.customer_id);
+    for (const id of explicitIds) customerIdsToName.add(id);
+  }
 
-  const byMonth = new Map<
-    number,
-    {
-      period_month: number;
-      total_turnover: number;
-      invoice_count: number;
-      total_hours: number;
-      contributing_customers: number;
-    }
+  const customerInfo = new Map<
+    string,
+    { name: string; fortnox_customer_number: string | null }
   >();
+
+  if (customerIdsToName.size > 0) {
+    try {
+      for (const chunk of chunkArray(
+        Array.from(customerIdsToName),
+        CUSTOMER_ID_CHUNK,
+      )) {
+        const { data, error } = await supabase
+          .from("customers")
+          .select("id, name, fortnox_customer_number")
+          .in("id", chunk);
+        if (error) throw new Error(error.message);
+        const rows = (data ?? []) as unknown as CustomerNameRow[];
+        for (const row of rows) {
+          customerInfo.set(row.id, {
+            name: row.name,
+            fortnox_customer_number: row.fortnox_customer_number,
+          });
+        }
+      }
+    } catch (error) {
+      // Name lookup is best-effort; if it fails we still return KPIs by id.
+      console.error("getKpiSummary: customer name lookup failed", error);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // 4. Aggregate (global + per-customer)
+  // -------------------------------------------------------------------------
+  const totals = ZERO_TOTALS();
+
+  type ByMonthRow = {
+    period_month: number;
+    total_turnover: number;
+    invoice_count: number;
+    total_hours: number;
+    contributing_customers: number;
+  };
+  const byMonth = new Map<number, ByMonthRow>();
+
+  type CustomerBucket = {
+    customer_id: string;
+    name: string | null;
+    fortnox_customer_number: string | null;
+    totals: ReturnType<typeof ZERO_TOTALS>;
+    by_month: Map<number, ByMonthRow>;
+  };
+  const byCustomer = new Map<string, CustomerBucket>();
   const customersContributing = new Set<string>();
+
+  const ensureCustomerBucket = (customerId: string): CustomerBucket => {
+    let bucket = byCustomer.get(customerId);
+    if (!bucket) {
+      const info = customerInfo.get(customerId);
+      bucket = {
+        customer_id: customerId,
+        name: info?.name ?? null,
+        fortnox_customer_number: info?.fortnox_customer_number ?? null,
+        totals: ZERO_TOTALS(),
+        by_month: new Map(),
+      };
+      byCustomer.set(customerId, bucket);
+    }
+    return bucket;
+  };
 
   for (const row of allRows) {
     const turnover = Number(row.total_turnover ?? 0);
     const invoiceCount = Number(row.invoice_count ?? 0);
     const totalHours = Number(row.total_hours ?? 0);
+    const customerHours = Number(row.customer_hours ?? 0);
+    const absenceHours = Number(row.absence_hours ?? 0);
+    const internalHours = Number(row.internal_hours ?? 0);
+    const otherHours = Number(row.other_hours ?? 0);
+    const contractValue = Number(row.contract_value ?? 0);
 
     totals.total_turnover += turnover;
     totals.invoice_count += invoiceCount;
     totals.total_hours += totalHours;
-    totals.customer_hours += Number(row.customer_hours ?? 0);
-    totals.absence_hours += Number(row.absence_hours ?? 0);
-    totals.internal_hours += Number(row.internal_hours ?? 0);
-    totals.other_hours += Number(row.other_hours ?? 0);
-    totals.contract_value += Number(row.contract_value ?? 0);
+    totals.customer_hours += customerHours;
+    totals.absence_hours += absenceHours;
+    totals.internal_hours += internalHours;
+    totals.other_hours += otherHours;
+    totals.contract_value += contractValue;
 
     customersContributing.add(row.customer_id);
 
-    const target = byMonth.get(row.period_month) ?? {
+    const monthEntry = byMonth.get(row.period_month) ?? {
       period_month: row.period_month,
       total_turnover: 0,
       invoice_count: 0,
       total_hours: 0,
       contributing_customers: 0,
     };
-    target.total_turnover += turnover;
-    target.invoice_count += invoiceCount;
-    target.total_hours += totalHours;
-    target.contributing_customers += 1;
-    byMonth.set(row.period_month, target);
+    monthEntry.total_turnover += turnover;
+    monthEntry.invoice_count += invoiceCount;
+    monthEntry.total_hours += totalHours;
+    monthEntry.contributing_customers += 1;
+    byMonth.set(row.period_month, monthEntry);
+
+    if (includePerCustomer) {
+      const bucket = ensureCustomerBucket(row.customer_id);
+      bucket.totals.total_turnover += turnover;
+      bucket.totals.invoice_count += invoiceCount;
+      bucket.totals.total_hours += totalHours;
+      bucket.totals.customer_hours += customerHours;
+      bucket.totals.absence_hours += absenceHours;
+      bucket.totals.internal_hours += internalHours;
+      bucket.totals.other_hours += otherHours;
+      bucket.totals.contract_value += contractValue;
+
+      const customerMonthEntry = bucket.by_month.get(row.period_month) ?? {
+        period_month: row.period_month,
+        total_turnover: 0,
+        invoice_count: 0,
+        total_hours: 0,
+        contributing_customers: 1,
+      };
+      customerMonthEntry.total_turnover += turnover;
+      customerMonthEntry.invoice_count += invoiceCount;
+      customerMonthEntry.total_hours += totalHours;
+      bucket.by_month.set(row.period_month, customerMonthEntry);
+    }
   }
 
-  return {
+  // Ensure every explicitly-requested customer appears in by_customer, even
+  // if they had no KPI rows for the period (caller asked about them — say so
+  // explicitly rather than letting them silently drop out).
+  if (includePerCustomer) {
+    for (const id of explicitIds) {
+      if (!byCustomer.has(id)) {
+        ensureCustomerBucket(id);
+      }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // 5. Build response
+  // -------------------------------------------------------------------------
+  const response: Record<string, unknown> = {
     period: {
       year,
       month: month ?? null,
       type: month != null ? "month" : "year",
     },
     scope: {
-      customer_id: customerIdFilter,
+      customer_ids:
+        explicitIds.size > 0 ? Array.from(explicitIds) : null,
       include_inactive: includeInactive,
       customers_in_scope: scopedCustomerIds?.length ?? null,
       customers_contributing: customersContributing.size,
@@ -203,4 +336,20 @@ export const getKpiSummary: ToolHandler<GetKpiSummaryInput> = async (
     ),
     source: "customer_kpis (precomputed rollup — matches reports dashboard)",
   };
+
+  if (includePerCustomer) {
+    response.by_customer = Array.from(byCustomer.values())
+      .map((bucket) => ({
+        customer_id: bucket.customer_id,
+        name: bucket.name,
+        fortnox_customer_number: bucket.fortnox_customer_number,
+        totals: bucket.totals,
+        by_month: Array.from(bucket.by_month.values()).sort(
+          (a, b) => a.period_month - b.period_month,
+        ),
+      }))
+      .sort((a, b) => b.totals.total_turnover - a.totals.total_turnover);
+  }
+
+  return response;
 };

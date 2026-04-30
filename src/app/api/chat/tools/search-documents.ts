@@ -30,6 +30,21 @@ type DocumentSource = {
   similarity: number;
 };
 
+type DirectChunkRow = {
+  id: string;
+  document_id: string;
+  chunk_text: string;
+  embedding: unknown;
+  documents:
+    | {
+        id: string;
+        file_name: string;
+        document_type: string | null;
+        storage_path: string;
+      }
+    | null;
+};
+
 const VOYAGE_MODEL = "voyage-3";
 const EXPECTED_EMBEDDING_DIM = 1024;
 const DEFAULT_MATCH_COUNT = 5;
@@ -37,6 +52,36 @@ const MAX_MATCH_COUNT = 10;
 
 function toVectorString(embedding: number[]): string {
   return `[${embedding.join(",")}]`;
+}
+
+function parseVectorEmbedding(value: unknown): number[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is number => typeof item === "number");
+  }
+  if (typeof value !== "string") return [];
+
+  const trimmed = value.trim();
+  const normalized = trimmed.replace(/^\[/, "").replace(/\]$/, "");
+  if (!normalized) return [];
+
+  return normalized
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isFinite(item));
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length === 0 || b.length === 0 || a.length !== b.length) return 0;
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
 async function embedQuestion(question: string): Promise<number[]> {
@@ -76,20 +121,18 @@ async function embedQuestion(question: string): Promise<number[]> {
 }
 
 /**
- * Vector search over uploaded documents (notes, contracts, service docs,
- * attachments). Mirrors the existing /api/questions/ask-documents pipeline:
- *  1. Embed the question with Voyage AI (voyage-3, 1024 dims).
- *  2. Call the `search_chunks` Postgres RPC, which sorts chunks by cosine
- *     distance against the query vector and returns the top N.
+ * Vector search over uploaded documents. Mirrors the three-tier fallback chain
+ * the existing /api/questions/ask-documents route uses, so this tool keeps
+ * working even when the `search_chunks` RPC has issues:
+ *
+ *   1. Fast path: `search_chunks` RPC.
+ *   2. Fallback: `run_generated_sql` RPC with an explicit vector dim cast
+ *      (sometimes more permissive about argument typing).
+ *   3. Last resort: fetch up to 500 chunks directly and compute cosine in JS.
  *
  * Documents in this CRM are not customer-scoped (firm-wide policies, service
- * descriptions, etc.) — the RPC is invoked via the admin client because
- * `document_chunks` doesn't enforce per-customer RLS. If you ever start
- * tagging documents to customers, this is the place to add a pre-filter.
- *
- * The tool result includes both the raw chunks (so Claude can quote them in
- * its answer) and a deduped `sources` array (so the chat route can attach
- * file metadata to the final response for the UI's "Källa: ..." footer).
+ * descriptions, handbooks) — searches go through the admin client because
+ * `document_chunks` doesn't enforce per-customer RLS.
  */
 export const searchDocuments: ToolHandler<SearchDocumentsInput> = async (
   input,
@@ -108,11 +151,11 @@ export const searchDocuments: ToolHandler<SearchDocumentsInput> = async (
   try {
     embedding = await embedQuestion(query);
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Embedding failed.";
+    console.error("[search_documents] embedding failed:", message);
     return {
-      error:
-        error instanceof Error
-          ? `Embedding failed: ${error.message}`
-          : "Embedding failed.",
+      error: `Embedding step failed: ${message}`,
       chunks: [],
       sources: [],
     };
@@ -120,25 +163,124 @@ export const searchDocuments: ToolHandler<SearchDocumentsInput> = async (
 
   const adminClient = createAdminClient();
   const vectorString = toVectorString(embedding);
-  const vectorWithCast = `${vectorString}::vector`;
 
-  const { data, error } = await adminClient.rpc("search_chunks" as never, {
-    query_embedding: vectorWithCast,
-    match_count: matchCount,
-  } as never);
+  let rows: ChunkSearchRow[] = [];
+  const failures: string[] = [];
 
-  if (error) {
+  // ---------------------------------------------------------------------------
+  // Tier 1 — search_chunks RPC
+  // ---------------------------------------------------------------------------
+  try {
+    const { data, error } = await adminClient.rpc("search_chunks" as never, {
+      query_embedding: `${vectorString}::vector`,
+      match_count: matchCount,
+    } as never);
+
+    if (error) {
+      failures.push(`search_chunks RPC: ${error.message}`);
+      console.error("[search_documents] search_chunks RPC failed:", error);
+    } else if (Array.isArray(data)) {
+      rows = data as ChunkSearchRow[];
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown";
+    failures.push(`search_chunks RPC threw: ${message}`);
+    console.error("[search_documents] search_chunks RPC threw:", error);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tier 2 — run_generated_sql with explicit vector dim
+  // ---------------------------------------------------------------------------
+  if (rows.length === 0) {
+    try {
+      const sql = [
+        "SELECT",
+        "  dc.id AS chunk_id,",
+        "  dc.document_id,",
+        "  dc.chunk_text,",
+        "  d.file_name,",
+        "  d.document_type,",
+        `  1 - (dc.embedding <=> '${vectorString}'::vector(${embedding.length})) AS similarity,`,
+        "  d.storage_path",
+        "FROM document_chunks dc",
+        "INNER JOIN documents d ON d.id = dc.document_id",
+        `ORDER BY dc.embedding <=> '${vectorString}'::vector(${embedding.length})`,
+        `LIMIT ${matchCount}`,
+      ].join("\n");
+
+      const { data, error } = await adminClient.rpc(
+        "run_generated_sql" as never,
+        { query_text: sql } as never,
+      );
+
+      if (error) {
+        failures.push(`run_generated_sql: ${error.message}`);
+        console.error("[search_documents] run_generated_sql failed:", error);
+      } else if (Array.isArray(data)) {
+        rows = data as ChunkSearchRow[];
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown";
+      failures.push(`run_generated_sql threw: ${message}`);
+      console.error("[search_documents] run_generated_sql threw:", error);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tier 3 — direct fetch + JS cosine
+  // ---------------------------------------------------------------------------
+  if (rows.length === 0) {
+    try {
+      const { data, error } = await adminClient
+        .from("document_chunks")
+        .select(
+          "id, document_id, chunk_text, embedding, " +
+            "documents!inner(id, file_name, document_type, storage_path)",
+        )
+        .limit(500);
+
+      if (error) {
+        failures.push(`direct fetch: ${error.message}`);
+        console.error("[search_documents] direct fetch failed:", error);
+      } else {
+        const directRows = (data ?? []) as unknown as DirectChunkRow[];
+        rows = directRows
+          .map((row) => {
+            const parsed = parseVectorEmbedding(row.embedding);
+            const similarity = cosineSimilarity(embedding, parsed);
+            if (!row.documents) return null;
+            return {
+              chunk_id: row.id,
+              document_id: row.document_id,
+              chunk_text: row.chunk_text,
+              file_name: row.documents.file_name,
+              document_type: row.documents.document_type,
+              similarity,
+              storage_path: row.documents.storage_path,
+            } satisfies ChunkSearchRow;
+          })
+          .filter((row): row is ChunkSearchRow => row !== null)
+          .sort((a, b) => b.similarity - a.similarity)
+          .slice(0, matchCount);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown";
+      failures.push(`direct fetch threw: ${message}`);
+      console.error("[search_documents] direct fetch threw:", error);
+    }
+  }
+
+  if (rows.length === 0) {
     return {
-      error: `search_chunks RPC failed: ${error.message}`,
+      error:
+        "All document-search paths failed. " +
+        (failures.length > 0 ? `Details: ${failures.join(" | ")}` : ""),
       chunks: [],
       sources: [],
     };
   }
 
-  const rows = (Array.isArray(data) ? data : []) as ChunkSearchRow[];
-
-  // Compact chunks for Claude — keep the text but trim metadata. The full
-  // sources list is returned separately for the UI.
+  // Compact chunks for Claude — keep the text but trim metadata.
   const chunks = rows.map((row, index) => ({
     rank: index + 1,
     file_name: row.file_name,
@@ -167,5 +309,6 @@ export const searchDocuments: ToolHandler<SearchDocumentsInput> = async (
     chunk_count: chunks.length,
     chunks,
     sources: Array.from(sourceMap.values()),
+    fallbacks_used: failures.length > 0 ? failures : undefined,
   };
 };

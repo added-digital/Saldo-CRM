@@ -70,10 +70,16 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
       "`customer_kpis` rollup — the SAME source the reports dashboard uses, " +
       "so numbers will match the UI exactly. ALWAYS prefer this tool over " +
       "search_invoices for questions like 'how much did we invoice in March', " +
-      "'how many invoices last year', 'compare X to Y month' — search_invoices " +
-      "returns RAW invoice rows that include line items the dashboard " +
-      "filters out (e.g. Licenser article group), and totals computed from " +
-      "those rows will NOT match the dashboard.",
+      "'how many invoices last year', 'compare X to Y month'.\n\n" +
+      "Three modes:\n" +
+      "  - No customer scope → global rollup across all active customers " +
+      "(set include_inactive=true to widen).\n" +
+      "  - `customer_id` (single string) → one customer's numbers.\n" +
+      "  - `customer_ids` (array) → BATCH mode. Returns aggregate totals AND " +
+      "a `by_customer` array with one entry per customer — use this when " +
+      "the user asks for per-customer numbers across a portfolio (e.g. " +
+      "'show me each of Alice's customers' March numbers'). Do NOT call " +
+      "this tool once per customer in a loop.",
     input_schema: {
       type: "object",
       properties: {
@@ -93,7 +99,16 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         },
         customer_id: {
           type: "string",
-          description: "Optional customer UUID to scope the summary.",
+          description:
+            "Optional single customer UUID. Use customer_ids for batch.",
+        },
+        customer_ids: {
+          type: "array",
+          description:
+            "Optional array of customer UUIDs. When provided, the response " +
+            "includes a `by_customer` breakdown alongside aggregate totals. " +
+            "Prefer this over calling the tool once per customer.",
+          items: { type: "string" },
         },
         include_inactive: {
           type: "boolean",
@@ -101,6 +116,12 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
             "If true, includes inactive customers in the aggregation. " +
             "Default false (matches dashboard behavior of summing only " +
             "active customers).",
+        },
+        include_per_customer: {
+          type: "boolean",
+          description:
+            "Force-include `by_customer` breakdown in the response. " +
+            "Defaults to true when customer_id or customer_ids is set.",
         },
       },
       required: ["year"],
