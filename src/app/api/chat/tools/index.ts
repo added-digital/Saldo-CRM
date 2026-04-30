@@ -7,6 +7,7 @@ import { getKpiSummary } from "./get-kpi-summary";
 import { listCostCenters } from "./list-cost-centers";
 import { resolveConsultant } from "./resolve-consultant";
 import { resolveCustomer } from "./resolve-customer";
+import { searchDocuments } from "./search-documents";
 import { searchInvoices } from "./search-invoices";
 import type { ToolContext, ToolResult } from "./types";
 
@@ -248,6 +249,37 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
       required: ["consultant_id"],
     },
   },
+  {
+    name: "search_documents",
+    description:
+      "Vector search over the firm's uploaded documents (service " +
+      "descriptions, contracts, notes, internal policies, attachments). " +
+      "Returns the top matching chunks with file_name, document_type, " +
+      "similarity score and an excerpt. Use this for questions about " +
+      "services, offerings, packages, internal processes, or anything " +
+      "where the answer lives in a document rather than in the structured " +
+      "CRM tables. Combine with CRM tools when the answer needs both " +
+      "(e.g. 'what does our standard accounting service include for " +
+      "[customer]?').",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description:
+            "Natural-language query to embed and search against. Use the " +
+            "user's question (or a focused rephrasing of it).",
+        },
+        match_count: {
+          type: "integer",
+          description: "Max chunks to return (1-10). Default 5.",
+          minimum: 1,
+          maximum: 10,
+        },
+      },
+      required: ["query"],
+    },
+  },
 ];
 
 type AnyToolHandler = (
@@ -264,6 +296,7 @@ const HANDLERS: Record<string, AnyToolHandler> = {
   get_cost_center_details: getCostCenterDetails as AnyToolHandler,
   resolve_consultant: resolveConsultant as AnyToolHandler,
   get_consultant_customers: getConsultantCustomers as AnyToolHandler,
+  search_documents: searchDocuments as AnyToolHandler,
 };
 
 /**

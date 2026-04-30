@@ -25,6 +25,12 @@ type ToolCallTrace = {
   input: unknown;
 };
 
+type DocumentSource = {
+  file_name: string;
+  document_type: string | null;
+  similarity: number;
+};
+
 const MAX_TOOL_ITERATIONS = 6;
 const HISTORY_TURNS = 10;
 
@@ -149,9 +155,10 @@ async function handleChat(request: Request) {
   // ---------------------------------------------------------------------------
 
   const anthropic = new Anthropic({ apiKey });
-  const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
+  const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5";
   const system = buildSystemPrompt(context);
   const toolTrace: ToolCallTrace[] = [];
+  const collectedSources = new Map<string, DocumentSource>();
 
   let finalText: string | null = null;
   let lastResponse: Anthropic.Message | null = null;
@@ -178,6 +185,28 @@ async function handleChat(request: Request) {
       for (const block of toolUseBlocks) {
         toolTrace.push({ name: block.name, input: block.input });
         const result = await executeTool(block.name, block.input, context);
+
+        // Capture document sources from search_documents calls so the route
+        // can surface them in the response (the UI renders these as
+        // "Källa: ..." footers under each assistant message).
+        if (
+          block.name === "search_documents" &&
+          result &&
+          typeof result === "object" &&
+          "sources" in result &&
+          Array.isArray((result as { sources?: unknown }).sources)
+        ) {
+          for (const source of (result as { sources: DocumentSource[] })
+            .sources) {
+            if (!source?.file_name) continue;
+            const key = source.file_name.trim().toLowerCase();
+            const existing = collectedSources.get(key);
+            if (!existing || source.similarity > existing.similarity) {
+              collectedSources.set(key, source);
+            }
+          }
+        }
+
         toolResults.push({
           type: "tool_result",
           tool_use_id: block.id,
@@ -212,14 +241,18 @@ async function handleChat(request: Request) {
   // Persistence is owned by the client (DashboardAskQuestion stores its own
   // conversations rows), so this endpoint is read-only with respect to the
   // conversations table — it loads history when given conversation_id, but
-  // never inserts or updates. Empty `sources` is included for shape parity
-  // with the existing /api/questions/ask-documents response.
+  // never inserts or updates. `sources` mirrors the shape returned by
+  // /api/questions/ask-documents so the UI's footer rendering Just Works.
   void lastResponse;
+
+  const sources = Array.from(collectedSources.values()).sort(
+    (a, b) => b.similarity - a.similarity,
+  );
 
   return NextResponse.json({
     conversation_id: conversationId,
     answer: finalText,
-    sources: [],
+    sources,
     tool_calls: toolTrace,
   });
 }
