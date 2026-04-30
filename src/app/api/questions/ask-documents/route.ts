@@ -136,6 +136,8 @@ const REPORTING_KEYWORDS = [
   "kunder",
   "tjanat",
   "tjänat",
+  "fakturerat",
+  "fakturering",
 ];
 
 function toVectorString(values: number[]): string {
@@ -709,6 +711,62 @@ function buildTopCustomersFallbackSql(input: {
   ].join("\n");
 }
 
+function buildTopCustomerByInvoicesForYearFallbackSql(input: {
+  role: string;
+  year: number;
+}): string {
+  if (CRM_CUSTOMER_SCOPED_ROLES.has(input.role)) {
+    return [
+      "WITH scoped_customers AS (",
+      "  SELECT id, name",
+      "  FROM customers",
+      "  WHERE fortnox_cost_center = {user_cost_center}",
+      "    AND (status = 'active' OR status IS NULL)",
+      "),",
+      "yearly AS (",
+      "  SELECT",
+      "    sc.name AS customer_name,",
+      "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+      "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+      "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+      "  FROM scoped_customers sc",
+      "  INNER JOIN customer_kpis ck ON ck.customer_id = sc.id",
+      "  WHERE ck.period_type = 'month'",
+      `    AND ck.period_year = ${input.year}`,
+      "  GROUP BY sc.name",
+      ")",
+      "SELECT customer_name, invoice_count, turnover_ex_vat, total_hours",
+      "FROM yearly",
+      "ORDER BY invoice_count DESC, turnover_ex_vat DESC, customer_name ASC",
+      "LIMIT 1",
+    ].join("\n");
+  }
+
+  return [
+    "WITH active_customers AS (",
+    "  SELECT id, name",
+    "  FROM customers",
+    "  WHERE status = 'active' OR status IS NULL",
+    "),",
+    "yearly AS (",
+    "  SELECT",
+    "    ac.name AS customer_name,",
+    "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+    "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+    "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+    "  FROM active_customers ac",
+    "  INNER JOIN customer_kpis ck ON ck.customer_id = ac.id",
+    "  WHERE ck.period_type = 'month'",
+    `    AND ck.period_year = ${input.year}`,
+    "  GROUP BY ac.name",
+    ")",
+    "SELECT customer_name, invoice_count, turnover_ex_vat, total_hours",
+    "FROM yearly",
+    "ORDER BY invoice_count DESC, turnover_ex_vat DESC, customer_name ASC",
+    "LIMIT 1",
+  ].join("\n");
+}
+
 function buildTopCustomerForMonthFallbackSql(input: {
   role: string;
   window: FinancialReportWindow;
@@ -767,6 +825,127 @@ function buildTopCustomerForMonthFallbackSql(input: {
   ].join("\n");
 }
 
+function buildCustomerMonthKpiFallbackSql(input: {
+  role: string;
+  window: FinancialReportWindow;
+  customerName: string;
+}): string {
+  const customerNameFilter = toSqlLikeLiteral(input.customerName);
+
+  if (CRM_CUSTOMER_SCOPED_ROLES.has(input.role)) {
+    return [
+      "WITH scoped_customers AS (",
+      "  SELECT id, name",
+      "  FROM customers",
+      "  WHERE fortnox_cost_center = {user_cost_center}",
+      "    AND (status = 'active' OR status IS NULL)",
+      `    AND name ILIKE ${customerNameFilter} ESCAPE '\\\\'`,
+      "),",
+      "monthly AS (",
+      "  SELECT",
+      "    sc.name AS customer_name,",
+      "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+      "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+      "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+      "  FROM scoped_customers sc",
+      "  INNER JOIN customer_kpis ck ON ck.customer_id = sc.id",
+      "  WHERE ck.period_type = 'month'",
+      `    AND ck.period_year = ${input.window.year}`,
+      `    AND ck.period_month = ${input.window.month}`,
+      "  GROUP BY sc.name",
+      ")",
+      "SELECT customer_name, turnover_ex_vat, invoice_count, total_hours",
+      "FROM monthly",
+      "ORDER BY turnover_ex_vat DESC, customer_name ASC",
+      "LIMIT 5",
+    ].join("\n");
+  }
+
+  return [
+    "WITH active_customers AS (",
+    "  SELECT id, name",
+    "  FROM customers",
+    "  WHERE status = 'active' OR status IS NULL",
+    `    AND name ILIKE ${customerNameFilter} ESCAPE '\\\\'`,
+    "),",
+    "monthly AS (",
+    "  SELECT",
+    "    ac.name AS customer_name,",
+    "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+    "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+    "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+    "  FROM active_customers ac",
+    "  INNER JOIN customer_kpis ck ON ck.customer_id = ac.id",
+    "  WHERE ck.period_type = 'month'",
+    `    AND ck.period_year = ${input.window.year}`,
+    `    AND ck.period_month = ${input.window.month}`,
+    "  GROUP BY ac.name",
+    ")",
+    "SELECT customer_name, turnover_ex_vat, invoice_count, total_hours",
+    "FROM monthly",
+    "ORDER BY turnover_ex_vat DESC, customer_name ASC",
+    "LIMIT 5",
+  ].join("\n");
+}
+
+function buildMonthCustomerKpiListFallbackSql(input: {
+  role: string;
+  window: FinancialReportWindow;
+}): string {
+  if (CRM_CUSTOMER_SCOPED_ROLES.has(input.role)) {
+    return [
+      "WITH scoped_customers AS (",
+      "  SELECT id, name",
+      "  FROM customers",
+      "  WHERE fortnox_cost_center = {user_cost_center}",
+      "    AND (status = 'active' OR status IS NULL)",
+      "),",
+      "monthly AS (",
+      "  SELECT",
+      "    sc.name AS customer_name,",
+      "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+      "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+      "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+      "  FROM scoped_customers sc",
+      "  INNER JOIN customer_kpis ck ON ck.customer_id = sc.id",
+      "  WHERE ck.period_type = 'month'",
+      `    AND ck.period_year = ${input.window.year}`,
+      `    AND ck.period_month = ${input.window.month}`,
+      "  GROUP BY sc.name",
+      ")",
+      "SELECT customer_name, turnover_ex_vat, invoice_count, total_hours",
+      "FROM monthly",
+      "ORDER BY turnover_ex_vat DESC, invoice_count DESC, customer_name ASC",
+      "LIMIT 10",
+    ].join("\n");
+  }
+
+  return [
+    "WITH active_customers AS (",
+    "  SELECT id, name",
+    "  FROM customers",
+    "  WHERE status = 'active' OR status IS NULL",
+    "),",
+    "monthly AS (",
+    "  SELECT",
+    "    ac.name AS customer_name,",
+    "    COALESCE(SUM(ck.total_turnover), 0) AS turnover_ex_vat,",
+    "    COALESCE(SUM(ck.invoice_count), 0) AS invoice_count,",
+    "    COALESCE(SUM(ck.total_hours), 0) AS total_hours",
+    "  FROM active_customers ac",
+    "  INNER JOIN customer_kpis ck ON ck.customer_id = ac.id",
+    "  WHERE ck.period_type = 'month'",
+    `    AND ck.period_year = ${input.window.year}`,
+    `    AND ck.period_month = ${input.window.month}`,
+    "  GROUP BY ac.name",
+    ")",
+    "SELECT customer_name, turnover_ex_vat, invoice_count, total_hours",
+    "FROM monthly",
+    "ORDER BY turnover_ex_vat DESC, invoice_count DESC, customer_name ASC",
+    "LIMIT 10",
+  ].join("\n");
+}
+
 function parseTopCustomerForMonthWindow(question: string): FinancialReportWindow | null {
   const normalized = question
     .toLowerCase()
@@ -783,7 +962,9 @@ function parseTopCustomerForMonthWindow(question: string): FinancialReportWindow
     normalized.includes("omsattning") ||
     normalized.includes("revenue") ||
     normalized.includes("intakt") ||
-    normalized.includes("tjanat");
+    normalized.includes("tjanat") ||
+    normalized.includes("fakturerat") ||
+    normalized.includes("fakturering");
   const hasTopKeyword =
     normalized.includes("highest") ||
     normalized.includes("greatest") ||
@@ -797,6 +978,31 @@ function parseTopCustomerForMonthWindow(question: string): FinancialReportWindow
   }
 
   return parseFinancialReportWindow(question);
+}
+
+function isMonthCustomerKpiQuestion(question: string): boolean {
+  const normalized = question
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const hasCustomerKeyword =
+    normalized.includes("customer") ||
+    normalized.includes("customers") ||
+    normalized.includes("kund") ||
+    normalized.includes("kunder");
+
+  const hasKpiKeyword =
+    normalized.includes("turnover") ||
+    normalized.includes("omsattning") ||
+    normalized.includes("invoice") ||
+    normalized.includes("faktura") ||
+    normalized.includes("hours") ||
+    normalized.includes("timmar") ||
+    normalized.includes("kpi") ||
+    normalized.includes("resultat");
+
+  return hasCustomerKeyword && hasKpiKeyword;
 }
 
 function parseRollingWindowPreset(question: string): RollingWindowPreset | null {
@@ -1027,7 +1233,9 @@ function parseTopCustomersYear(question: string): number | null {
     normalized.includes("omsattning") ||
     normalized.includes("revenue") ||
     normalized.includes("intakt") ||
-    normalized.includes("tjanat");
+    normalized.includes("tjanat") ||
+    normalized.includes("fakturerat") ||
+    normalized.includes("fakturering");
 
   const hasTopKeyword =
     normalized.includes("top") ||
@@ -1043,7 +1251,63 @@ function parseTopCustomersYear(question: string): number | null {
   }
 
   const detectedYear = normalized.match(/\b(20\d{2})\b/)?.[1];
-  return detectedYear ? Number(detectedYear) : new Date().getUTCFullYear();
+  if (detectedYear) return Number(detectedYear);
+
+  const hasCurrentYearHint =
+    normalized.includes("this year") ||
+    normalized.includes("current year") ||
+    normalized.includes("i ar") ||
+    normalized.includes("innevarande ar") ||
+    normalized.includes("hittills i ar") ||
+    normalized.includes("year to date") ||
+    normalized.includes("ytd");
+
+  return hasCurrentYearHint ? new Date().getUTCFullYear() : null;
+}
+
+function parseTopInvoiceCustomerYear(question: string): number | null {
+  const normalized = question
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const hasCustomerKeyword =
+    normalized.includes("customer") ||
+    normalized.includes("customers") ||
+    normalized.includes("kund") ||
+    normalized.includes("kunder");
+
+  const hasInvoiceKeyword =
+    normalized.includes("invoice") ||
+    normalized.includes("invoices") ||
+    normalized.includes("faktura") ||
+    normalized.includes("fakturor");
+
+  const hasTopKeyword =
+    normalized.includes("most") ||
+    normalized.includes("highest") ||
+    normalized.includes("greatest") ||
+    normalized.includes("top") ||
+    normalized.includes("flest") ||
+    normalized.includes("mest");
+
+  if (!hasCustomerKeyword || !hasInvoiceKeyword || !hasTopKeyword) {
+    return null;
+  }
+
+  const detectedYear = normalized.match(/\b(20\d{2})\b/)?.[1];
+  if (detectedYear) return Number(detectedYear);
+
+  const hasCurrentYearHint =
+    normalized.includes("this year") ||
+    normalized.includes("current year") ||
+    normalized.includes("i ar") ||
+    normalized.includes("innevarande ar") ||
+    normalized.includes("hittills i ar") ||
+    normalized.includes("year to date") ||
+    normalized.includes("ytd");
+
+  return hasCurrentYearHint ? new Date().getUTCFullYear() : null;
 }
 
 function buildDeterministicReportingSql(input: {
@@ -1051,6 +1315,31 @@ function buildDeterministicReportingSql(input: {
   role: string;
   userCostCenter: string | null;
 }): string {
+  const monthWindow = parseFinancialReportWindow(input.question);
+  const quotedCustomerName = parseQuotedCustomerName(input.question);
+  if (monthWindow && quotedCustomerName && isMonthCustomerKpiQuestion(input.question)) {
+    return buildCustomerMonthKpiFallbackSql({
+      role: input.role,
+      window: monthWindow,
+      customerName: quotedCustomerName,
+    });
+  }
+
+  if (monthWindow && isMonthCustomerKpiQuestion(input.question)) {
+    return buildMonthCustomerKpiListFallbackSql({
+      role: input.role,
+      window: monthWindow,
+    });
+  }
+
+  const topInvoiceCustomerYear = parseTopInvoiceCustomerYear(input.question);
+  if (topInvoiceCustomerYear) {
+    return buildTopCustomerByInvoicesForYearFallbackSql({
+      role: input.role,
+      year: topInvoiceCustomerYear,
+    });
+  }
+
   const topCustomerMonthWindow = parseTopCustomerForMonthWindow(input.question);
   if (topCustomerMonthWindow) {
     return buildTopCustomerForMonthFallbackSql({
@@ -1060,7 +1349,6 @@ function buildDeterministicReportingSql(input: {
   }
 
   const rollingPreset = parseRollingWindowPreset(input.question);
-  const quotedCustomerName = parseQuotedCustomerName(input.question);
   if (rollingPreset && quotedCustomerName) {
     return buildCustomerRollingWindowKpisFallbackSql({
       role: input.role,

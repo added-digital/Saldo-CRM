@@ -1,0 +1,225 @@
+import Anthropic from "@anthropic-ai/sdk";
+import { NextResponse } from "next/server";
+
+import { createClient } from "@/lib/supabase/server";
+
+import { buildSystemPrompt } from "./prompt";
+import { TOOL_DEFINITIONS, executeTool } from "./tools";
+import type { ToolContext } from "./tools/types";
+
+export const runtime = "nodejs";
+
+type ChatRequestBody = {
+  message?: string;
+  question?: string; // alias accepted for compatibility with the existing UI
+  conversation_id?: string | null;
+};
+
+type StoredMessage = {
+  role: "user" | "assistant";
+  content: Anthropic.MessageParam["content"];
+};
+
+type ToolCallTrace = {
+  name: string;
+  input: unknown;
+};
+
+const MAX_TOOL_ITERATIONS = 6;
+const HISTORY_TURNS = 10;
+
+export async function POST(request: Request) {
+  try {
+    return await handleChat(request);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown error.";
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error("[/api/chat] Unhandled error:", error);
+    return NextResponse.json(
+      {
+        error: message,
+        stack: process.env.NODE_ENV === "production" ? undefined : stack,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function handleChat(request: Request) {
+  let body: ChatRequestBody;
+  try {
+    body = (await request.json()) as ChatRequestBody;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const message = (body.message ?? body.question ?? "").trim();
+  if (!message) {
+    return NextResponse.json(
+      { error: "`message` (or `question`) is required." },
+      { status: 400 },
+    );
+  }
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "ANTHROPIC_API_KEY is not configured." },
+      { status: 500 },
+    );
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: profileData, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, email, full_name, role, team_id")
+    .eq("id", authUser.id)
+    .maybeSingle();
+
+  const profile = profileData as unknown as ToolContext["user"] | null;
+
+  if (profileError || !profile) {
+    return NextResponse.json(
+      { error: profileError?.message ?? "Profile not found." },
+      { status: 403 },
+    );
+  }
+
+  const context: ToolContext = {
+    supabase,
+    user: profile,
+  };
+
+  // ---------------------------------------------------------------------------
+  // Conversation history
+  // ---------------------------------------------------------------------------
+
+  let conversationId = body.conversation_id ?? null;
+  let storedHistory: StoredMessage[] = [];
+
+  if (conversationId) {
+    const { data: convData, error: convError } = await supabase
+      .from("conversations")
+      .select("id, user_id, messages")
+      .eq("id", conversationId)
+      .maybeSingle();
+
+    const conv = convData as unknown as {
+      id: string;
+      user_id: string;
+      messages: unknown;
+    } | null;
+
+    if (convError || !conv) {
+      return NextResponse.json(
+        { error: "Conversation not found." },
+        { status: 404 },
+      );
+    }
+    if (conv.user_id !== profile.id) {
+      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    }
+
+    storedHistory = Array.isArray(conv.messages)
+      ? (conv.messages as StoredMessage[])
+      : [];
+  }
+
+  // Trim to the last N turns to keep context tight (a "turn" here is a
+  // user/assistant pair, but we just slice messages to keep this simple).
+  const trimmedHistory = storedHistory.slice(-HISTORY_TURNS * 2);
+
+  const messages: Anthropic.MessageParam[] = [
+    ...trimmedHistory.map((m) => ({ role: m.role, content: m.content })),
+    { role: "user", content: message },
+  ];
+
+  // ---------------------------------------------------------------------------
+  // Tool-calling loop
+  // ---------------------------------------------------------------------------
+
+  const anthropic = new Anthropic({ apiKey });
+  const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
+  const system = buildSystemPrompt(context);
+  const toolTrace: ToolCallTrace[] = [];
+
+  let finalText: string | null = null;
+  let lastResponse: Anthropic.Message | null = null;
+
+  for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
+    const response = await anthropic.messages.create({
+      model,
+      max_tokens: 1024,
+      system,
+      tools: TOOL_DEFINITIONS,
+      messages,
+    });
+    lastResponse = response;
+
+    if (response.stop_reason === "tool_use") {
+      // Append the assistant's tool_use message to history verbatim.
+      messages.push({ role: "assistant", content: response.content });
+
+      const toolUseBlocks = response.content.filter(
+        (block): block is Anthropic.ToolUseBlock => block.type === "tool_use",
+      );
+
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+      for (const block of toolUseBlocks) {
+        toolTrace.push({ name: block.name, input: block.input });
+        const result = await executeTool(block.name, block.input, context);
+        toolResults.push({
+          type: "tool_result",
+          tool_use_id: block.id,
+          content: JSON.stringify(result ?? null),
+        });
+      }
+
+      messages.push({ role: "user", content: toolResults });
+      continue;
+    }
+
+    // end_turn (or any non-tool stop_reason) → collect final text.
+    finalText = response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
+      .map((block) => block.text)
+      .join("\n")
+      .trim();
+    break;
+  }
+
+  if (finalText == null) {
+    return NextResponse.json(
+      {
+        error:
+          "Tool-calling loop exceeded maximum iterations without a final answer.",
+        tool_calls: toolTrace,
+      },
+      { status: 500 },
+    );
+  }
+
+  // Persistence is owned by the client (DashboardAskQuestion stores its own
+  // conversations rows), so this endpoint is read-only with respect to the
+  // conversations table — it loads history when given conversation_id, but
+  // never inserts or updates. Empty `sources` is included for shape parity
+  // with the existing /api/questions/ask-documents response.
+  void lastResponse;
+
+  return NextResponse.json({
+    conversation_id: conversationId,
+    answer: finalText,
+    sources: [],
+    tool_calls: toolTrace,
+  });
+}

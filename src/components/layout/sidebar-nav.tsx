@@ -20,7 +20,7 @@ function isItemVisible(
   userRole: string | undefined,
   scopes: string[],
 ): boolean {
-  if (item.href === "/reports" || item.href === "/settings") {
+  if (item.href === "/reports" || item.href === "/reports-v2" || item.href === "/settings") {
     return true;
   }
 
@@ -67,6 +67,7 @@ function SidebarNav({ className }: SidebarNavProps) {
       Contacts: "navigation.items.contacts",
       Mail: "navigation.items.mail",
       Reports: "navigation.items.reports",
+      "Reports v2": "navigation.items.reportsV2",
       Settings: "navigation.items.settings",
     };
 

@@ -165,6 +165,7 @@ export default function SettingsFilesPage() {
   const fileItems = React.useMemo(() => items.filter((item) => item.id !== null), [items])
   const allFilesSelected = fileItems.length > 0 && fileItems.every((item) => selectedFileNames.includes(item.name))
 
+
   const loadFolder = React.useCallback(async (folderPath: string) => {
     const supabase = createClient()
     setLoading(true)

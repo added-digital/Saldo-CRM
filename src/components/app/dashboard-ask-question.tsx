@@ -521,13 +521,14 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     try {
       const response = await (async () => {
         if (chatAttachments.length === 0) {
-          return fetch("/api/questions/ask-documents", {
+          return fetch("/api/chat", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
               question: trimmedQuestion,
+              conversation_id: conversationId,
             }),
           })
         }

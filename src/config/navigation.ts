@@ -41,6 +41,7 @@ export const navigation: NavSection[] = [
     title: "Analytics",
     items: [
       { label: "Reports", href: "/reports", icon: BarChart3, minRole: "user" },
+      { label: "Reports v2", href: "/reports-v2", icon: BarChart3, minRole: "user" },
     ],
   },
   {

@@ -1,0 +1,99 @@
+import type { ToolHandler } from "./types";
+
+export type GetConsultantCustomersInput = {
+  consultant_id: string;
+  active_only?: boolean;
+  limit?: number;
+};
+
+type ProfileRow = {
+  id: string;
+  full_name: string | null;
+  email: string;
+  fortnox_cost_center: string | null;
+};
+
+type CustomerRow = {
+  id: string;
+  name: string;
+  fortnox_customer_number: string | null;
+  status: string | null;
+  total_turnover: number | null;
+  contract_value: number | null;
+};
+
+/**
+ * Return all customers that share a consultant's Fortnox cost center — i.e.
+ * the consultant's portfolio. Customers in this CRM aren't linked to managers
+ * via a direct FK; the relationship runs through `fortnox_cost_center`
+ * matching on both `profiles` and `customers`. If the consultant has no cost
+ * center set, the result is an empty list with a note.
+ */
+export const getConsultantCustomers: ToolHandler<GetConsultantCustomersInput> = async (
+  input,
+  { supabase },
+) => {
+  const consultantId = input.consultant_id?.trim();
+  if (!consultantId) {
+    return { error: "consultant_id is required." };
+  }
+
+  const activeOnly = input.active_only ?? true;
+  const limit = Math.min(Math.max(input.limit ?? 100, 1), 1000);
+
+  const profileRes = await supabase
+    .from("profiles")
+    .select("id, full_name, email, fortnox_cost_center")
+    .eq("id", consultantId)
+    .maybeSingle();
+
+  if (profileRes.error || !profileRes.data) {
+    return {
+      error: profileRes.error?.message ?? "Consultant not found.",
+    };
+  }
+
+  const consultant = profileRes.data as unknown as ProfileRow;
+  const costCenter = consultant.fortnox_cost_center?.trim() ?? null;
+
+  if (!costCenter) {
+    return {
+      consultant,
+      cost_center: null,
+      customer_count: 0,
+      customers: [],
+      note:
+        "Consultant has no fortnox_cost_center set, so no portfolio can be " +
+        "derived from cost center matching.",
+    };
+  }
+
+  let customerQuery = supabase
+    .from("customers")
+    .select(
+      "id, name, fortnox_customer_number, status, total_turnover, contract_value",
+    )
+    .eq("fortnox_cost_center", costCenter)
+    .order("name", { ascending: true })
+    .limit(limit);
+
+  if (activeOnly) {
+    customerQuery = customerQuery.eq("status", "active");
+  }
+
+  const { data, error } = await customerQuery;
+
+  if (error) {
+    return { error: error.message, customers: [] };
+  }
+
+  const customers = (data ?? []) as unknown as CustomerRow[];
+
+  return {
+    consultant,
+    cost_center: costCenter,
+    customer_count: customers.length,
+    active_only: activeOnly,
+    customers,
+  };
+};
