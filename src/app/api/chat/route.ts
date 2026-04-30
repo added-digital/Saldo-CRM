@@ -31,7 +31,8 @@ type DocumentSource = {
   similarity: number;
 };
 
-const MAX_TOOL_ITERATIONS = 6;
+const MAX_TOOL_ITERATIONS = 12;
+const MAX_OUTPUT_TOKENS = 4096;
 const HISTORY_TURNS = 10;
 
 export async function POST(request: Request) {
@@ -162,11 +163,22 @@ async function handleChat(request: Request) {
 
   let finalText: string | null = null;
   let lastResponse: Anthropic.Message | null = null;
+  // Narration text Claude produces alongside tool_use blocks. Without
+  // buffering this, anything Claude says before the final iteration is lost
+  // if we hit the iteration cap.
+  const narrationBuffer: string[] = [];
+
+  const extractText = (response: Anthropic.Message): string =>
+    response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
+      .map((block) => block.text)
+      .join("\n")
+      .trim();
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
     const response = await anthropic.messages.create({
       model,
-      max_tokens: 1024,
+      max_tokens: MAX_OUTPUT_TOKENS,
       system,
       tools: TOOL_DEFINITIONS,
       messages,
@@ -174,6 +186,11 @@ async function handleChat(request: Request) {
     lastResponse = response;
 
     if (response.stop_reason === "tool_use") {
+      // Buffer intermediate narration so we still have something to show if
+      // the loop runs out of iterations.
+      const narration = extractText(response);
+      if (narration) narrationBuffer.push(narration);
+
       // Append the assistant's tool_use message to history verbatim.
       messages.push({ role: "assistant", content: response.content });
 
@@ -219,23 +236,20 @@ async function handleChat(request: Request) {
     }
 
     // end_turn (or any non-tool stop_reason) → collect final text.
-    finalText = response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === "text")
-      .map((block) => block.text)
-      .join("\n")
-      .trim();
+    finalText = extractText(response);
     break;
   }
 
-  if (finalText == null) {
-    return NextResponse.json(
-      {
-        error:
-          "Tool-calling loop exceeded maximum iterations without a final answer.",
-        tool_calls: toolTrace,
-      },
-      { status: 500 },
-    );
+  // Iteration cap or empty final text — return whatever we've buffered with a
+  // clear truncation note rather than a generic 500. The UI can still render
+  // useful narration about what Claude managed to do before stopping.
+  if (finalText == null || finalText.length === 0) {
+    const buffered = narrationBuffer.join("\n\n").trim();
+    const fallback =
+      buffered.length > 0
+        ? `${buffered}\n\n_(Stoppade här efter ${MAX_TOOL_ITERATIONS} verktygsanrop — fråga gärna mer specifikt så går det fortare.)_`
+        : `Hann inte fram till ett färdigt svar inom ${MAX_TOOL_ITERATIONS} verktygsanrop. Försök gärna ställa frågan mer specifikt.`;
+    finalText = fallback;
   }
 
   // Persistence is owned by the client (DashboardAskQuestion stores its own
