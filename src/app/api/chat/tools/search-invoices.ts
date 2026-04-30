@@ -19,7 +19,7 @@ export const searchInvoices: ToolHandler<SearchInvoicesInput> = async (
   input,
   { supabase },
 ) => {
-  const limit = Math.min(Math.max(input.limit ?? 25, 1), 200);
+  const limit = Math.min(Math.max(input.limit ?? 25, 1), 1000);
 
   let query = supabase
     .from("invoices")

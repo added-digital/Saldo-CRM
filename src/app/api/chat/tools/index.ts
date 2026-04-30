@@ -85,9 +85,13 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         },
         limit: {
           type: "integer",
-          description: "Max rows to return (1-200). Default 25.",
+          description:
+            "Max rows to return (1-1000, capped by Supabase's per-query " +
+            "ceiling). Default 25. For aggregate questions ('total turnover " +
+            "for the year') prefer a future aggregation tool over fetching " +
+            "all rows.",
           minimum: 1,
-          maximum: 200,
+          maximum: 1000,
         },
       },
     },
