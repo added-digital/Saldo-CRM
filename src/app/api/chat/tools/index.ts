@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { getConsultantCustomers } from "./get-consultant-customers";
 import { getCostCenterDetails } from "./get-cost-center-details";
 import { getCustomerOverview } from "./get-customer-overview";
+import { getKpiSummary } from "./get-kpi-summary";
 import { listCostCenters } from "./list-cost-centers";
 import { resolveConsultant } from "./resolve-consultant";
 import { resolveCustomer } from "./resolve-customer";
@@ -61,13 +62,59 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "get_kpi_summary",
+    description:
+      "Return aggregated KPI numbers (total turnover, invoice count, hours, " +
+      "contract value) for a given period. Reads from the precomputed " +
+      "`customer_kpis` rollup — the SAME source the reports dashboard uses, " +
+      "so numbers will match the UI exactly. ALWAYS prefer this tool over " +
+      "search_invoices for questions like 'how much did we invoice in March', " +
+      "'how many invoices last year', 'compare X to Y month' — search_invoices " +
+      "returns RAW invoice rows that include line items the dashboard " +
+      "filters out (e.g. Licenser article group), and totals computed from " +
+      "those rows will NOT match the dashboard.",
+    input_schema: {
+      type: "object",
+      properties: {
+        year: {
+          type: "integer",
+          description: "Period year (e.g. 2026).",
+          minimum: 2000,
+          maximum: 3000,
+        },
+        month: {
+          type: "integer",
+          description:
+            "Optional period month (1-12). Omit to get yearly rollup with " +
+            "per-month breakdown in `by_month`.",
+          minimum: 1,
+          maximum: 12,
+        },
+        customer_id: {
+          type: "string",
+          description: "Optional customer UUID to scope the summary.",
+        },
+        include_inactive: {
+          type: "boolean",
+          description:
+            "If true, includes inactive customers in the aggregation. " +
+            "Default false (matches dashboard behavior of summing only " +
+            "active customers).",
+        },
+      },
+      required: ["year"],
+    },
+  },
+  {
     name: "search_invoices",
     description:
-      "Return invoices filtered by customer and/or date range, sorted newest " +
-      "first. Turnover is normalised via the same strict-ex-VAT rule the " +
-      "reports page uses, so numbers will agree with the UI. Useful for " +
-      "questions like 'show me last quarter's invoices for Acme' or 'what " +
-      "did we invoice in March?'.",
+      "Return RAW invoice rows filtered by customer and/or date range, " +
+      "sorted newest first. Use this only for 'show me individual invoices' " +
+      "/ 'list specific invoices' questions. Do NOT use for totals, counts " +
+      "or KPIs — use get_kpi_summary instead. Turnover here is per-row " +
+      "ex-VAT, but row-level totals will differ from the dashboard because " +
+      "the dashboard's KPI rollup applies business filters (Licenser " +
+      "exclusion etc.) at sync time, while this tool returns raw rows.",
     input_schema: {
       type: "object",
       properties: {
@@ -211,6 +258,7 @@ type AnyToolHandler = (
 const HANDLERS: Record<string, AnyToolHandler> = {
   resolve_customer: resolveCustomer as AnyToolHandler,
   get_customer_overview: getCustomerOverview as AnyToolHandler,
+  get_kpi_summary: getKpiSummary as AnyToolHandler,
   search_invoices: searchInvoices as AnyToolHandler,
   list_cost_centers: listCostCenters as AnyToolHandler,
   get_cost_center_details: getCostCenterDetails as AnyToolHandler,
