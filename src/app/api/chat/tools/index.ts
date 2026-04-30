@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { getConsultantCustomers } from "./get-consultant-customers";
 import { getCostCenterDetails } from "./get-cost-center-details";
 import { getCustomerOverview } from "./get-customer-overview";
+import { getKpiByConsultant } from "./get-kpi-by-consultant";
 import { getKpiSummary } from "./get-kpi-summary";
 import { listCostCenters } from "./list-cost-centers";
 import { resolveConsultant } from "./resolve-consultant";
@@ -122,6 +123,74 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
           description:
             "Force-include `by_customer` breakdown in the response. " +
             "Defaults to true when customer_id or customer_ids is set.",
+        },
+      },
+      required: ["year"],
+    },
+  },
+  {
+    name: "get_kpi_by_consultant",
+    description:
+      "Aggregates KPI numbers (turnover, invoice count, hours, contract " +
+      "value) PER CONSULTANT for a given period. Reads from the same " +
+      "customer_kpis rollup as get_kpi_summary, but groups results by the " +
+      "consultant who owns each customer (via fortnox_cost_center match). " +
+      "Use this for ranking-type questions: 'which consultant invoiced " +
+      "most last month', 'top 5 consultants by hours this year', 'rank " +
+      "the team by turnover'. Do NOT chain resolve_consultant + " +
+      "get_consultant_customers + get_kpi_summary in a loop — this tool " +
+      "does the whole thing in one call.\n\n" +
+      "Note on shared cost centers: if multiple consultants share a Fortnox " +
+      "cost center, their totals overlap (same KPI rows attributed to each, " +
+      "flagged via `shared_cost_center: true`). Mention this caveat in the " +
+      "answer when relevant.",
+    input_schema: {
+      type: "object",
+      properties: {
+        year: {
+          type: "integer",
+          description: "Period year (e.g. 2026).",
+          minimum: 2000,
+          maximum: 3000,
+        },
+        month: {
+          type: "integer",
+          description:
+            "Optional period month (1-12). Omit for full-year aggregation.",
+          minimum: 1,
+          maximum: 12,
+        },
+        active_consultants_only: {
+          type: "boolean",
+          description:
+            "If true (default), only consultants with profiles.is_active=true " +
+            "are included.",
+        },
+        active_customers_only: {
+          type: "boolean",
+          description:
+            "If true (default), only customers with status='active' " +
+            "contribute to the totals (matches dashboard behaviour).",
+        },
+        limit: {
+          type: "integer",
+          description:
+            "Optional cap on the number of consultants returned (top-N " +
+            "after sorting). Max 200. Omit for full ranking.",
+          minimum: 1,
+          maximum: 200,
+        },
+        sort_by: {
+          type: "string",
+          description: "Field to sort consultants by, descending. Default total_turnover.",
+          enum: [
+            "total_turnover",
+            "invoice_count",
+            "total_hours",
+            "customer_hours",
+            "contract_value",
+            "customer_count",
+          ],
         },
       },
       required: ["year"],
@@ -312,6 +381,7 @@ const HANDLERS: Record<string, AnyToolHandler> = {
   resolve_customer: resolveCustomer as AnyToolHandler,
   get_customer_overview: getCustomerOverview as AnyToolHandler,
   get_kpi_summary: getKpiSummary as AnyToolHandler,
+  get_kpi_by_consultant: getKpiByConsultant as AnyToolHandler,
   search_invoices: searchInvoices as AnyToolHandler,
   list_cost_centers: listCostCenters as AnyToolHandler,
   get_cost_center_details: getCostCenterDetails as AnyToolHandler,
