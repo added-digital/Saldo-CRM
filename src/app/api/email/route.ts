@@ -262,29 +262,59 @@ export async function POST(request: NextRequest) {
       contact_id: string | null
       template_key: string
       delivery_mode: string
-      status: "sent"
+      status: "sent" | "failed"
+      error_message: string | null
     }> = []
 
+    let sentCount = 0
+    const failures: Array<{ recipient: string; message: string }> = []
+
     for (const recipient of recipients) {
-      await sendMicrosoftGraphMail(providerToken, [recipient], subject, html)
-      sentLogRows.push({
-        user_id: user.id,
-        subject,
-        body_preview: bodyPreview,
-        body_html: html,
-        recipient_email: recipient,
-        recipient_name: recipient_metadata?.name ?? null,
-        recipient_type: recipientType,
-        customer_id: recipient_metadata?.customer_id ?? null,
-        contact_id: recipient_metadata?.contact_id ?? null,
-        template_key: template,
-        delivery_mode: deliveryMode,
-        status: "sent",
-      })
+      try {
+        await sendMicrosoftGraphMail(providerToken, [recipient], subject, html)
+        sentCount += 1
+        sentLogRows.push({
+          user_id: user.id,
+          subject,
+          body_preview: bodyPreview,
+          body_html: html,
+          recipient_email: recipient,
+          recipient_name: recipient_metadata?.name ?? null,
+          recipient_type: recipientType,
+          customer_id: recipient_metadata?.customer_id ?? null,
+          contact_id: recipient_metadata?.contact_id ?? null,
+          template_key: template,
+          delivery_mode: deliveryMode,
+          status: "sent",
+          error_message: null,
+        })
+      } catch (sendError) {
+        const message =
+          sendError instanceof Error ? sendError.message : "Unknown send error"
+        console.error(`Send to ${recipient} failed:`, message)
+        failures.push({ recipient, message })
+        sentLogRows.push({
+          user_id: user.id,
+          subject,
+          body_preview: bodyPreview,
+          body_html: html,
+          recipient_email: recipient,
+          recipient_name: recipient_metadata?.name ?? null,
+          recipient_type: recipientType,
+          customer_id: recipient_metadata?.customer_id ?? null,
+          contact_id: recipient_metadata?.contact_id ?? null,
+          template_key: template,
+          delivery_mode: deliveryMode,
+          status: "failed",
+          error_message: message,
+        })
+      }
     }
 
     if (sentLogRows.length > 0) {
-      // Persistence is best-effort — a failure here shouldn't fail the send.
+      // Persistence is best-effort — a logging failure shouldn't fail the
+      // overall response. The actual sends already happened (or actually
+      // failed) regardless of whether we record them.
       const { error: logError } = await supabase
         .from("sent_emails")
         .insert(sentLogRows as never)
@@ -293,12 +323,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Total failure → return 502 so the UI surfaces an error toast. Partial
+    // failure (some sent, some failed) → 200 with a `failures` array; the UI
+    // can decide how to surface it.
+    if (sentCount === 0 && failures.length > 0) {
+      return NextResponse.json(
+        {
+          error: "All sends failed",
+          message: failures[0].message,
+          failures,
+        },
+        { status: 502 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
       subject,
       recipients,
       delivery_mode: deliveryMode,
-      sent_count: recipients.length,
+      sent_count: sentCount,
+      failure_count: failures.length,
+      failures,
     })
   } catch (error) {
     console.error("Email send error:", error)

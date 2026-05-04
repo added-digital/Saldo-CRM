@@ -2,7 +2,8 @@ import {
   House,
   Users,
   UserRound,
-  Mail,
+  MailCheck,
+  History,
   Settings,
   BarChart3,
   type LucideIcon,
@@ -34,7 +35,13 @@ export const navigation: NavSection[] = [
     items: [
       { label: "Customers", href: "/customers", icon: Users, scope: "customers" },
       { label: "Contacts", href: "/contacts", icon: UserRound, scope: "customers" },
-      { label: "Mail", href: "/mail", icon: Mail, scope: "customers" },
+    ],
+  },
+  {
+    title: "Mail",
+    items: [
+      { label: "Send mail", href: "/mail", icon: MailCheck, scope: "customers" },
+      { label: "Mail history", href: "/mail/history", icon: History, scope: "customers" },
     ],
   },
   {

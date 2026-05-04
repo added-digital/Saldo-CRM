@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import { system } from "@/config/system";
@@ -10,6 +11,15 @@ import { useUserScopes } from "@/hooks/use-scope";
 import { useTranslation } from "@/hooks/use-translation";
 import { useSidebar } from "@/components/layout/sidebar";
 import { NavLink } from "@/components/app/nav-link";
+
+/**
+ * Returns true if `pathname` falls under `href` — exact match OR a sub-route.
+ * "/" only ever matches itself; everything else also matches `${href}/...`.
+ */
+function pathMatchesHref(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 interface SidebarNavProps {
   className?: string;
@@ -48,10 +58,28 @@ function SidebarNav({ className }: SidebarNavProps) {
   const { t } = useTranslation();
   const { scopes } = useUserScopes();
   const { collapsed } = useSidebar();
+  const pathname = usePathname();
+
+  // Pick the single nav item whose href is the longest prefix of the current
+  // pathname. Without this, "/mail/history" would highlight both "Send mail"
+  // (/mail) and "Mail history" (/mail/history) because the latter starts with
+  // the former. We pre-compute the winning href once per render so the loop
+  // below can just compare.
+  const allHrefs = navigation.flatMap((section) =>
+    section.items.map((item) => item.href),
+  );
+  const activeHref = allHrefs
+    .filter((href) => pathMatchesHref(pathname, href))
+    .reduce<string | null>(
+      (best, href) =>
+        best === null || href.length > best.length ? href : best,
+      null,
+    );
 
   function translateSectionTitle(title: string): string {
     const keyByTitle: Record<string, string> = {
       Management: "navigation.sections.management",
+      Mail: "navigation.sections.mail",
       Analytics: "navigation.sections.analytics",
       Administration: "navigation.sections.administration",
     };
@@ -65,9 +93,9 @@ function SidebarNav({ className }: SidebarNavProps) {
       Home: "navigation.items.home",
       Customers: "navigation.items.customers",
       Contacts: "navigation.items.contacts",
-      Mail: "navigation.items.mail",
+      "Send mail": "navigation.items.sendMail",
+      "Mail history": "navigation.items.mailHistory",
       Reports: "navigation.items.reports",
-      "Reports v2": "navigation.items.reportsV2",
       Settings: "navigation.items.settings",
     };
 
@@ -119,6 +147,7 @@ function SidebarNav({ className }: SidebarNavProps) {
                   label={translateItemLabel(item.label)}
                   collapsed={collapsed}
                   badge={item.badge}
+                  active={item.href === activeHref}
                 />
               ))}
             </div>

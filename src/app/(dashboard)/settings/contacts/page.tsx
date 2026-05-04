@@ -651,6 +651,17 @@ export default function ContactsPage() {
           />
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5"
+            onClick={handleExportCsv}
+            disabled={loading || filteredContacts.length === 0}
+          >
+            <Download className="size-3.5" />
+            {t("settings.contacts.export.csv", "Export CSV")}
+          </Button>
+          
           {filteredContacts.length > 0 ? (
             <>
               <select
@@ -705,16 +716,6 @@ export default function ContactsPage() {
               </Button>
             </>
           ) : null}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 gap-1.5"
-            onClick={handleExportCsv}
-            disabled={loading || filteredContacts.length === 0}
-          >
-            <Download className="size-3.5" />
-            {t("settings.contacts.export.csv", "Export CSV")}
-          </Button>
 
           <Popover>
             <PopoverTrigger asChild>

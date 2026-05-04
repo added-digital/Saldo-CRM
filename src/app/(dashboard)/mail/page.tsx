@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useTranslation } from "@/hooks/use-translation"
 import { useUser } from "@/hooks/use-user"
@@ -868,6 +868,7 @@ export default function MailPage() {
     setSending(true)
     try {
       let sentCount = 0
+      const failures: Array<{ email: string; reason: string }> = []
 
       for (const { recipient, email } of recipients) {
         const customerName = recipient.customerName || recipient.name || recipient.companyName
@@ -902,6 +903,7 @@ export default function MailPage() {
           error?: string
           message?: string
           sent_count?: number
+          failure_count?: number
         }
 
         if (response.status === 412) {
@@ -937,11 +939,59 @@ export default function MailPage() {
         }
 
         if (!response.ok) {
-          toast.error(result.message || result.error || t("settings.mail.toast.sendFailed", "Failed to send email"))
-          return
+          // Per-recipient failure: record it and keep going so the rest of
+          // the batch still gets attempted. The /api/email route already
+          // logged a status="failed" row to sent_emails for this recipient.
+          failures.push({
+            email,
+            reason:
+              result.message ??
+              result.error ??
+              t("settings.mail.toast.sendFailed", "Failed to send email"),
+          })
+          continue
         }
 
         sentCount += result.sent_count ?? 1
+
+        // Server may also have recorded a logical failure even on a 200 (the
+        // route returns 200 with failure_count > 0 when partial). For per-
+        // recipient calls this means: increment our failure tally too.
+        if ((result.failure_count ?? 0) > 0 && (result.sent_count ?? 0) === 0) {
+          failures.push({
+            email,
+            reason: result.message ?? "Send failed",
+          })
+        }
+      }
+
+      // Choose the toast based on the outcome of the whole batch.
+      if (sentCount === 0 && failures.length > 0) {
+        toast.error(
+          `${t("mail.send.toast.allFailed", "All sends failed")}: ${failures[0].reason}`,
+          {
+            description: t(
+              "mail.send.toast.checkHistory",
+              "Check Mail history for details.",
+            ),
+            duration: 10000,
+          },
+        )
+        return
+      }
+
+      if (failures.length > 0) {
+        toast.warning(
+          `${t("mail.send.toast.sentPrefix", "Sent")} ${sentCount}, ${t("mail.send.toast.failedSuffix", "failed")} ${failures.length}`,
+          {
+            description: t(
+              "mail.send.toast.checkHistory",
+              "Check Mail history for details.",
+            ),
+            duration: 8000,
+          },
+        )
+        return
       }
 
       toast.success(
@@ -959,17 +1009,6 @@ export default function MailPage() {
   }
 
   return (
-    <Tabs defaultValue="compose" className="space-y-4">
-      <TabsList variant="line" className="w-full justify-start">
-        <TabsTrigger value="compose">
-          {t("mail.tabs.compose", "Compose")}
-        </TabsTrigger>
-        <TabsTrigger value="history">
-          {t("mail.tabs.history", "History")}
-        </TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="compose" className="m-0">
     <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr]">
       <Card>
         <CardHeader>
@@ -1519,168 +1558,6 @@ export default function MailPage() {
         </CardContent>
       </Card>
     </div>
-      </TabsContent>
-
-      <TabsContent value="history" className="m-0">
-        <MailHistoryView t={t} />
-      </TabsContent>
-    </Tabs>
   )
 }
 
-type SentEmailEntry = {
-  id: string
-  subject: string
-  recipientName: string | null
-  recipientEmail: string
-  preview: string
-  sentAt: string
-  status: "sent" | "failed"
-}
-
-type SentEmailRow = {
-  id: string
-  subject: string
-  body_preview: string | null
-  recipient_email: string
-  recipient_name: string | null
-  status: "sent" | "failed"
-  sent_at: string
-}
-
-function formatSentAt(iso: string, locale: string = "sv-SE"): string {
-  try {
-    const date = new Date(iso)
-    return new Intl.DateTimeFormat(locale, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(date)
-  } catch {
-    return iso
-  }
-}
-
-function MailHistoryView({
-  t,
-}: {
-  t: (key: string, fallback?: string) => string
-}) {
-  const [emails, setEmails] = React.useState<SentEmailEntry[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    let cancelled = false
-    async function load() {
-      const supabase = createClient()
-      const { data, error: queryError } = await supabase
-        .from("sent_emails")
-        .select(
-          "id, subject, body_preview, recipient_email, recipient_name, status, sent_at",
-        )
-        .order("sent_at", { ascending: false })
-        .limit(50)
-
-      if (cancelled) return
-
-      if (queryError) {
-        setError(queryError.message)
-        setEmails([])
-        setLoading(false)
-        return
-      }
-
-      const rows = (data ?? []) as unknown as SentEmailRow[]
-      setEmails(
-        rows.map((row) => ({
-          id: row.id,
-          subject: row.subject,
-          recipientName: row.recipient_name,
-          recipientEmail: row.recipient_email,
-          preview: row.body_preview ?? "",
-          sentAt: row.sent_at,
-          status: row.status,
-        })),
-      )
-      setError(null)
-      setLoading(false)
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">
-          {t("mail.history.title", "Sent emails")}
-        </CardTitle>
-        <CardDescription>
-          {t(
-            "mail.history.description",
-            "A history of emails sent from this app. Showing your most recent 50.",
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={index}
-                className="h-16 animate-pulse rounded-md border bg-muted"
-              />
-            ))}
-          </div>
-        ) : error ? (
-          <p className="text-sm text-destructive">
-            {t("mail.history.loadFailed", "Failed to load history")}: {error}
-          </p>
-        ) : emails.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t(
-              "mail.history.empty",
-              "No sent emails yet. Send your first email from the Compose tab.",
-            )}
-          </p>
-        ) : (
-          <ul className="divide-y rounded-md border">
-            {emails.map((email) => (
-              <li
-                key={email.id}
-                className="flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-muted/50"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="truncate text-sm font-medium">
-                    {email.subject}
-                  </p>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatSentAt(email.sentAt)}
-                  </span>
-                </div>
-                <p className="truncate text-xs text-muted-foreground">
-                  {t("mail.history.toLabel", "To")}:{" "}
-                  {email.recipientName
-                    ? `${email.recipientName} <${email.recipientEmail}>`
-                    : email.recipientEmail}
-                  {email.status === "failed" ? (
-                    <span className="ml-2 text-destructive">
-                      ({t("mail.history.statusFailed", "failed")})
-                    </span>
-                  ) : null}
-                </p>
-                {email.preview ? (
-                  <p className="line-clamp-2 text-sm text-muted-foreground">
-                    {email.preview}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
