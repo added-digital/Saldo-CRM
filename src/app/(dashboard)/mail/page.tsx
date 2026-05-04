@@ -904,6 +904,38 @@ export default function MailPage() {
           sent_count?: number
         }
 
+        if (response.status === 412) {
+          // Microsoft provider token has expired (or never existed). Offer
+          // re-auth via the same OAuth flow used on /login. The redirect
+          // brings the user back to the current URL so they can retry the
+          // send.
+          toast.error(
+            result.message ??
+              t(
+                "mail.send.toast.sessionExpired",
+                "Your Microsoft session expired. Sign in again to send mail.",
+              ),
+            {
+              action: {
+                label: t("mail.send.toast.signInAgain", "Sign in again"),
+                onClick: async () => {
+                  const supabase = createClient()
+                  await supabase.auth.signInWithOAuth({
+                    provider: "azure",
+                    options: {
+                      redirectTo: window.location.href,
+                      scopes:
+                        "openid profile email User.Read Mail.Read Mail.Send",
+                    },
+                  })
+                },
+              },
+              duration: 12000,
+            },
+          )
+          return
+        }
+
         if (!response.ok) {
           toast.error(result.message || result.error || t("settings.mail.toast.sendFailed", "Failed to send email"))
           return
