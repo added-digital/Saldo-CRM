@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useTranslation } from "@/hooks/use-translation"
 import { useUser } from "@/hooks/use-user"
@@ -48,7 +48,7 @@ type MailRecipientContact = CustomerContact & {
 }
 
 type RecipientSegment = Pick<Segment, "id" | "name" | "color">
-type RecipientType = "customers" | "contacts"
+type RecipientType = "customers" | "contacts" | "manual"
 
 type ResolvedRecipient = {
   id: string
@@ -95,7 +95,7 @@ function defaultPlainForm(t: (key: string, fallback?: string) => string): PlainF
 function defaultPlainOsForm(t: (key: string, fallback?: string) => string): PlainOsForm {
   return {
     subject: "",
-    title: t("settings.mail.defaults.title", "Hello, @customer"),
+    title: t("settings.mail.cdefaults.title", "Hello, @customer"),
     previewText: t("settings.mail.defaults.previewText", "Quick update from Saldo"),
     greeting: "",
     paragraphs: t(
@@ -201,6 +201,15 @@ function isActiveContact(contact: MailRecipientContact): boolean {
   return relatedCustomers.some((customer) => !isArchivedCustomer(customer.status))
 }
 
+const SIMPLE_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function parseManualEmailInput(input: string): string[] {
+  return input
+    .split(/[,;\s]+/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+}
+
 export default function MailPage() {
   const { t } = useTranslation()
   const { user } = useUser()
@@ -210,6 +219,8 @@ export default function MailPage() {
   const [segmentOptions, setSegmentOptions] = React.useState<RecipientSegment[]>([])
   const [selectedCustomerIds, setSelectedCustomerIds] = React.useState<string[]>([])
   const [selectedContactIds, setSelectedContactIds] = React.useState<string[]>([])
+  const [manualEmails, setManualEmails] = React.useState<string[]>([])
+  const [manualEmailInput, setManualEmailInput] = React.useState("")
   const [recipientType, setRecipientType] = React.useState<RecipientType>("customers")
   const [recipientSearch, setRecipientSearch] = React.useState("")
   const [selectedSegmentIds, setSelectedSegmentIds] = React.useState<string[]>([])
@@ -279,8 +290,17 @@ export default function MailPage() {
       }
     })
 
-    return [...customerRecipients, ...contactRecipients]
-  }, [selectedContacts, selectedCustomers, t])
+    const manualRecipients = manualEmails.map((email) => ({
+      id: `manual-${email.toLowerCase()}`,
+      type: "manual" as const,
+      name: email,
+      email,
+      customerName: email,
+      companyName: t("mail.send.recipients.externalLabel", "External"),
+    }))
+
+    return [...customerRecipients, ...contactRecipients, ...manualRecipients]
+  }, [manualEmails, selectedContacts, selectedCustomers, t])
 
   const visibleSelectedRecipients = React.useMemo(
     () =>
@@ -861,6 +881,14 @@ export default function MailPage() {
             template: templateType === "plain" ? "plain" : "content",
             mode: "send",
             deliveryMode: "separate",
+            recipient_metadata: {
+              type: recipient.type,
+              name: recipient.name,
+              customer_id:
+                recipient.type === "customers" ? recipient.id : null,
+              contact_id:
+                recipient.type === "contacts" ? recipient.id : null,
+            },
             data: personalizePayload(
               activePayload,
               templateType,
@@ -899,6 +927,17 @@ export default function MailPage() {
   }
 
   return (
+    <Tabs defaultValue="compose" className="space-y-4">
+      <TabsList variant="line" className="w-full justify-start">
+        <TabsTrigger value="compose">
+          {t("mail.tabs.compose", "Compose")}
+        </TabsTrigger>
+        <TabsTrigger value="history">
+          {t("mail.tabs.history", "History")}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="compose" className="m-0">
     <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr]">
       <Card>
         <CardHeader>
@@ -945,9 +984,129 @@ export default function MailPage() {
                     {selectedContactIds.length}
                   </Badge>
                 </TabsTrigger>
+                <TabsTrigger value="manual">
+                  {t("mail.send.recipients.external", "External")}
+                  <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1 text-xs">
+                    {manualEmails.length}
+                  </Badge>
+                </TabsTrigger>
               </TabsList>
             </Tabs>
 
+            {recipientType === "manual" ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-1.5 rounded-md border bg-background p-2 focus-within:ring-1 focus-within:ring-ring">
+                  {manualEmails.map((email) => (
+                    <Badge
+                      key={email}
+                      variant="secondary"
+                      className="gap-1.5 pl-2 pr-1 py-0.5 text-xs"
+                    >
+                      <span className="truncate max-w-[16rem]">{email}</span>
+                      <button
+                        type="button"
+                        aria-label={t(
+                          "mail.send.recipients.removeManual",
+                          "Remove recipient",
+                        )}
+                        onClick={() =>
+                          setManualEmails((prev) =>
+                            prev.filter((entry) => entry !== email),
+                          )
+                        }
+                        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  <Input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={manualEmailInput}
+                    onChange={(event) => setManualEmailInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === ",") {
+                        event.preventDefault()
+                        const candidates = parseManualEmailInput(manualEmailInput)
+                        if (candidates.length === 0) return
+                        setManualEmails((prev) => {
+                          const next = new Set(prev)
+                          let added = 0
+                          let invalid = 0
+                          for (const candidate of candidates) {
+                            const normalised = candidate.toLowerCase()
+                            if (!SIMPLE_EMAIL_REGEX.test(normalised)) {
+                              invalid += 1
+                              continue
+                            }
+                            if (!next.has(normalised)) {
+                              next.add(normalised)
+                              added += 1
+                            }
+                          }
+                          if (invalid > 0) {
+                            toast.error(
+                              t(
+                                "mail.send.recipients.invalidEmail",
+                                "One or more entries are not valid email addresses",
+                              ),
+                            )
+                          }
+                          if (added === 0 && invalid === 0) {
+                            return prev
+                          }
+                          return Array.from(next)
+                        })
+                        setManualEmailInput("")
+                      } else if (
+                        event.key === "Backspace" &&
+                        manualEmailInput.length === 0 &&
+                        manualEmails.length > 0
+                      ) {
+                        event.preventDefault()
+                        setManualEmails((prev) => prev.slice(0, -1))
+                      }
+                    }}
+                    onPaste={(event) => {
+                      const text = event.clipboardData.getData("text")
+                      const candidates = parseManualEmailInput(text)
+                      if (candidates.length <= 1) return
+                      event.preventDefault()
+                      setManualEmails((prev) => {
+                        const next = new Set(prev)
+                        for (const candidate of candidates) {
+                          const normalised = candidate.toLowerCase()
+                          if (SIMPLE_EMAIL_REGEX.test(normalised)) {
+                            next.add(normalised)
+                          }
+                        }
+                        return Array.from(next)
+                      })
+                      setManualEmailInput("")
+                    }}
+                    placeholder={
+                      manualEmails.length === 0
+                        ? t(
+                            "mail.send.recipients.manualPlaceholder",
+                            "Type email and press Enter or comma...",
+                          )
+                        : ""
+                    }
+                    className="h-7 flex-1 min-w-[14rem] border-0 px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    "mail.send.recipients.manualHelp",
+                    "Add email addresses outside your customer and contact lists. Press Enter or comma to add, click × to remove.",
+                  )}
+                </p>
+              </div>
+            ) : null}
+
+            {recipientType !== "manual" && (
             <Popover open={recipientPickerOpen} onOpenChange={setRecipientPickerOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-between font-normal">
@@ -1069,6 +1228,7 @@ export default function MailPage() {
                 </div>
               </PopoverContent>
             </Popover>
+            )}
 
             {selectedRecipients.length > 0 ? (
               <div className="space-y-2">
@@ -1327,5 +1487,168 @@ export default function MailPage() {
         </CardContent>
       </Card>
     </div>
+      </TabsContent>
+
+      <TabsContent value="history" className="m-0">
+        <MailHistoryView t={t} />
+      </TabsContent>
+    </Tabs>
+  )
+}
+
+type SentEmailEntry = {
+  id: string
+  subject: string
+  recipientName: string | null
+  recipientEmail: string
+  preview: string
+  sentAt: string
+  status: "sent" | "failed"
+}
+
+type SentEmailRow = {
+  id: string
+  subject: string
+  body_preview: string | null
+  recipient_email: string
+  recipient_name: string | null
+  status: "sent" | "failed"
+  sent_at: string
+}
+
+function formatSentAt(iso: string, locale: string = "sv-SE"): string {
+  try {
+    const date = new Date(iso)
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(date)
+  } catch {
+    return iso
+  }
+}
+
+function MailHistoryView({
+  t,
+}: {
+  t: (key: string, fallback?: string) => string
+}) {
+  const [emails, setEmails] = React.useState<SentEmailEntry[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const supabase = createClient()
+      const { data, error: queryError } = await supabase
+        .from("sent_emails")
+        .select(
+          "id, subject, body_preview, recipient_email, recipient_name, status, sent_at",
+        )
+        .order("sent_at", { ascending: false })
+        .limit(50)
+
+      if (cancelled) return
+
+      if (queryError) {
+        setError(queryError.message)
+        setEmails([])
+        setLoading(false)
+        return
+      }
+
+      const rows = (data ?? []) as unknown as SentEmailRow[]
+      setEmails(
+        rows.map((row) => ({
+          id: row.id,
+          subject: row.subject,
+          recipientName: row.recipient_name,
+          recipientEmail: row.recipient_email,
+          preview: row.body_preview ?? "",
+          sentAt: row.sent_at,
+          status: row.status,
+        })),
+      )
+      setError(null)
+      setLoading(false)
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">
+          {t("mail.history.title", "Sent emails")}
+        </CardTitle>
+        <CardDescription>
+          {t(
+            "mail.history.description",
+            "A history of emails sent from this app. Showing your most recent 50.",
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-16 animate-pulse rounded-md border bg-muted"
+              />
+            ))}
+          </div>
+        ) : error ? (
+          <p className="text-sm text-destructive">
+            {t("mail.history.loadFailed", "Failed to load history")}: {error}
+          </p>
+        ) : emails.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t(
+              "mail.history.empty",
+              "No sent emails yet. Send your first email from the Compose tab.",
+            )}
+          </p>
+        ) : (
+          <ul className="divide-y rounded-md border">
+            {emails.map((email) => (
+              <li
+                key={email.id}
+                className="flex flex-col gap-1 px-4 py-3 transition-colors hover:bg-muted/50"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="truncate text-sm font-medium">
+                    {email.subject}
+                  </p>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatSentAt(email.sentAt)}
+                  </span>
+                </div>
+                <p className="truncate text-xs text-muted-foreground">
+                  {t("mail.history.toLabel", "To")}:{" "}
+                  {email.recipientName
+                    ? `${email.recipientName} <${email.recipientEmail}>`
+                    : email.recipientEmail}
+                  {email.status === "failed" ? (
+                    <span className="ml-2 text-destructive">
+                      ({t("mail.history.statusFailed", "failed")})
+                    </span>
+                  ) : null}
+                </p>
+                {email.preview ? (
+                  <p className="line-clamp-2 text-sm text-muted-foreground">
+                    {email.preview}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   )
 }

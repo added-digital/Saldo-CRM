@@ -10,6 +10,30 @@ interface EmailRequest {
   data: Record<string, unknown>
   mode?: "send" | "preview"
   deliveryMode?: "grouped" | "separate"
+  recipient_metadata?: {
+    type?: "customers" | "contacts" | "manual"
+    name?: string | null
+    customer_id?: string | null
+    contact_id?: string | null
+  }
+}
+
+function htmlToPreview(html: string, maxLength = 240): string {
+  const text = html
+    // Strip <style>/<script> blocks first so their bodies don't leak in.
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    // Replace block-level tags with newlines so paragraphs separate cleanly.
+    .replace(/<\/(p|div|li|h[1-6]|tr|br)\s*>/gi, "\n")
+    .replace(/<br\s*\/?>(?!\n)/gi, "\n")
+    // Drop remaining tags.
+    .replace(/<[^>]+>/g, " ")
+    // Collapse whitespace.
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, maxLength).trimEnd()}…`
 }
 
 function asString(value: unknown, fallback = ""): string {
@@ -173,7 +197,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: EmailRequest = await request.json()
-    const { to, template, data, mode = "send" } = body
+    const { to, template, data, mode = "send", recipient_metadata } = body
     const deliveryMode = "separate"
     const recipients = asStringArray(to)
 
@@ -220,8 +244,53 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const bodyPreview = htmlToPreview(html)
+    const recipientType =
+      recipient_metadata?.type === "customers" ||
+      recipient_metadata?.type === "contacts"
+        ? recipient_metadata.type
+        : "manual"
+    const sentLogRows: Array<{
+      user_id: string
+      subject: string
+      body_preview: string
+      body_html: string
+      recipient_email: string
+      recipient_name: string | null
+      recipient_type: "customers" | "contacts" | "manual"
+      customer_id: string | null
+      contact_id: string | null
+      template_key: string
+      delivery_mode: string
+      status: "sent"
+    }> = []
+
     for (const recipient of recipients) {
       await sendMicrosoftGraphMail(providerToken, [recipient], subject, html)
+      sentLogRows.push({
+        user_id: user.id,
+        subject,
+        body_preview: bodyPreview,
+        body_html: html,
+        recipient_email: recipient,
+        recipient_name: recipient_metadata?.name ?? null,
+        recipient_type: recipientType,
+        customer_id: recipient_metadata?.customer_id ?? null,
+        contact_id: recipient_metadata?.contact_id ?? null,
+        template_key: template,
+        delivery_mode: deliveryMode,
+        status: "sent",
+      })
+    }
+
+    if (sentLogRows.length > 0) {
+      // Persistence is best-effort — a failure here shouldn't fail the send.
+      const { error: logError } = await supabase
+        .from("sent_emails")
+        .insert(sentLogRows as never)
+      if (logError) {
+        console.error("Failed to log sent_emails:", logError)
+      }
     }
 
     return NextResponse.json({

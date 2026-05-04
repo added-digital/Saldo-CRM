@@ -417,6 +417,29 @@ export interface Conversation {
   updated_at: string
 }
 
+export type SentEmailStatus = "sent" | "failed"
+export type SentEmailRecipientType = "customers" | "contacts" | "manual"
+
+export interface SentEmail {
+  id: string
+  user_id: string
+  subject: string
+  body_preview: string | null
+  body_html: string | null
+  recipient_email: string
+  recipient_name: string | null
+  recipient_type: SentEmailRecipientType
+  customer_id: string | null
+  contact_id: string | null
+  template_key: string | null
+  delivery_mode: string | null
+  status: SentEmailStatus
+  error_message: string | null
+  sent_at: string
+  created_at: string
+  updated_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -559,6 +582,13 @@ export interface Database {
         Row: Conversation
         Insert: Omit<Conversation, "id" | "created_at" | "updated_at">
         Update: Partial<Omit<Conversation, "id" | "created_at" | "updated_at">>
+      }
+      sent_emails: {
+        Row: SentEmail
+        Insert: Omit<SentEmail, "id" | "created_at" | "updated_at" | "sent_at"> & {
+          sent_at?: string
+        }
+        Update: Partial<Omit<SentEmail, "id" | "created_at" | "updated_at">>
       }
       sync_jobs: {
         Row: SyncJob
