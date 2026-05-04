@@ -26,6 +26,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 
 const MAIL_HISTORY_PAGE_SIZE = 15
@@ -396,124 +404,158 @@ export default function MailHistoryPage() {
           />
         )
       ) : (
-        <ul className="divide-y rounded-md border">
-          {paginatedBatches.map((batch) => {
-            const expanded = expandedIds.has(batch.id)
-            return (
-              <li key={batch.id} className="bg-background">
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => toggleExpanded(batch.id)}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter" && event.key !== " ") return
-                    event.preventDefault()
-                    toggleExpanded(batch.id)
-                  }}
-                  className="grid w-full cursor-pointer grid-cols-[24px_minmax(0,1.4fr)_minmax(0,2fr)_minmax(0,1.4fr)_auto] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
-                >
-                  <ChevronDown
-                    className={cn(
-                      "size-4 text-muted-foreground transition-transform",
-                      expanded && "rotate-180",
-                    )}
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{batch.subject}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {recipientSummary(batch)}
-                    </p>
-                  </div>
-                  <p className="line-clamp-2 text-sm text-muted-foreground">
-                    {batch.preview || "—"}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-1">
-                    <Badge variant="secondary" className="text-xs">
-                      {batch.recipientCount}{" "}
-                      {batch.recipientCount === 1
-                        ? t("mail.history.summary.recipient", "recipient")
-                        : t("mail.history.summary.recipients", "recipients")}
-                    </Badge>
-                    {batch.failedCount > 0 ? (
-                      <Badge
-                        variant="outline"
-                        className="border-destructive text-destructive text-xs"
-                      >
-                        {batch.failedCount} {t("mail.history.statusFailed", "failed")}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatSentAt(batch.sentAt)}
-                  </span>
-                </div>
-
-                {expanded ? (
-                  <div className="border-t bg-muted/30 px-4 py-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {t("mail.history.detail.recipients", "Recipients")}
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          openBatchDetail(batch)
-                        }}
-                      >
-                        {t("mail.history.detail.viewBody", "View email")}
-                      </Button>
-                    </div>
-                    <ul className="divide-y rounded-md border bg-background">
-                      {batch.recipients.length === 0 ? (
-                        <li className="px-3 py-2 text-sm text-muted-foreground">
-                          {t(
-                            "mail.history.detail.noRecipients",
-                            "No recipient records were stored for this send.",
+        <div className="overflow-hidden rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10" />
+                <TableHead className="w-[28%]">
+                  {t("mail.history.columns.subject", "Subject")}
+                </TableHead>
+                <TableHead>
+                  {t("mail.history.columns.preview", "Preview")}
+                </TableHead>
+                <TableHead className="w-[200px]">
+                  {t("mail.history.columns.recipients", "Recipients")}
+                </TableHead>
+                <TableHead className="w-[160px] text-right">
+                  {t("mail.history.columns.sentAt", "Sent")}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedBatches.map((batch) => {
+                const expanded = expandedIds.has(batch.id)
+                return (
+                  <React.Fragment key={batch.id}>
+                    <TableRow
+                      className="cursor-pointer"
+                      onClick={() => toggleExpanded(batch.id)}
+                    >
+                      <TableCell className="w-10 text-muted-foreground">
+                        <ChevronDown
+                          className={cn(
+                            "size-4 transition-transform",
+                            expanded && "rotate-180",
                           )}
-                        </li>
-                      ) : (
-                        batch.recipients.map((recipient) => (
-                          <li
-                            key={recipient.id}
-                            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-sm"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate">
-                                {recipient.name
-                                  ? `${recipient.name} <${recipient.email}>`
-                                  : recipient.email}
-                              </p>
-                              {recipient.errorMessage ? (
-                                <p className="truncate text-xs text-destructive">
-                                  {recipient.errorMessage}
-                                </p>
-                              ) : null}
-                            </div>
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {batch.subject}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {batch.preview ? batch.preview.slice(0, 70) + (batch.preview.length > 70 ? '…' : '') : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Badge variant="secondary" className="text-xs">
+                            {batch.recipientCount}{" "}
+                            {batch.recipientCount === 1
+                              ? t("mail.history.summary.recipient", "recipient")
+                              : t("mail.history.summary.recipients", "recipients")}
+                          </Badge>
+                          {batch.failedCount > 0 ? (
                             <Badge
-                              variant={recipient.status === "sent" ? "secondary" : "outline"}
-                              className={cn(
-                                "text-xs",
-                                recipient.status === "failed" &&
-                                  "border-destructive text-destructive",
-                              )}
+                              variant="outline"
+                              className="border-destructive text-destructive text-xs"
                             >
-                              {recipient.status === "sent"
-                                ? t("mail.history.statusSent", "sent")
-                                : t("mail.history.statusFailed", "failed")}
+                              {batch.failedCount}{" "}
+                              {t("mail.history.statusFailed", "failed")}
                             </Badge>
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  </div>
-                ) : null}
-              </li>
-            )
-          })}
-        </ul>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-muted-foreground">
+                        {formatSentAt(batch.sentAt)}
+                      </TableCell>
+                    </TableRow>
+
+                    {expanded ? (
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell />
+                        <TableCell colSpan={4} className="whitespace-normal">
+                          <div className="space-y-2 py-1">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                {t(
+                                  "mail.history.detail.recipients",
+                                  "Recipients",
+                                )}
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  openBatchDetail(batch)
+                                }}
+                              >
+                                {t(
+                                  "mail.history.detail.viewBody",
+                                  "View email",
+                                )}
+                              </Button>
+                            </div>
+                            {batch.recipients.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                {t(
+                                  "mail.history.detail.noRecipients",
+                                  "No recipient records were stored for this send.",
+                                )}
+                              </p>
+                            ) : (
+                              <ul className="divide-y">
+                                {batch.recipients.map((recipient) => (
+                                  <li
+                                    key={recipient.id}
+                                    className="flex items-center justify-between gap-3 py-2 text-sm"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="truncate">
+                                        {recipient.name
+                                          ? `${recipient.name} <${recipient.email}>`
+                                          : recipient.email}
+                                      </p>
+                                      {recipient.errorMessage ? (
+                                        <p className="truncate text-xs text-destructive">
+                                          {recipient.errorMessage}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                    <Badge
+                                      variant={
+                                        recipient.status === "sent"
+                                          ? "secondary"
+                                          : "outline"
+                                      }
+                                      className={cn(
+                                        "text-xs",
+                                        recipient.status === "failed" &&
+                                          "border-destructive text-destructive",
+                                      )}
+                                    >
+                                      {recipient.status === "sent"
+                                        ? t("mail.history.statusSent", "sent")
+                                        : t(
+                                            "mail.history.statusFailed",
+                                            "failed",
+                                          )}
+                                    </Badge>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
+                  </React.Fragment>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       <Dialog

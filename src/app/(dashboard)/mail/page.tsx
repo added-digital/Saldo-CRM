@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useSearchParams } from "next/navigation"
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Search, Send, X } from "lucide-react"
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Search, Send, TriangleAlert, X } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -203,6 +203,70 @@ function isActiveContact(contact: MailRecipientContact): boolean {
 
 const SIMPLE_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+const COMPOSE_SNAPSHOT_KEY = "mail.compose.snapshot.v1"
+const COMPOSE_SNAPSHOT_TTL_MS = 30 * 60 * 1000 // 30 minutes
+const MS_OAUTH_SCOPES =
+  "openid profile email User.Read Mail.Read Mail.Send"
+
+type ComposeSnapshot = {
+  selectedCustomerIds: string[]
+  selectedContactIds: string[]
+  manualEmails: string[]
+  recipientType: RecipientType
+  selectedTemplateValue: string
+  templateType: MailTemplateType
+  plainForm: PlainForm
+  plainOsForm: PlainOsForm
+  savedAt: string
+}
+
+function saveComposeSnapshot(snapshot: ComposeSnapshot): void {
+  if (typeof window === "undefined") return
+  try {
+    window.sessionStorage.setItem(
+      COMPOSE_SNAPSHOT_KEY,
+      JSON.stringify(snapshot),
+    )
+  } catch {
+    // ignore — best-effort persistence
+  }
+}
+
+function loadComposeSnapshot(): ComposeSnapshot | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = window.sessionStorage.getItem(COMPOSE_SNAPSHOT_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as ComposeSnapshot
+    const age = Date.now() - new Date(parsed.savedAt).getTime()
+    if (!Number.isFinite(age) || age > COMPOSE_SNAPSHOT_TTL_MS) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function clearComposeSnapshot(): void {
+  if (typeof window === "undefined") return
+  try {
+    window.sessionStorage.removeItem(COMPOSE_SNAPSHOT_KEY)
+  } catch {
+    // ignore
+  }
+}
+
+async function startMicrosoftReauth(snapshot: ComposeSnapshot): Promise<void> {
+  saveComposeSnapshot(snapshot)
+  const supabase = createClient()
+  await supabase.auth.signInWithOAuth({
+    provider: "azure",
+    options: {
+      redirectTo: window.location.href,
+      scopes: MS_OAUTH_SCOPES,
+    },
+  })
+}
+
 function parseManualEmailInput(input: string): string[] {
   return input
     .split(/[,;\s]+/)
@@ -235,7 +299,58 @@ export default function MailPage() {
   const [previewLoading, setPreviewLoading] = React.useState(false)
   const [sending, setSending] = React.useState(false)
   const [previewCustomerIndex, setPreviewCustomerIndex] = React.useState(0)
+  const [reauthNeeded, setReauthNeeded] = React.useState(false)
   const hasAutoSelectedMyCustomersRef = React.useRef(false)
+
+  const buildComposeSnapshot = React.useCallback((): ComposeSnapshot => ({
+    selectedCustomerIds,
+    selectedContactIds,
+    manualEmails,
+    recipientType,
+    selectedTemplateValue,
+    templateType,
+    plainForm,
+    plainOsForm,
+    savedAt: new Date().toISOString(),
+  }), [
+    manualEmails,
+    plainForm,
+    plainOsForm,
+    recipientType,
+    selectedContactIds,
+    selectedCustomerIds,
+    selectedTemplateValue,
+    templateType,
+  ])
+
+  // On first mount: (1) restore any compose state we saved before sending the
+  // user through Microsoft re-auth, and (2) check whether the MS provider
+  // token is currently present. If it isn't, surface the warning banner so
+  // they can re-auth before composing, instead of getting stung after.
+  React.useEffect(() => {
+    const snapshot = loadComposeSnapshot()
+    if (snapshot) {
+      setSelectedCustomerIds(snapshot.selectedCustomerIds ?? [])
+      setSelectedContactIds(snapshot.selectedContactIds ?? [])
+      setManualEmails(snapshot.manualEmails ?? [])
+      if (snapshot.recipientType) setRecipientType(snapshot.recipientType)
+      if (snapshot.selectedTemplateValue)
+        setSelectedTemplateValue(snapshot.selectedTemplateValue)
+      if (snapshot.templateType) setTemplateType(snapshot.templateType)
+      if (snapshot.plainForm) setPlainForm(snapshot.plainForm)
+      if (snapshot.plainOsForm) setPlainOsForm(snapshot.plainOsForm)
+      clearComposeSnapshot()
+      toast.success(
+        t("mail.send.toast.restored", "Restored your draft after sign-in."),
+      )
+    }
+
+    const supabase = createClient()
+    void supabase.auth.getSession().then(({ data }) => {
+      setReauthNeeded(!data.session?.provider_token)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const selectedSavedTemplate = React.useMemo(
     () =>
@@ -912,6 +1027,7 @@ export default function MailPage() {
       }
 
       if (response.status === 412) {
+        setReauthNeeded(true)
         toast.error(
           result.message ??
             t(
@@ -921,16 +1037,8 @@ export default function MailPage() {
           {
             action: {
               label: t("mail.send.toast.signInAgain", "Sign in again"),
-              onClick: async () => {
-                const supabase = createClient()
-                await supabase.auth.signInWithOAuth({
-                  provider: "azure",
-                  options: {
-                    redirectTo: window.location.href,
-                    scopes:
-                      "openid profile email User.Read Mail.Read Mail.Send",
-                  },
-                })
+              onClick: () => {
+                void startMicrosoftReauth(buildComposeSnapshot())
               },
             },
             duration: 12000,
@@ -1002,10 +1110,43 @@ export default function MailPage() {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr]">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("mail.send.title", "Mail")}</CardTitle>
+    <div className="space-y-4">
+      {reauthNeeded ? (
+        <div className="flex flex-col gap-3 rounded-md border border-l-4 border-warning border-l-warning bg-warning/10 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <TriangleAlert className="size-4 shrink-0 mt-0.5 text-warning" />
+            <div className="space-y-0.5">
+              <p className="font-medium text-foreground">
+                {t(
+                  "mail.send.reauth.title",
+                  "Microsoft session not active",
+                )}
+              </p>
+              <p className="text-muted-foreground">
+                {t(
+                  "mail.send.reauth.description",
+                  "Sign in again to enable sending mail. Your current draft will be restored automatically after you return.",
+                )}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="self-start sm:self-auto"
+            onClick={() => {
+              void startMicrosoftReauth(buildComposeSnapshot())
+            }}
+          >
+            {t("mail.send.reauth.action", "Sign in again")}
+          </Button>
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t("mail.send.title", "Mail")}</CardTitle>
           <CardDescription>
             {t("mail.send.description", "Select template and send emails to selected recipients.")}
           </CardDescription>
@@ -1550,6 +1691,7 @@ export default function MailPage() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }
