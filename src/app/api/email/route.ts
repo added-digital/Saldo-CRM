@@ -4,18 +4,32 @@ import { system } from "@/config/system"
 import { ContentTemplateEmail } from "@/emails/content-template"
 import { render } from "@react-email/components"
 
+type EmailRecipientType = "customers" | "contacts" | "manual"
+
+interface EmailRecipientPayload {
+  email: string
+  name?: string | null
+  type?: EmailRecipientType
+  customer_id?: string | null
+  contact_id?: string | null
+  data?: Record<string, unknown>
+}
+
 interface EmailRequest {
-  to: string | string[]
-  template: "content" | "plain"
-  data: Record<string, unknown>
-  mode?: "send" | "preview"
-  deliveryMode?: "grouped" | "separate"
+  // New shape (preferred): one call carries the whole batch.
+  recipients?: EmailRecipientPayload[]
+  // Legacy shape (still supported): single recipient via `to` + metadata.
+  to?: string | string[]
   recipient_metadata?: {
-    type?: "customers" | "contacts" | "manual"
+    type?: EmailRecipientType
     name?: string | null
     customer_id?: string | null
     contact_id?: string | null
   }
+  template: "content" | "plain"
+  data: Record<string, unknown>
+  mode?: "send" | "preview"
+  deliveryMode?: "grouped" | "separate"
 }
 
 function htmlToPreview(html: string, maxLength = 240): string {
@@ -197,15 +211,38 @@ export async function POST(request: NextRequest) {
     }
 
     const body: EmailRequest = await request.json()
-    const { to, template, data, mode = "send", recipient_metadata } = body
+    const { template, data, mode = "send" } = body
     const deliveryMode = "separate"
-    const recipients = asStringArray(to)
 
-    if (recipients.length === 0) {
+    // Normalise to a single shape: { email, name, type, customer_id, contact_id, data }[].
+    const recipientPayloads: EmailRecipientPayload[] = (() => {
+      if (Array.isArray(body.recipients) && body.recipients.length > 0) {
+        return body.recipients.map((entry) => ({
+          email: typeof entry.email === "string" ? entry.email.trim() : "",
+          name: entry.name ?? null,
+          type: entry.type,
+          customer_id: entry.customer_id ?? null,
+          contact_id: entry.contact_id ?? null,
+          data: entry.data,
+        }))
+      }
+      // Legacy: `to` + `recipient_metadata` (single-recipient flow).
+      return asStringArray(body.to).map((email) => ({
+        email,
+        name: body.recipient_metadata?.name ?? null,
+        type: body.recipient_metadata?.type,
+        customer_id: body.recipient_metadata?.customer_id ?? null,
+        contact_id: body.recipient_metadata?.contact_id ?? null,
+      }))
+    })()
+
+    if (recipientPayloads.length === 0) {
       return NextResponse.json({ error: "At least one recipient is required" }, { status: 400 })
     }
 
-    const invalidRecipients = recipients.filter((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    const invalidRecipients = recipientPayloads
+      .map((entry) => entry.email)
+      .filter((email) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     if (invalidRecipients.length > 0) {
       return NextResponse.json(
         {
@@ -221,12 +258,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid template" }, { status: 400 })
     }
 
-    const payload = data ?? {}
-    const appUrl = resolveAppUrl(request, payload)
-    const { subject, html } = await renderTemplate(payload, appUrl)
+    const baseData = data ?? {}
+    const appUrl = resolveAppUrl(request, baseData)
+
+    // Render template per recipient (each may carry its own personalisation
+    // payload). The first render also serves as the canonical "batch body"
+    // we store on mail_send_batches — typically the differences between
+    // recipients are only name swaps, so this is a faithful representation
+    // of what was sent.
+    type RenderedRecipient = EmailRecipientPayload & {
+      rendered: EmailRenderResult
+    }
+    const rendered: RenderedRecipient[] = []
+    for (const recipient of recipientPayloads) {
+      const mergedData = { ...baseData, ...(recipient.data ?? {}) }
+      const result = await renderTemplate(mergedData, appUrl)
+      rendered.push({ ...recipient, rendered: result })
+    }
+
+    const batchSubject = rendered[0].rendered.subject
+    const batchHtml = rendered[0].rendered.html
+    const batchPreview = htmlToPreview(batchHtml)
 
     if (mode === "preview") {
-      return NextResponse.json({ success: true, subject, html, recipients })
+      return NextResponse.json({
+        success: true,
+        subject: batchSubject,
+        html: batchHtml,
+        recipients: rendered.map((entry) => entry.email),
+      })
     }
 
     const {
@@ -244,45 +304,78 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const bodyPreview = htmlToPreview(html)
-    const recipientType =
-      recipient_metadata?.type === "customers" ||
-      recipient_metadata?.type === "contacts"
-        ? recipient_metadata.type
-        : "manual"
-    const sentLogRows: Array<{
+    // Insert the batch row first so we have a batch_id to link the per-
+    // recipient sent_emails rows to.
+    const { data: batchData, error: batchError } = await supabase
+      .from("mail_send_batches")
+      .insert({
+        user_id: user.id,
+        subject: batchSubject,
+        body_preview: batchPreview,
+        body_html: batchHtml,
+        template_key: template,
+        delivery_mode: deliveryMode,
+        recipient_count: recipientPayloads.length,
+      } as never)
+      .select("id")
+      .single()
+
+    const batchRow = batchData as { id: string } | null
+    if (batchError || !batchRow) {
+      console.error("Failed to insert mail_send_batches row:", batchError)
+      return NextResponse.json(
+        {
+          error: "Failed to record batch",
+          message: batchError?.message ?? "Unknown error",
+        },
+        { status: 500 }
+      )
+    }
+    const batchId = batchRow.id
+
+    type LogRow = {
       user_id: string
+      batch_id: string
       subject: string
       body_preview: string
-      body_html: string
       recipient_email: string
       recipient_name: string | null
-      recipient_type: "customers" | "contacts" | "manual"
+      recipient_type: EmailRecipientType
       customer_id: string | null
       contact_id: string | null
       template_key: string
       delivery_mode: string
       status: "sent" | "failed"
       error_message: string | null
-    }> = []
-
+    }
+    const sentLogRows: LogRow[] = []
     let sentCount = 0
     const failures: Array<{ recipient: string; message: string }> = []
 
-    for (const recipient of recipients) {
+    for (const entry of rendered) {
+      const recipientType: EmailRecipientType =
+        entry.type === "customers" || entry.type === "contacts"
+          ? entry.type
+          : "manual"
+
       try {
-        await sendMicrosoftGraphMail(providerToken, [recipient], subject, html)
+        await sendMicrosoftGraphMail(
+          providerToken,
+          [entry.email],
+          entry.rendered.subject,
+          entry.rendered.html,
+        )
         sentCount += 1
         sentLogRows.push({
           user_id: user.id,
-          subject,
-          body_preview: bodyPreview,
-          body_html: html,
-          recipient_email: recipient,
-          recipient_name: recipient_metadata?.name ?? null,
+          batch_id: batchId,
+          subject: entry.rendered.subject,
+          body_preview: htmlToPreview(entry.rendered.html),
+          recipient_email: entry.email,
+          recipient_name: entry.name ?? null,
           recipient_type: recipientType,
-          customer_id: recipient_metadata?.customer_id ?? null,
-          contact_id: recipient_metadata?.contact_id ?? null,
+          customer_id: entry.customer_id ?? null,
+          contact_id: entry.contact_id ?? null,
           template_key: template,
           delivery_mode: deliveryMode,
           status: "sent",
@@ -291,18 +384,18 @@ export async function POST(request: NextRequest) {
       } catch (sendError) {
         const message =
           sendError instanceof Error ? sendError.message : "Unknown send error"
-        console.error(`Send to ${recipient} failed:`, message)
-        failures.push({ recipient, message })
+        console.error(`Send to ${entry.email} failed:`, message)
+        failures.push({ recipient: entry.email, message })
         sentLogRows.push({
           user_id: user.id,
-          subject,
-          body_preview: bodyPreview,
-          body_html: html,
-          recipient_email: recipient,
-          recipient_name: recipient_metadata?.name ?? null,
+          batch_id: batchId,
+          subject: entry.rendered.subject,
+          body_preview: htmlToPreview(entry.rendered.html),
+          recipient_email: entry.email,
+          recipient_name: entry.name ?? null,
           recipient_type: recipientType,
-          customer_id: recipient_metadata?.customer_id ?? null,
-          contact_id: recipient_metadata?.contact_id ?? null,
+          customer_id: entry.customer_id ?? null,
+          contact_id: entry.contact_id ?? null,
           template_key: template,
           delivery_mode: deliveryMode,
           status: "failed",
@@ -312,9 +405,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (sentLogRows.length > 0) {
-      // Persistence is best-effort — a logging failure shouldn't fail the
-      // overall response. The actual sends already happened (or actually
-      // failed) regardless of whether we record them.
       const { error: logError } = await supabase
         .from("sent_emails")
         .insert(sentLogRows as never)
@@ -323,14 +413,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Total failure → return 502 so the UI surfaces an error toast. Partial
-    // failure (some sent, some failed) → 200 with a `failures` array; the UI
-    // can decide how to surface it.
+    // Update the denormalised counts on the batch (best-effort).
+    await supabase
+      .from("mail_send_batches")
+      .update({
+        sent_count: sentCount,
+        failed_count: failures.length,
+      } as never)
+      .eq("id", batchId)
+
     if (sentCount === 0 && failures.length > 0) {
       return NextResponse.json(
         {
           error: "All sends failed",
           message: failures[0].message,
+          batch_id: batchId,
           failures,
         },
         { status: 502 }
@@ -339,8 +436,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      subject,
-      recipients,
+      batch_id: batchId,
+      subject: batchSubject,
+      recipients: rendered.map((entry) => entry.email),
       delivery_mode: deliveryMode,
       sent_count: sentCount,
       failure_count: failures.length,

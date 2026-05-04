@@ -1,17 +1,24 @@
 "use client"
 
 import * as React from "react"
-import { ChevronLeft, ChevronRight, Download, Mail } from "lucide-react"
-import { type ColumnDef } from "@tanstack/react-table"
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Mail,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { createClient } from "@/lib/supabase/client"
 import { useTranslation } from "@/hooks/use-translation"
 import { useUser } from "@/hooks/use-user"
 import { useCachedData } from "@/hooks/use-cached-data"
-import { DataTable } from "@/components/app/data-table"
 import { SearchInput } from "@/components/app/search-input"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/app/empty-state"
 import {
   Dialog,
   DialogContent,
@@ -19,31 +26,51 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 
 const MAIL_HISTORY_PAGE_SIZE = 15
-const HISTORY_FETCH_LIMIT = 500
+const HISTORY_FETCH_LIMIT = 200
 
-type SentEmailEntry = {
+type RecipientStatus = "sent" | "failed"
+
+type RecipientEntry = {
   id: string
-  subject: string
-  recipientName: string | null
-  recipientEmail: string
-  recipientType: "customers" | "contacts" | "manual" | string
-  preview: string
-  sentAt: string
-  status: "sent" | "failed"
+  email: string
+  name: string | null
+  type: string
+  status: RecipientStatus
+  errorMessage: string | null
 }
 
-type SentEmailRow = {
+type BatchEntry = {
+  id: string
+  subject: string
+  preview: string
+  templateKey: string | null
+  sentAt: string
+  recipientCount: number
+  sentCount: number
+  failedCount: number
+  recipients: RecipientEntry[]
+}
+
+type BatchRow = {
   id: string
   subject: string
   body_preview: string | null
-  recipient_email: string
-  recipient_name: string | null
-  recipient_type: string
-  status: "sent" | "failed"
+  template_key: string | null
   sent_at: string
+  recipient_count: number
+  sent_count: number
+  failed_count: number
+  sent_emails: Array<{
+    id: string
+    recipient_email: string
+    recipient_name: string | null
+    recipient_type: string
+    status: RecipientStatus
+    error_message: string | null
+  }> | null
 }
 
 function formatSentAt(iso: string, locale: string = "sv-SE"): string {
@@ -58,16 +85,6 @@ function formatSentAt(iso: string, locale: string = "sv-SE"): string {
   }
 }
 
-function recipientLabel(entry: SentEmailEntry): string {
-  if (entry.recipientName) return `${entry.recipientName} <${entry.recipientEmail}>`
-  return entry.recipientEmail
-}
-
-type EmailBodyState =
-  | { status: "loading" }
-  | { status: "ready"; html: string }
-  | { status: "error"; message: string }
-
 function escapeCsvValue(value: string): string {
   return `"${value.replace(/"/g, '""')}"`
 }
@@ -76,16 +93,23 @@ function toCsvRow(values: string[]): string {
   return values.map(escapeCsvValue).join(",")
 }
 
+type EmailBodyState =
+  | { status: "loading" }
+  | { status: "ready"; html: string }
+  | { status: "error"; message: string }
+
 export default function MailHistoryPage() {
   const { t } = useTranslation()
   const { user } = useUser()
 
-  const fetchHistory = React.useCallback(async (): Promise<SentEmailEntry[]> => {
+  const fetchHistory = React.useCallback(async (): Promise<BatchEntry[]> => {
     const supabase = createClient()
     const { data, error } = await supabase
-      .from("sent_emails")
+      .from("mail_send_batches")
       .select(
-        "id, subject, body_preview, recipient_email, recipient_name, recipient_type, status, sent_at",
+        "id, subject, body_preview, template_key, sent_at, recipient_count, " +
+          "sent_count, failed_count, " +
+          "sent_emails(id, recipient_email, recipient_name, recipient_type, status, error_message)",
       )
       .order("sent_at", { ascending: false })
       .limit(HISTORY_FETCH_LIMIT)
@@ -94,16 +118,24 @@ export default function MailHistoryPage() {
       throw new Error(error.message)
     }
 
-    const rows = (data ?? []) as unknown as SentEmailRow[]
+    const rows = (data ?? []) as unknown as BatchRow[]
     return rows.map((row) => ({
       id: row.id,
       subject: row.subject,
-      recipientName: row.recipient_name,
-      recipientEmail: row.recipient_email,
-      recipientType: row.recipient_type,
       preview: row.body_preview ?? "",
+      templateKey: row.template_key,
       sentAt: row.sent_at,
-      status: row.status,
+      recipientCount: row.recipient_count ?? row.sent_emails?.length ?? 0,
+      sentCount: row.sent_count ?? 0,
+      failedCount: row.failed_count ?? 0,
+      recipients: (row.sent_emails ?? []).map((entry) => ({
+        id: entry.id,
+        email: entry.recipient_email,
+        name: entry.recipient_name,
+        type: entry.recipient_type,
+        status: entry.status,
+        errorMessage: entry.error_message,
+      })),
     }))
   }, [])
 
@@ -111,74 +143,43 @@ export default function MailHistoryPage() {
     data: cachedHistory,
     loading,
     error: fetchError,
-  } = useCachedData<SentEmailEntry[]>({
-    key: `mail.history.v1.${user.id}`,
+  } = useCachedData<BatchEntry[]>({
+    key: `mail.history.v2.${user.id}`,
     fetcher: fetchHistory,
   })
 
-  const emails = React.useMemo(() => cachedHistory ?? [], [cachedHistory])
+  const batches = React.useMemo(() => cachedHistory ?? [], [cachedHistory])
 
   const [searchQuery, setSearchQuery] = React.useState("")
   const [pageIndex, setPageIndex] = React.useState(0)
   const [pageSize, setPageSize] = React.useState(MAIL_HISTORY_PAGE_SIZE)
-  const [activeEmail, setActiveEmail] = React.useState<SentEmailEntry | null>(
-    null,
-  )
+  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set())
+  const [activeBatch, setActiveBatch] = React.useState<BatchEntry | null>(null)
   const [bodyCache, setBodyCache] = React.useState<
     Record<string, EmailBodyState>
   >({})
 
-  const openEmailDetail = React.useCallback(
-    (entry: SentEmailEntry) => {
-      setActiveEmail(entry)
-
-      // Already fetched? Don't refetch.
-      if (bodyCache[entry.id]?.status === "ready") return
-
-      setBodyCache((prev) => ({ ...prev, [entry.id]: { status: "loading" } }))
-
-      const supabase = createClient()
-      void supabase
-        .from("sent_emails")
-        .select("body_html")
-        .eq("id", entry.id)
-        .maybeSingle()
-        .then(({ data, error }) => {
-          if (error) {
-            setBodyCache((prev) => ({
-              ...prev,
-              [entry.id]: { status: "error", message: error.message },
-            }))
-            return
-          }
-          const row = data as { body_html: string | null } | null
-          setBodyCache((prev) => ({
-            ...prev,
-            [entry.id]: { status: "ready", html: row?.body_html ?? "" },
-          }))
-        })
-    },
-    [bodyCache],
-  )
-
-  const activeBody = activeEmail ? bodyCache[activeEmail.id] : undefined
-
-  const filteredEmails = React.useMemo(() => {
+  const filteredBatches = React.useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return emails
-    return emails.filter((email) => {
-      return (
-        email.subject.toLowerCase().includes(q) ||
-        email.preview.toLowerCase().includes(q) ||
-        email.recipientEmail.toLowerCase().includes(q) ||
-        (email.recipientName?.toLowerCase().includes(q) ?? false)
+    if (!q) return batches
+    return batches.filter((batch) => {
+      if (
+        batch.subject.toLowerCase().includes(q) ||
+        batch.preview.toLowerCase().includes(q)
+      ) {
+        return true
+      }
+      return batch.recipients.some(
+        (recipient) =>
+          recipient.email.toLowerCase().includes(q) ||
+          (recipient.name?.toLowerCase().includes(q) ?? false),
       )
     })
-  }, [emails, searchQuery])
+  }, [batches, searchQuery])
 
   const pageCount = React.useMemo(
-    () => Math.max(1, Math.ceil(filteredEmails.length / pageSize)),
-    [filteredEmails.length, pageSize],
+    () => Math.max(1, Math.ceil(filteredBatches.length / pageSize)),
+    [filteredBatches.length, pageSize],
   )
 
   React.useEffect(() => {
@@ -189,85 +190,63 @@ export default function MailHistoryPage() {
     })
   }, [pageCount])
 
-  const paginatedEmails = React.useMemo(() => {
+  const paginatedBatches = React.useMemo(() => {
     const from = pageIndex * pageSize
-    return filteredEmails.slice(from, from + pageSize)
-  }, [filteredEmails, pageIndex, pageSize])
+    return filteredBatches.slice(from, from + pageSize)
+  }, [filteredBatches, pageIndex, pageSize])
 
-  const columns = React.useMemo<ColumnDef<SentEmailEntry, unknown>[]>(
-    () => [
-      {
-        id: "subject",
-        accessorKey: "subject",
-        size: 240,
-        minSize: 140,
-        header: t("mail.history.columns.subject", "Subject"),
-        cell: ({ row }) => {
-          const entry = row.original
-          return (
-            <div className="flex flex-col gap-0.5">
-              <span className="truncate font-medium">{entry.subject}</span>
-              {entry.status === "failed" ? (
-                <span className="text-xs text-destructive">
-                  {t("mail.history.statusFailed", "failed")}
-                </span>
-              ) : null}
-            </div>
-          )
-        },
-      },
-      {
-        id: "preview",
-        accessorKey: "preview",
-        size: 360,
-        minSize: 180,
-        header: t("mail.history.columns.preview", "Preview"),
-        cell: ({ row }) => (
-          <p className="line-clamp-2 text-sm text-muted-foreground">
-            {row.original.preview || "—"}
-          </p>
-        ),
-      },
-      {
-        id: "recipient",
-        accessorKey: "recipientEmail",
-        size: 240,
-        minSize: 160,
-        header: t("mail.history.columns.recipient", "Recipient"),
-        cell: ({ row }) => {
-          const entry = row.original
-          return (
-            <div className="flex flex-col gap-0.5">
-              <span className="truncate text-sm">
-                {entry.recipientName ?? entry.recipientEmail}
-              </span>
-              {entry.recipientName ? (
-                <span className="truncate text-xs text-muted-foreground">
-                  {entry.recipientEmail}
-                </span>
-              ) : null}
-            </div>
-          )
-        },
-      },
-      {
-        id: "sentAt",
-        accessorKey: "sentAt",
-        size: 180,
-        minSize: 140,
-        header: t("mail.history.columns.sentAt", "Sent"),
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">
-            {formatSentAt(row.original.sentAt)}
-          </span>
-        ),
-      },
-    ],
-    [t],
-  )
+  function toggleExpanded(batchId: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(batchId)) next.delete(batchId)
+      else next.add(batchId)
+      return next
+    })
+  }
+
+  function openBatchDetail(batch: BatchEntry) {
+    setActiveBatch(batch)
+    if (bodyCache[batch.id]?.status === "ready") return
+
+    setBodyCache((prev) => ({ ...prev, [batch.id]: { status: "loading" } }))
+
+    const supabase = createClient()
+    void supabase
+      .from("mail_send_batches")
+      .select("body_html")
+      .eq("id", batch.id)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) {
+          setBodyCache((prev) => ({
+            ...prev,
+            [batch.id]: { status: "error", message: error.message },
+          }))
+          return
+        }
+        const row = data as { body_html: string | null } | null
+        setBodyCache((prev) => ({
+          ...prev,
+          [batch.id]: { status: "ready", html: row?.body_html ?? "" },
+        }))
+      })
+  }
+
+  function recipientSummary(batch: BatchEntry): string {
+    if (batch.recipientCount === 0) return "—"
+    const first = batch.recipients[0]
+    const firstLabel =
+      first?.name?.trim() || first?.email || `${batch.recipientCount} recipients`
+    if (batch.recipientCount === 1) return firstLabel
+    return `${firstLabel} + ${batch.recipientCount - 1} ${
+      batch.recipientCount - 1 === 1
+        ? t("mail.history.summary.other", "other")
+        : t("mail.history.summary.others", "others")
+    }`
+  }
 
   function handleExportCsv() {
-    if (filteredEmails.length === 0) return
+    if (filteredBatches.length === 0) return
 
     const headers = [
       t("mail.history.columns.subject", "Subject"),
@@ -276,20 +255,29 @@ export default function MailHistoryPage() {
       t("mail.history.columns.recipientEmail", "Recipient email"),
       t("mail.history.columns.recipientType", "Recipient type"),
       t("mail.history.columns.status", "Status"),
+      t("mail.history.columns.errorMessage", "Error message"),
       t("mail.history.columns.sentAt", "Sent"),
     ]
 
-    const rows = filteredEmails.map((email) => [
-      email.subject,
-      email.preview,
-      email.recipientName ?? "",
-      email.recipientEmail,
-      email.recipientType,
-      email.status,
-      email.sentAt,
-    ])
+    const rows: string[] = [toCsvRow(headers)]
+    for (const batch of filteredBatches) {
+      for (const recipient of batch.recipients) {
+        rows.push(
+          toCsvRow([
+            batch.subject,
+            batch.preview,
+            recipient.name ?? "",
+            recipient.email,
+            recipient.type,
+            recipient.status,
+            recipient.errorMessage ?? "",
+            batch.sentAt,
+          ]),
+        )
+      }
+    }
 
-    const csv = [toCsvRow(headers), ...rows.map(toCsvRow)].join("\n")
+    const csv = rows.join("\n")
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
     const timestamp = new Date().toISOString().slice(0, 10)
@@ -355,7 +343,7 @@ export default function MailHistoryPage() {
           size="sm"
           className="h-9 gap-1.5"
           onClick={handleExportCsv}
-          disabled={loading || filteredEmails.length === 0}
+          disabled={loading || filteredBatches.length === 0}
         >
           <Download className="size-3.5" />
           {t("mail.history.export.csv", "Export CSV")}
@@ -365,71 +353,196 @@ export default function MailHistoryPage() {
     </div>
   )
 
-  const emptyState = fetchError
-    ? {
-        icon: Mail,
-        title: t("mail.history.error.title", "Failed to load history"),
-        description: fetchError.message,
-      }
-    : searchQuery.trim().length > 0 && filteredEmails.length === 0
-      ? {
-          icon: Mail,
-          title: t("mail.history.empty.searchTitle", "No matching emails"),
-          description: t(
-            "mail.history.empty.searchDescription",
-            "No sent emails match your search.",
-          ),
-          action: {
-            label: t("mail.history.empty.clearSearch", "Clear search"),
-            onClick: () => setSearchQuery(""),
-          },
-        }
-      : {
-          icon: Mail,
-          title: t("mail.history.empty.title", "No sent emails yet"),
-          description: t(
-            "mail.history.empty.description",
-            "Emails you send from this app will appear here.",
-          ),
-        }
+  const activeBody = activeBatch ? bodyCache[activeBatch.id] : undefined
 
   return (
     <div className="space-y-6">
       {toolbar}
 
-      <DataTable
-        columns={columns}
-        data={paginatedEmails}
-        loading={loading}
-        pageSize={pageSize}
-        emptyState={emptyState}
-        hideRowCount
-        onRowNavigate={openEmailDetail}
-      />
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} className="h-16 w-full rounded-md" />
+          ))}
+        </div>
+      ) : fetchError ? (
+        <EmptyState
+          icon={Mail}
+          title={t("mail.history.error.title", "Failed to load history")}
+          description={fetchError.message}
+        />
+      ) : filteredBatches.length === 0 ? (
+        searchQuery.trim().length > 0 ? (
+          <EmptyState
+            icon={Mail}
+            title={t("mail.history.empty.searchTitle", "No matching emails")}
+            description={t(
+              "mail.history.empty.searchDescription",
+              "No sent emails match your search.",
+            )}
+            action={{
+              label: t("mail.history.empty.clearSearch", "Clear search"),
+              onClick: () => setSearchQuery(""),
+            }}
+          />
+        ) : (
+          <EmptyState
+            icon={Mail}
+            title={t("mail.history.empty.title", "No sent emails yet")}
+            description={t(
+              "mail.history.empty.description",
+              "Emails you send from this app will appear here.",
+            )}
+          />
+        )
+      ) : (
+        <ul className="divide-y rounded-md border">
+          {paginatedBatches.map((batch) => {
+            const expanded = expandedIds.has(batch.id)
+            return (
+              <li key={batch.id} className="bg-background">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleExpanded(batch.id)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return
+                    event.preventDefault()
+                    toggleExpanded(batch.id)
+                  }}
+                  className="grid w-full cursor-pointer grid-cols-[24px_minmax(0,1.4fr)_minmax(0,2fr)_minmax(0,1.4fr)_auto] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                >
+                  <ChevronDown
+                    className={cn(
+                      "size-4 text-muted-foreground transition-transform",
+                      expanded && "rotate-180",
+                    )}
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{batch.subject}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {recipientSummary(batch)}
+                    </p>
+                  </div>
+                  <p className="line-clamp-2 text-sm text-muted-foreground">
+                    {batch.preview || "—"}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <Badge variant="secondary" className="text-xs">
+                      {batch.recipientCount}{" "}
+                      {batch.recipientCount === 1
+                        ? t("mail.history.summary.recipient", "recipient")
+                        : t("mail.history.summary.recipients", "recipients")}
+                    </Badge>
+                    {batch.failedCount > 0 ? (
+                      <Badge
+                        variant="outline"
+                        className="border-destructive text-destructive text-xs"
+                      >
+                        {batch.failedCount} {t("mail.history.statusFailed", "failed")}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatSentAt(batch.sentAt)}
+                  </span>
+                </div>
+
+                {expanded ? (
+                  <div className="border-t bg-muted/30 px-4 py-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {t("mail.history.detail.recipients", "Recipients")}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          openBatchDetail(batch)
+                        }}
+                      >
+                        {t("mail.history.detail.viewBody", "View email")}
+                      </Button>
+                    </div>
+                    <ul className="divide-y rounded-md border bg-background">
+                      {batch.recipients.length === 0 ? (
+                        <li className="px-3 py-2 text-sm text-muted-foreground">
+                          {t(
+                            "mail.history.detail.noRecipients",
+                            "No recipient records were stored for this send.",
+                          )}
+                        </li>
+                      ) : (
+                        batch.recipients.map((recipient) => (
+                          <li
+                            key={recipient.id}
+                            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-sm"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate">
+                                {recipient.name
+                                  ? `${recipient.name} <${recipient.email}>`
+                                  : recipient.email}
+                              </p>
+                              {recipient.errorMessage ? (
+                                <p className="truncate text-xs text-destructive">
+                                  {recipient.errorMessage}
+                                </p>
+                              ) : null}
+                            </div>
+                            <Badge
+                              variant={recipient.status === "sent" ? "secondary" : "outline"}
+                              className={cn(
+                                "text-xs",
+                                recipient.status === "failed" &&
+                                  "border-destructive text-destructive",
+                              )}
+                            >
+                              {recipient.status === "sent"
+                                ? t("mail.history.statusSent", "sent")
+                                : t("mail.history.statusFailed", "failed")}
+                            </Badge>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                ) : null}
+              </li>
+            )
+          })}
+        </ul>
+      )}
 
       <Dialog
-        open={activeEmail !== null}
+        open={activeBatch !== null}
         onOpenChange={(open) => {
-          if (!open) setActiveEmail(null)
+          if (!open) setActiveBatch(null)
         }}
       >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle className="text-base">
-              {activeEmail?.subject ?? ""}
+              {activeBatch?.subject ?? ""}
             </DialogTitle>
             <DialogDescription className="space-y-1 pt-1 text-left">
               <span className="block">
-                {t("mail.history.detail.toLabel", "To")}:{" "}
-                {activeEmail ? recipientLabel(activeEmail) : ""}
+                {activeBatch
+                  ? `${activeBatch.recipientCount} ${
+                      activeBatch.recipientCount === 1
+                        ? t("mail.history.summary.recipient", "recipient")
+                        : t("mail.history.summary.recipients", "recipients")
+                    }${
+                      activeBatch.failedCount > 0
+                        ? `, ${activeBatch.failedCount} ${t("mail.history.statusFailed", "failed")}`
+                        : ""
+                    }`
+                  : ""}
               </span>
               <span className="block text-xs text-muted-foreground">
-                {activeEmail ? formatSentAt(activeEmail.sentAt) : ""}
-                {activeEmail?.status === "failed" ? (
-                  <span className="ml-2 text-destructive">
-                    ({t("mail.history.statusFailed", "failed")})
-                  </span>
-                ) : null}
+                {activeBatch ? formatSentAt(activeBatch.sentAt) : ""}
               </span>
             </DialogDescription>
           </DialogHeader>

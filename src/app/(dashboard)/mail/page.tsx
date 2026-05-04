@@ -867,108 +867,85 @@ export default function MailPage() {
 
     setSending(true)
     try {
-      let sentCount = 0
-      const failures: Array<{ email: string; reason: string }> = []
-
-      for (const { recipient, email } of recipients) {
-        const customerName = recipient.customerName || recipient.name || recipient.companyName
-        const companyName = recipient.companyName || t("mail.send.fallbackCompany", "Company")
-
-        const response = await fetch("/api/email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: [email],
-            template: templateType === "plain" ? "plain" : "content",
-            mode: "send",
-            deliveryMode: "separate",
-            recipient_metadata: {
-              type: recipient.type,
-              name: recipient.name,
-              customer_id:
-                recipient.type === "customers" ? recipient.id : null,
-              contact_id:
-                recipient.type === "contacts" ? recipient.id : null,
-            },
-            data: personalizePayload(
-              activePayload,
-              templateType,
-              customerName,
-              companyName,
-            ),
-          }),
-        })
-
-        const result = (await response.json()) as {
-          error?: string
-          message?: string
-          sent_count?: number
-          failure_count?: number
+      // One /api/email call per send action — server-side this becomes one
+      // mail_send_batches row + N sent_emails children.
+      const apiRecipients = recipients.map(({ recipient, email }) => {
+        const customerName =
+          recipient.customerName || recipient.name || recipient.companyName
+        const companyName =
+          recipient.companyName || t("mail.send.fallbackCompany", "Company")
+        return {
+          email,
+          name: recipient.name,
+          type: recipient.type,
+          customer_id:
+            recipient.type === "customers" ? recipient.id : null,
+          contact_id:
+            recipient.type === "contacts" ? recipient.id : null,
+          data: personalizePayload(
+            activePayload,
+            templateType,
+            customerName,
+            companyName,
+          ),
         }
+      })
 
-        if (response.status === 412) {
-          // Microsoft provider token has expired (or never existed). Offer
-          // re-auth via the same OAuth flow used on /login. The redirect
-          // brings the user back to the current URL so they can retry the
-          // send.
-          toast.error(
-            result.message ??
-              t(
-                "mail.send.toast.sessionExpired",
-                "Your Microsoft session expired. Sign in again to send mail.",
-              ),
-            {
-              action: {
-                label: t("mail.send.toast.signInAgain", "Sign in again"),
-                onClick: async () => {
-                  const supabase = createClient()
-                  await supabase.auth.signInWithOAuth({
-                    provider: "azure",
-                    options: {
-                      redirectTo: window.location.href,
-                      scopes:
-                        "openid profile email User.Read Mail.Read Mail.Send",
-                    },
-                  })
-                },
-              },
-              duration: 12000,
-            },
-          )
-          return
-        }
+      const response = await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          template: templateType === "plain" ? "plain" : "content",
+          mode: "send",
+          deliveryMode: "separate",
+          data: activePayload,
+          recipients: apiRecipients,
+        }),
+      })
 
-        if (!response.ok) {
-          // Per-recipient failure: record it and keep going so the rest of
-          // the batch still gets attempted. The /api/email route already
-          // logged a status="failed" row to sent_emails for this recipient.
-          failures.push({
-            email,
-            reason:
-              result.message ??
-              result.error ??
-              t("settings.mail.toast.sendFailed", "Failed to send email"),
-          })
-          continue
-        }
-
-        sentCount += result.sent_count ?? 1
-
-        // Server may also have recorded a logical failure even on a 200 (the
-        // route returns 200 with failure_count > 0 when partial). For per-
-        // recipient calls this means: increment our failure tally too.
-        if ((result.failure_count ?? 0) > 0 && (result.sent_count ?? 0) === 0) {
-          failures.push({
-            email,
-            reason: result.message ?? "Send failed",
-          })
-        }
+      const result = (await response.json()) as {
+        error?: string
+        message?: string
+        sent_count?: number
+        failure_count?: number
+        failures?: Array<{ recipient: string; message: string }>
       }
 
-      // Choose the toast based on the outcome of the whole batch.
-      if (sentCount === 0 && failures.length > 0) {
+      if (response.status === 412) {
         toast.error(
-          `${t("mail.send.toast.allFailed", "All sends failed")}: ${failures[0].reason}`,
+          result.message ??
+            t(
+              "mail.send.toast.sessionExpired",
+              "Your Microsoft session expired. Sign in again to send mail.",
+            ),
+          {
+            action: {
+              label: t("mail.send.toast.signInAgain", "Sign in again"),
+              onClick: async () => {
+                const supabase = createClient()
+                await supabase.auth.signInWithOAuth({
+                  provider: "azure",
+                  options: {
+                    redirectTo: window.location.href,
+                    scopes:
+                      "openid profile email User.Read Mail.Read Mail.Send",
+                  },
+                })
+              },
+            },
+            duration: 12000,
+          },
+        )
+        return
+      }
+
+      const sentCount = result.sent_count ?? 0
+      const failureCount = result.failure_count ?? 0
+
+      if (!response.ok && sentCount === 0) {
+        // 502/500: total failure. Use the surfaced message.
+        toast.error(
+          `${t("mail.send.toast.allFailed", "All sends failed")}: ${result.message ?? result.error ?? ""}`,
           {
             description: t(
               "mail.send.toast.checkHistory",
@@ -980,9 +957,25 @@ export default function MailPage() {
         return
       }
 
-      if (failures.length > 0) {
+      // Toast variants based on aggregated outcome.
+      if (sentCount === 0 && failureCount > 0) {
+        const firstFailureMessage = result.failures?.[0]?.message ?? ""
+        toast.error(
+          `${t("mail.send.toast.allFailed", "All sends failed")}: ${firstFailureMessage}`,
+          {
+            description: t(
+              "mail.send.toast.checkHistory",
+              "Check Mail history for details.",
+            ),
+            duration: 10000,
+          },
+        )
+        return
+      }
+
+      if (failureCount > 0) {
         toast.warning(
-          `${t("mail.send.toast.sentPrefix", "Sent")} ${sentCount}, ${t("mail.send.toast.failedSuffix", "failed")} ${failures.length}`,
+          `${t("mail.send.toast.sentPrefix", "Sent")} ${sentCount}, ${t("mail.send.toast.failedSuffix", "failed")} ${failureCount}`,
           {
             description: t(
               "mail.send.toast.checkHistory",

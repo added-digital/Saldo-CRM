@@ -420,9 +420,26 @@ export interface Conversation {
 export type SentEmailStatus = "sent" | "failed"
 export type SentEmailRecipientType = "customers" | "contacts" | "manual"
 
+export interface MailSendBatch {
+  id: string
+  user_id: string
+  subject: string
+  body_preview: string | null
+  body_html: string | null
+  template_key: string | null
+  delivery_mode: string | null
+  recipient_count: number
+  sent_count: number
+  failed_count: number
+  sent_at: string
+  created_at: string
+  updated_at: string
+}
+
 export interface SentEmail {
   id: string
   user_id: string
+  batch_id: string | null
   subject: string
   body_preview: string | null
   body_html: string | null
@@ -589,6 +606,16 @@ export interface Database {
           sent_at?: string
         }
         Update: Partial<Omit<SentEmail, "id" | "created_at" | "updated_at">>
+      }
+      mail_send_batches: {
+        Row: MailSendBatch
+        Insert: Omit<MailSendBatch, "id" | "created_at" | "updated_at" | "sent_at" | "recipient_count" | "sent_count" | "failed_count"> & {
+          sent_at?: string
+          recipient_count?: number
+          sent_count?: number
+          failed_count?: number
+        }
+        Update: Partial<Omit<MailSendBatch, "id" | "created_at" | "updated_at">>
       }
       sync_jobs: {
         Row: SyncJob
