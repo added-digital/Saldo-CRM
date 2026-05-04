@@ -22,6 +22,17 @@ type Options<T> = {
    * waiting for a dependency like the user id. Default true.
    */
   enabled?: boolean;
+  /**
+   * Cache freshness window in milliseconds.
+   * When cached data is newer than this threshold, skip background refetch.
+   * Default: 0 (always background refetch on cache hit).
+   */
+  staleMs?: number;
+};
+
+type CacheEnvelope<T> = {
+  value: T;
+  cachedAt: number;
 };
 
 export type UseCachedDataResult<T> = {
@@ -45,12 +56,26 @@ export type UseCachedDataResult<T> = {
   setData: React.Dispatch<React.SetStateAction<T | null>>;
 };
 
-function readCache<T>(key: string): T | null {
+function readCache<T>(key: string): { value: T; cachedAt: number } | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(CACHE_PREFIX + key);
     if (!raw) return null;
-    return JSON.parse(raw) as T;
+    const parsed = JSON.parse(raw) as unknown;
+
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "value" in parsed &&
+      "cachedAt" in parsed &&
+      typeof (parsed as { cachedAt: unknown }).cachedAt === "number"
+    ) {
+      const envelope = parsed as CacheEnvelope<T>;
+      return { value: envelope.value, cachedAt: envelope.cachedAt };
+    }
+
+    // Backward compatibility with legacy raw value cache format.
+    return { value: parsed as T, cachedAt: 0 };
   } catch {
     return null;
   }
@@ -59,7 +84,11 @@ function readCache<T>(key: string): T | null {
 function writeCache<T>(key: string, value: T): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(value));
+    const envelope: CacheEnvelope<T> = {
+      value,
+      cachedAt: Date.now(),
+    };
+    window.localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(envelope));
   } catch {
     // Quota exceeded, private mode, etc. — caching is best-effort.
   }
@@ -82,6 +111,7 @@ export function useCachedData<T>({
   key,
   fetcher,
   enabled = true,
+  staleMs = 0,
 }: Options<T>): UseCachedDataResult<T> {
   const [data, setDataState] = React.useState<T | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -119,9 +149,15 @@ export function useCachedData<T>({
 
     const cached = readCache<T>(key);
     if (cached !== null) {
-      setDataState(cached);
+      setDataState(cached.value);
       setLoading(false);
-      void runFetch("background");
+
+      const shouldRefetchInBackground =
+        staleMs <= 0 || Date.now() - cached.cachedAt >= staleMs;
+
+      if (shouldRefetchInBackground) {
+        void runFetch("background");
+      }
     } else {
       setLoading(true);
       void runFetch("initial");
@@ -129,7 +165,7 @@ export function useCachedData<T>({
     // We intentionally don't depend on `runFetch` directly — `key` and
     // `enabled` are the real signal for "start over".
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, enabled]);
+  }, [key, enabled, staleMs]);
 
   const refresh = React.useCallback(async () => {
     await runFetch("background");

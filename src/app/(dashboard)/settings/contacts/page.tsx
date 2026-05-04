@@ -130,6 +130,7 @@ export default function ContactsPage() {
   } = useCachedData<ContactsPagePayload>({
     key: `contacts.v1.${user.id}`,
     fetcher: fetchContacts,
+    staleMs: 120000,
   });
 
   const contacts = React.useMemo(

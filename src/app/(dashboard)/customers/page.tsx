@@ -286,10 +286,10 @@ export default function CustomersPage() {
     data: cachedCustomers,
     loading,
     refresh: refreshCustomers,
-    setData: setCustomers,
   } = useCachedData<CustomerWithRelations[]>({
     key: `customers.v1.${user.id}`,
     fetcher: fetchCustomers,
+    staleMs: 120000,
   })
 
   const customers = React.useMemo(
