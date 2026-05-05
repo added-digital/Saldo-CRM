@@ -728,12 +728,22 @@ export default function SettingsFilesPage() {
                         />
                       )}
                       {!isFolder ? <FileText className="size-4 text-muted-foreground" /> : null}
-                      <div>
-                        <p className="text-sm font-medium">{item.name}</p>
+                      <button
+                        type="button"
+                        className="cursor-pointer text-left"
+                        onClick={() => {
+                          if (isFolder) {
+                            setCurrentFolder(joinStoragePath(currentFolder, item.name))
+                            return
+                          }
+                          void handleDownloadFile(item.name)
+                        }}
+                      >
+                        <p className="text-sm font-medium hover:underline">{item.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {isFolder ? "Folder" : formatBytes(item.metadata?.size)}
                         </p>
-                      </div>
+                      </button>
                     </div>
 
                     {isFolder ? (

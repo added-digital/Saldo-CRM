@@ -101,6 +101,29 @@ function toCsvRow(values: string[]): string {
   return values.map(escapeCsvValue).join(",")
 }
 
+function withAccentScrollbarStyles(html: string): string {
+  const scrollbarStyles = `
+<style>
+  :root { scrollbar-color: #8b6f2a #000; }
+  * { scrollbar-width: thin; }
+  *::-webkit-scrollbar { width: 12px; height: 12px; }
+  *::-webkit-scrollbar-track { background: #000; }
+  *::-webkit-scrollbar-thumb {
+    background: #8b6f2a;
+    border: 2px solid #000;
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover { background: #8b6f2a; }
+  *::-webkit-scrollbar-corner { background: #000; }
+</style>`
+
+  if (/<head[^>]*>/i.test(html)) {
+    return html.replace(/<head[^>]*>/i, (match) => `${match}${scrollbarStyles}`)
+  }
+
+  return `${scrollbarStyles}${html}`
+}
+
 type EmailBodyState =
   | { status: "loading" }
   | { status: "ready"; html: string }
@@ -202,6 +225,8 @@ export default function MailHistoryPage() {
     const from = pageIndex * pageSize
     return filteredBatches.slice(from, from + pageSize)
   }, [filteredBatches, pageIndex, pageSize])
+
+  const shouldShowPagination = batches.length >= MAIL_HISTORY_PAGE_SIZE
 
   function toggleExpanded(batchId: string) {
     setExpandedIds((prev) => {
@@ -356,7 +381,7 @@ export default function MailHistoryPage() {
           <Download className="size-3.5" />
           {t("mail.history.export.csv", "Export CSV")}
         </Button>
-        {paginationControl}
+        {shouldShowPagination ? paginationControl : null}
       </div>
     </div>
   )
@@ -433,12 +458,14 @@ export default function MailHistoryPage() {
                       onClick={() => toggleExpanded(batch.id)}
                     >
                       <TableCell className="w-10 text-muted-foreground">
+                        <div className="flex items-center justify-center">
                         <ChevronDown
                           className={cn(
                             "size-4 transition-transform",
                             expanded && "rotate-180",
                           )}
                         />
+                        </div>
                       </TableCell>
                       <TableCell className="font-medium">
                         {batch.subject}
@@ -594,7 +621,7 @@ export default function MailHistoryPage() {
               activeBody.html.length > 0 ? (
                 <iframe
                   title={t("mail.history.detail.bodyTitle", "Email body")}
-                  srcDoc={activeBody.html}
+                  srcDoc={withAccentScrollbarStyles(activeBody.html)}
                   className="h-[600px] w-full rounded-md"
                 />
               ) : (

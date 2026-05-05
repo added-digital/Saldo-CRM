@@ -1895,6 +1895,7 @@ export async function POST(request: Request) {
 
     const input = await parseAskDocumentsInput(request);
     const question = input.question;
+    const attachmentOnlyMode = input.attachmentContext.trim().length > 0;
 
     if (!question) {
       return NextResponse.json(
@@ -1911,12 +1912,14 @@ export async function POST(request: Request) {
 
     const profile = profileData as { role: string | null; fortnox_cost_center: string | null } | null;
 
-    const crmContextResult = await buildDatabaseContext({
-      question,
-      userId: user.id,
-      role: profile?.role ?? null,
-      userCostCenter: profile?.fortnox_cost_center ?? null,
-    });
+    const crmContextResult = attachmentOnlyMode
+      ? { context: "", sources: [] as SourceRow[] }
+      : await buildDatabaseContext({
+          question,
+          userId: user.id,
+          role: profile?.role ?? null,
+          userCostCenter: profile?.fortnox_cost_center ?? null,
+        });
 
     const preferReportingOnly =
       isReportingQuestion(question) && !input.attachmentContext && Boolean(crmContextResult.context);
@@ -1925,7 +1928,7 @@ export async function POST(request: Request) {
 
     const adminClient = createAdminClient();
 
-    if (!preferReportingOnly) {
+    if (!preferReportingOnly && !attachmentOnlyMode) {
       const questionEmbedding = await embedQuestion(question);
       const vectorString = toVectorString(questionEmbedding);
       const vectorWithCast = `${vectorString}::vector`;
@@ -2036,7 +2039,7 @@ export async function POST(request: Request) {
     const answer = await callOpenAiForDocumentAnswer({
       question,
       documentContext,
-      crmContext: crmContextResult.context,
+      crmContext: attachmentOnlyMode ? "" : crmContextResult.context,
     });
 
     const sourceMap = new Map<string, SourceRow>();
@@ -2053,11 +2056,13 @@ export async function POST(request: Request) {
     }
 
     const indexedSources = Array.from(sourceMap.values());
-    const mergedSources = dedupeSources([
-      ...crmContextResult.sources,
-      ...input.attachmentSources,
-      ...indexedSources,
-    ]);
+    const mergedSources = attachmentOnlyMode
+      ? dedupeSources([...input.attachmentSources])
+      : dedupeSources([
+          ...crmContextResult.sources,
+          ...input.attachmentSources,
+          ...indexedSources,
+        ]);
 
     return NextResponse.json({
       answer,

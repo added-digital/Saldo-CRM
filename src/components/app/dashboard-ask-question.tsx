@@ -2,13 +2,12 @@
 
 import * as React from "react"
 import ReactMarkdown from "react-markdown"
-import { ArrowUp, GripVertical, Loader2, Paperclip, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Trash2, X } from "lucide-react"
+import { ArrowUp, GripVertical, Loader2, MoreHorizontal, Paperclip, PanelLeftClose, PanelLeftOpen, Pin, Plus, Trash2, X } from "lucide-react"
 
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { useTranslation } from "@/hooks/use-translation"
-import { useUser } from "@/hooks/use-user"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/app/confirm-dialog"
 import {
@@ -19,6 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 type PickerOption = {
   id: string
@@ -45,6 +50,7 @@ type ChatMessage = {
   id: string
   role: "user" | "assistant"
   content: string
+  attachments?: string[]
   sources?: Array<{ file_name: string; document_type: string | null; similarity: number }>
 }
 
@@ -90,13 +96,16 @@ function getConversationOrderStorageKey(userId: string): string {
   return `dashboard.chat.conversation-order.${userId}`
 }
 
+function getConversationPinsStorageKey(userId: string): string {
+  return `dashboard.chat.conversation-pins.${userId}`
+}
+
 function getMessagesSignature(value: ChatMessage[]): string {
   return JSON.stringify(value)
 }
 
 export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const { t, language } = useTranslation()
-  const { user } = useUser()
   const [question, setQuestion] = React.useState("")
   const [loading, setLoading] = React.useState(false)
   const [messages, setMessages] = React.useState<ChatMessage[]>([])
@@ -112,6 +121,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const [historyCollapsed, setHistoryCollapsed] = React.useState(false)
   const [chatAttachments, setChatAttachments] = React.useState<ChatAttachment[]>([])
   const [conversationOrder, setConversationOrder] = React.useState<string[]>([])
+  const [pinnedConversationIds, setPinnedConversationIds] = React.useState<string[]>([])
   const [draggingConversationId, setDraggingConversationId] = React.useState<string | null>(null)
   const [dropIndicator, setDropIndicator] = React.useState<{
     conversationId: string
@@ -132,12 +142,6 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
       behavior,
     })
   }, [])
-
-  const firstName = React.useMemo(() => {
-    const fullName = user.full_name?.trim()
-    if (!fullName) return "there"
-    return fullName.split(/\s+/)[0]
-  }, [user.full_name])
 
   const starterQuestions = React.useMemo(() => {
     if (language === "sv") {
@@ -173,8 +177,12 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     }
 
     const remaining = Array.from(mapById.values()).sort((a, b) => b.updated_at.localeCompare(a.updated_at))
-    return [...ordered, ...remaining]
-  }, [conversationHistory, conversationOrder])
+    const orderedWithRemaining = [...ordered, ...remaining]
+    const pinnedSet = new Set(pinnedConversationIds)
+    const pinned = orderedWithRemaining.filter((item) => pinnedSet.has(item.id))
+    const unpinned = orderedWithRemaining.filter((item) => !pinnedSet.has(item.id))
+    return [...pinned, ...unpinned]
+  }, [conversationHistory, conversationOrder, pinnedConversationIds])
 
   React.useEffect(() => {
     let cancelled = false
@@ -221,8 +229,11 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
       conversationSignaturesRef.current = signatures
 
       const orderStorageKey = getConversationOrderStorageKey(authUserId)
+      const pinsStorageKey = getConversationPinsStorageKey(authUserId)
       const savedOrderRaw = localStorage.getItem(orderStorageKey)
+      const savedPinsRaw = localStorage.getItem(pinsStorageKey)
       let savedOrder: string[] = []
+      let savedPins: string[] = []
       if (savedOrderRaw) {
         try {
           const parsed = JSON.parse(savedOrderRaw)
@@ -234,13 +245,27 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
         }
       }
 
+      if (savedPinsRaw) {
+        try {
+          const parsed = JSON.parse(savedPinsRaw)
+          if (Array.isArray(parsed)) {
+            savedPins = parsed.filter((value): value is string => typeof value === "string")
+          }
+        } catch {
+          savedPins = []
+        }
+      }
+
       const historyIds = history.map((item) => item.id)
       const sanitizedSavedOrder = savedOrder.filter((id) => historyIds.includes(id))
+      const sanitizedSavedPins = savedPins.filter((id) => historyIds.includes(id))
       const missingIds = historyIds.filter((id) => !sanitizedSavedOrder.includes(id))
       const nextOrder = [...sanitizedSavedOrder, ...missingIds]
 
       setConversationOrder(nextOrder)
+      setPinnedConversationIds(sanitizedSavedPins)
       localStorage.setItem(orderStorageKey, JSON.stringify(nextOrder))
+      localStorage.setItem(pinsStorageKey, JSON.stringify(sanitizedSavedPins))
 
       setConversationHistory(history)
 
@@ -258,6 +283,11 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     if (!userId) return
     localStorage.setItem(getConversationOrderStorageKey(userId), JSON.stringify(conversationOrder))
   }, [conversationOrder, userId])
+
+  React.useEffect(() => {
+    if (!userId) return
+    localStorage.setItem(getConversationPinsStorageKey(userId), JSON.stringify(pinnedConversationIds))
+  }, [pinnedConversationIds, userId])
 
   React.useEffect(() => {
     if (!hasMessages) return
@@ -478,6 +508,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
 
     setConversationHistory((current) => current.filter((item) => item.id !== target.id))
     setConversationOrder((current) => current.filter((id) => id !== target.id))
+    setPinnedConversationIds((current) => current.filter((id) => id !== target.id))
     delete conversationSignaturesRef.current[target.id]
     setConversationDeleteTarget(null)
     setDeletingConversation(false)
@@ -497,10 +528,13 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     const trimmedQuestion = (questionOverride ?? question).trim()
     if (!trimmedQuestion) return
 
+    const attachmentNames = chatAttachments.map((attachment) => attachment.name)
+
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content: trimmedQuestion,
+      attachments: attachmentNames.length > 0 ? attachmentNames : undefined,
     }
     const assistantMessageId = crypto.randomUUID()
 
@@ -516,6 +550,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     if (!questionOverride) {
       setQuestion("")
     }
+    setChatAttachments([])
     setLoading(true)
 
     try {
@@ -620,6 +655,14 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     setChatAttachments((current) => current.filter((attachment) => attachment.id !== attachmentId))
   }
 
+  function handleTogglePinConversation(conversationIdToToggle: string) {
+    setPinnedConversationIds((current) =>
+      current.includes(conversationIdToToggle)
+        ? current.filter((id) => id !== conversationIdToToggle)
+        : [...current, conversationIdToToggle],
+    )
+  }
+
   return (
     <div className={cn(
       "grid h-full overflow-hidden",
@@ -641,6 +684,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
           ) : (
             orderedConversationHistory.map((conversation) => {
               const isActive = conversation.id === conversationId
+              const isPinned = pinnedConversationIds.includes(conversation.id)
 
               return (
                 <div
@@ -710,31 +754,45 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
                   </button>
                   <button
                     type="button"
-                    className="min-w-0 flex-1 truncate text-left text-sm"
+                    className={cn("min-w-0 flex-1 truncate text-left text-sm", isPinned && "pr-2")}
                     onClick={() => handleConversationSwitch(conversation.id)}
                   >
                     {conversation.title ?? "Untitled conversation"}
                   </button>
+                  {isPinned ? <Pin className="mr-1 size-3 text-primary" /> : null}
                   <div className="ml-2 flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button
-                      type="button"
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      onClick={() => {
-                        setConversationRenameTarget(conversation)
-                        setRenameValue(conversation.title ?? "")
-                      }}
-                      aria-label="Rename conversation"
-                    >
-                      <Pencil className="size-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
-                      onClick={() => setConversationDeleteTarget(conversation)}
-                      aria-label="Delete conversation"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          aria-label="Conversation options"
+                        >
+                          <MoreHorizontal className="size-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleTogglePinConversation(conversation.id)}>
+                          <Pin className="size-4" />
+                          {isPinned ? "Unpin" : "Pin"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setConversationRenameTarget(conversation)
+                            setRenameValue(conversation.title ?? "")
+                          }}
+                        >
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => setConversationDeleteTarget(conversation)}
+                        >
+                          <Trash2 className="size-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               )
@@ -777,7 +835,19 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
               <div key={message.id} className={cn("flex w-full", message.role === "user" ? "justify-end" : "justify-start")}>
                 {message.role === "user" ? (
                   <div className="max-w-[85%] rounded-2xl bg-foreground px-4 py-3 text-sm text-background md:max-w-[70%]">
-                    {message.content}
+                    <p>{message.content}</p>
+                    {message.attachments && message.attachments.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap justify-end gap-1.5">
+                        {message.attachments.map((attachmentName) => (
+                          <span
+                            key={`${message.id}-${attachmentName}`}
+                            className="inline-flex max-w-56 items-center truncate rounded-full border border-background/20 px-2 py-0.5 text-xs text-background/90"
+                          >
+                            {attachmentName}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="max-w-[90%] md:max-w-[78%]">
