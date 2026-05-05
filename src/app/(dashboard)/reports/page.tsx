@@ -1922,9 +1922,7 @@ function renderWorkloadShareCell(percentage: number) {
     setInvoiceDetailsOpen(true);
     setInvoiceDetailsLoading(true);
     setInvoiceDetailsRows([]);
-    setInvoiceDetailsTitle(
-      `${t("reports.dialogs.invoices.title", "Invoices")} · ${rollingWindow.title}`,
-    );
+    setInvoiceDetailsTitle(t("reports.dialogs.invoices.title", "Invoices"));
 
     const supabase = createClient();
 
