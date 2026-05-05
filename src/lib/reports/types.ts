@@ -12,12 +12,15 @@ export type ReportingWindowMode =
   | "rolling-12-months"
   | "rolling-year";
 
+export type ComparisonMode = "year-over-year" | "period-over-period" | "none";
+
 export type SavedReportsFilters = {
   selectedMonth: string | null;
   selectedWindowMode: ReportingWindowMode | null;
   selectedTeamId: string | null;
   selectedManagerId: string | null;
   selectedCustomerId: string | null;
+  comparisonMode: ComparisonMode | null;
 };
 
 export type TeamOption = Pick<Team, "id" | "name">;
@@ -180,7 +183,11 @@ export type InvoiceDetailSource = {
 
 export type TurnoverTooltipPayloadItem = {
   value?: number | string | null;
+  dataKey?: string;
   payload?: {
     invoiceCount?: number;
+    previousTurnover?: number;
+    previousInvoiceCount?: number;
+    previousMonthLabel?: string | null;
   };
 };

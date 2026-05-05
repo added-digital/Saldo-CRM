@@ -1,6 +1,7 @@
 import type { ChartConfig } from "@/components/ui/chart";
 
 import type {
+  ComparisonMode,
   ReportingWindowMode,
   SavedReportsFilters,
 } from "./types";
@@ -22,6 +23,10 @@ export const turnoverChartConfig = {
     label: "Turnover",
     color: "var(--chart-1)",
   },
+  turnoverPrevious: {
+    label: "Turnover (previous)",
+    color: "var(--chart-2)",
+  },
 } satisfies ChartConfig;
 
 export function parseSavedReportsFilters(
@@ -35,6 +40,10 @@ export function parseSavedReportsFilters(
       parsed.selectedWindowMode === "current-month" ||
       parsed.selectedWindowMode === "rolling-12-months" ||
       parsed.selectedWindowMode === "rolling-year";
+    const isComparisonMode =
+      parsed.comparisonMode === "year-over-year" ||
+      parsed.comparisonMode === "period-over-period" ||
+      parsed.comparisonMode === "none";
 
     return {
       selectedMonth:
@@ -52,6 +61,9 @@ export function parseSavedReportsFilters(
         typeof parsed.selectedCustomerId === "string"
           ? parsed.selectedCustomerId
           : null,
+      comparisonMode: isComparisonMode
+        ? (parsed.comparisonMode as ComparisonMode)
+        : null,
     };
   } catch {
     return null;

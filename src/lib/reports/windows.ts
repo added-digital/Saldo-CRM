@@ -3,6 +3,7 @@ import {
   formatSwedishMonthYear,
 } from "./formatters";
 import type {
+  ComparisonMode,
   CustomerMonthlyEconomicsRow,
   ReportingWindowMode,
   RollingMonth,
@@ -157,4 +158,60 @@ export function compareMonthKeysWithAverageFixed(
   }
 
   return a.monthKey.localeCompare(b.monthKey);
+}
+
+/**
+ * Returns the comparison-period equivalent of a reporting window.
+ *
+ * Year-over-year always shifts back by 12 months, regardless of mode — the
+ * usual "this March vs last March" mental model.
+ *
+ * Period-over-period shifts back by the window's own length:
+ *   - current-month (1 month) → the immediately preceding month
+ *   - rolling-12-months (12 months) → the 12 months before that (collides
+ *     with year-over-year, intentionally)
+ *   - rolling-year (Jan–N months) → the N months immediately before
+ */
+export function getPreviousReportingWindowRange(
+  selectedMonthKey: string,
+  mode: ReportingWindowMode,
+  comparison: ComparisonMode,
+): {
+  from: string;
+  to: string;
+  months: RollingMonth[];
+  title: string;
+} {
+  const current = getReportingWindowRange(selectedMonthKey, mode);
+  const monthCount = current.months.length;
+  const shiftMonths = comparison === "year-over-year" ? 12 : monthCount;
+
+  const previousMonths: RollingMonth[] = current.months.map((entry) => {
+    const shiftedDate = new Date(entry.year, entry.month - 1 - shiftMonths, 1);
+    return {
+      key: toMonthKey(shiftedDate),
+      label: formatSwedishMonthShort(shiftedDate),
+      year: shiftedDate.getFullYear(),
+      month: shiftedDate.getMonth() + 1,
+    };
+  });
+
+  const firstMonth = previousMonths[0];
+  const lastMonth = previousMonths[previousMonths.length - 1];
+  const startDate = new Date(firstMonth.year, firstMonth.month - 1, 1);
+  const endDate = new Date(lastMonth.year, lastMonth.month, 0);
+
+  const title =
+    monthCount === 1
+      ? formatSwedishMonthYear(startDate)
+      : `${formatSwedishMonthYear(startDate)} – ${formatSwedishMonthYear(
+          new Date(lastMonth.year, lastMonth.month - 1, 1),
+        )}`;
+
+  return {
+    from: toMonthKey(startDate) + "-01",
+    to: toDateKey(endDate),
+    months: previousMonths,
+    title,
+  };
 }

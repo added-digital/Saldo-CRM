@@ -47,6 +47,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -85,6 +92,7 @@ import {
   toDateKey,
   parseMonthKey,
   createMonthOptions,
+  getPreviousReportingWindowRange,
   getReportingWindowRange,
   getMonthDateRange,
   getDefaultReportsMonthKey,
@@ -98,6 +106,7 @@ import {
   annualizeContractTotal,
 } from "@/lib/reports";
 import type {
+  ComparisonMode,
   ReportingWindowMode,
   RollingMonth,
   SavedReportsFilters,
@@ -149,23 +158,38 @@ function TurnoverTooltipContent({
   label,
   turnoverLabel = "Turnover",
   invoicesLabel = "Invoices",
+  previousLabel = "Previous period",
 }: {
   active?: boolean;
   payload?: TurnoverTooltipPayloadItem[];
   label?: string | number;
   turnoverLabel?: string;
   invoicesLabel?: string;
+  previousLabel?: string;
 }) {
   if (!active || !Array.isArray(payload) || payload.length === 0) {
     return null;
   }
 
+  // Both bars share the same payload row, so we read everything off the first
+  // entry rather than searching by dataKey.
   const first = payload[0];
-  const turnover = Number(first.value ?? 0);
-  const invoiceCount = Number(first.payload?.invoiceCount ?? 0);
+  const rowPayload = first.payload ?? {};
+  const currentEntry =
+    payload.find((entry) => entry.dataKey === "turnover") ?? first;
+  const previousEntry = payload.find(
+    (entry) => entry.dataKey === "previousTurnover",
+  );
+
+  const turnover = Number(currentEntry.value ?? 0);
+  const invoiceCount = Number(rowPayload.invoiceCount ?? 0);
+  const hasPrevious = previousEntry !== undefined;
+  const previousTurnover = Number(rowPayload.previousTurnover ?? 0);
+  const previousInvoiceCount = Number(rowPayload.previousInvoiceCount ?? 0);
+  const previousMonthLabel = rowPayload.previousMonthLabel ?? null;
 
   return (
-    <div className="grid min-w-[10rem] gap-1.5 rounded-md border bg-background px-3 py-2 text-xs shadow-xl">
+    <div className="grid min-w-[12rem] gap-1.5 rounded-md border bg-background px-3 py-2 text-xs shadow-xl">
       {label != null ? (
         <div className="font-medium">{String(label)}</div>
       ) : null}
@@ -183,6 +207,28 @@ function TurnoverTooltipContent({
           </span>
         </div>
       </div>
+      {hasPrevious ? (
+        <>
+          <div className="border-t pt-1.5 text-[11px] font-medium text-muted-foreground">
+            {previousLabel}
+            {previousMonthLabel ? ` · ${previousMonthLabel}` : ""}
+          </div>
+          <div className="grid gap-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">{turnoverLabel}</span>
+              <span className="font-medium tabular-nums">
+                {previousTurnover.toLocaleString("sv-SE")}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground">{invoicesLabel}</span>
+              <span className="font-medium tabular-nums">
+                {previousInvoiceCount.toLocaleString("sv-SE")}
+              </span>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -308,6 +354,8 @@ export default function ReportsPage() {
   );
   const [selectedWindowMode, setSelectedWindowMode] =
     React.useState<ReportingWindowMode>("rolling-12-months");
+  const [comparisonMode, setComparisonMode] =
+    React.useState<ComparisonMode>("year-over-year");
   const savedFiltersRef = React.useRef<SavedReportsFilters | null>(null);
   const hasAppliedSavedFiltersRef = React.useRef(false);
   const [kpiLoading, setKpiLoading] = React.useState(false);
@@ -317,6 +365,22 @@ export default function ReportsPage() {
     hours: 0,
     contractValue: 0,
   });
+  const [previousKpis, setPreviousKpis] = React.useState<{
+    turnover: number;
+    invoices: number;
+    hours: number;
+    contractValue: number;
+  } | null>(null);
+  // Contract value at the latest month of the *current* window, sourced from
+  // customer_kpis so the comparison pill compares snapshot-to-snapshot. The
+  // displayed contract value still comes from the live contract_accruals
+  // sum, which is more accurate but not what historical snapshots contain.
+  const [currentContractValueSnapshot, setCurrentContractValueSnapshot] =
+    React.useState<number | null>(null);
+  // Per-month turnover for the *previous* period, paired with the current
+  // period at the same array index so the chart can render side-by-side bars.
+  const [previousTurnoverByMonthRows, setPreviousTurnoverByMonthRows] =
+    React.useState<TurnoverMonthRow[] | null>(null);
   const [accrualsLoading, setAccrualsLoading] = React.useState(false);
   const [customerAccruals, setCustomerAccruals] = React.useState<
     ContractAccrual[]
@@ -418,13 +482,29 @@ export default function ReportsPage() {
     if (saved.selectedWindowMode) {
       setSelectedWindowMode(saved.selectedWindowMode);
     }
+
+    if (saved.comparisonMode) {
+      setComparisonMode(saved.comparisonMode);
+    }
   }, []);
 
   const showTeamFilter = isAdmin || user.role === "team_lead";
   const teamFilterDisabled = user.role === "team_lead" && !isAdmin;
-  const filterGridClass = showTeamFilter
-    ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.9fr)_minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,1.25fr)]"
-    : "lg:grid-cols-[minmax(0,1.9fr)_minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,1.25fr)]";
+  // The month picker is only meaningful in `current-month` mode. Hiding it
+  // for the rolling modes shrinks the filter row by one column.
+  const showMonthPicker = selectedWindowMode === "current-month";
+  const filterGridClass = (() => {
+    if (showTeamFilter && showMonthPicker) {
+      return "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.9fr)_minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,1.25fr)]";
+    }
+    if (showTeamFilter) {
+      return "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.9fr)_minmax(0,2.5fr)_minmax(0,1.25fr)]";
+    }
+    if (showMonthPicker) {
+      return "lg:grid-cols-[minmax(0,1.9fr)_minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,1.25fr)]";
+    }
+    return "lg:grid-cols-[minmax(0,1.9fr)_minmax(0,2.5fr)_minmax(0,1.25fr)]";
+  })();
   const monthOptions = React.useMemo<SelectOption[]>(
     () => createMonthOptions(REPORT_MONTH_OPTIONS_COUNT),
     [],
@@ -2085,10 +2165,12 @@ function renderWorkloadShareCell(percentage: number) {
       selectedTeamId,
       selectedManagerId,
       selectedCustomerId,
+      comparisonMode,
     };
 
     localStorage.setItem(REPORTS_FILTERS_STORAGE_KEY, JSON.stringify(payload));
   }, [
+    comparisonMode,
     loading,
     selectedCustomerId,
     selectedManagerId,
@@ -2103,7 +2185,10 @@ function renderWorkloadShareCell(percentage: number) {
     async function fetchDateScopedKpis() {
       if (filteredCustomers.length === 0) {
         setKpis({ turnover: 0, invoices: 0, hours: 0, contractValue: 0 });
+        setPreviousKpis(null);
+        setCurrentContractValueSnapshot(null);
         setTurnoverByMonthRows(createEmptyTurnoverRows(rollingWindow.months));
+        setPreviousTurnoverByMonthRows(null);
         setKpiLoading(false);
         return;
       }
@@ -2113,20 +2198,59 @@ function renderWorkloadShareCell(percentage: number) {
       const customerIds = filteredCustomers.map((customer) => customer.id);
       const customerIdChunks = chunkArray(customerIds, 200);
       const monthKeys = new Set(rollingWindow.months.map((month) => month.key));
+      // Comparison is opt-in — when `none`, skip all previous-period work and
+      // keep the customer_kpis query as small as possible.
+      const comparisonEnabled = comparisonMode !== "none";
+      const previousWindow = comparisonEnabled
+        ? getPreviousReportingWindowRange(
+            selectedMonth,
+            selectedWindowMode,
+            comparisonMode,
+          )
+        : null;
+      const previousMonthKeys = new Set(
+        previousWindow?.months.map((month) => month.key) ?? [],
+      );
+      // Contract value is a snapshot, not a flow — comparing the previous
+      // period uses the last month of that period to avoid summing the same
+      // active contract across multiple months. Same trick on the current
+      // side: snapshot at the latest month of the current window so the
+      // pill compares apples to apples (rollup vs rollup).
+      const previousContractMonthKey =
+        previousWindow?.months[previousWindow.months.length - 1]?.key ?? null;
+      const currentContractMonthKey =
+        rollingWindow.months[rollingWindow.months.length - 1]?.key ?? null;
       const monthNumbers = Array.from(
-        new Set(rollingWindow.months.map((month) => month.month)),
+        new Set([
+          ...rollingWindow.months.map((month) => month.month),
+          ...(previousWindow?.months.map((month) => month.month) ?? []),
+        ]),
       );
       const years = Array.from(
-        new Set(rollingWindow.months.map((month) => month.year)),
+        new Set([
+          ...rollingWindow.months.map((month) => month.year),
+          ...(previousWindow?.months.map((month) => month.year) ?? []),
+        ]),
       );
 
       let turnover = 0;
       let invoiceCount = 0;
       let hours = 0;
       let contractValue = 0;
+      let currentContractSnapshot = 0;
+      let prevTurnover = 0;
+      let prevInvoiceCount = 0;
+      let prevHours = 0;
+      let prevContractValue = 0;
       const turnoverByMonth = new Map<string, TurnoverMonthRow>();
       for (const row of createEmptyTurnoverRows(rollingWindow.months)) {
         turnoverByMonth.set(row.monthKey, row);
+      }
+      const previousTurnoverByMonth = new Map<string, TurnoverMonthRow>();
+      if (previousWindow) {
+        for (const row of createEmptyTurnoverRows(previousWindow.months)) {
+          previousTurnoverByMonth.set(row.monthKey, row);
+        }
       }
 
       for (const idChunk of customerIdChunks) {
@@ -2138,11 +2262,12 @@ function renderWorkloadShareCell(percentage: number) {
           total_turnover: number | null;
           invoice_count: number | null;
           total_hours: number | null;
+          contract_value: number | null;
         }>(() =>
           supabase
             .from("customer_kpis")
             .select(
-              "period_year, period_month, total_turnover, invoice_count, total_hours",
+              "period_year, period_month, total_turnover, invoice_count, total_hours, contract_value",
             )
             .in("customer_id", idChunk)
             .eq("period_type", "month")
@@ -2152,16 +2277,34 @@ function renderWorkloadShareCell(percentage: number) {
 
         for (const row of rows) {
           const monthKey = `${row.period_year}-${String(row.period_month).padStart(2, "0")}`;
-          if (!monthKeys.has(monthKey)) continue;
 
-          turnover += Number(row.total_turnover ?? 0);
-          invoiceCount += Number(row.invoice_count ?? 0);
-          hours += Number(row.total_hours ?? 0);
+          if (monthKeys.has(monthKey)) {
+            turnover += Number(row.total_turnover ?? 0);
+            invoiceCount += Number(row.invoice_count ?? 0);
+            hours += Number(row.total_hours ?? 0);
 
-          const target = turnoverByMonth.get(monthKey);
-          if (target) {
-            target.turnover += Number(row.total_turnover ?? 0);
-            target.invoiceCount += Number(row.invoice_count ?? 0);
+            if (monthKey === currentContractMonthKey) {
+              currentContractSnapshot += Number(row.contract_value ?? 0);
+            }
+
+            const target = turnoverByMonth.get(monthKey);
+            if (target) {
+              target.turnover += Number(row.total_turnover ?? 0);
+              target.invoiceCount += Number(row.invoice_count ?? 0);
+            }
+          } else if (previousMonthKeys.has(monthKey)) {
+            prevTurnover += Number(row.total_turnover ?? 0);
+            prevInvoiceCount += Number(row.invoice_count ?? 0);
+            prevHours += Number(row.total_hours ?? 0);
+            if (monthKey === previousContractMonthKey) {
+              prevContractValue += Number(row.contract_value ?? 0);
+            }
+
+            const prevTarget = previousTurnoverByMonth.get(monthKey);
+            if (prevTarget) {
+              prevTarget.turnover += Number(row.total_turnover ?? 0);
+              prevTarget.invoiceCount += Number(row.invoice_count ?? 0);
+            }
           }
         }
       }
@@ -2211,6 +2354,18 @@ function renderWorkloadShareCell(percentage: number) {
         hours,
         contractValue,
       });
+      if (comparisonEnabled) {
+        setPreviousKpis({
+          turnover: prevTurnover,
+          invoices: prevInvoiceCount,
+          hours: prevHours,
+          contractValue: prevContractValue,
+        });
+        setCurrentContractValueSnapshot(currentContractSnapshot);
+      } else {
+        setPreviousKpis(null);
+        setCurrentContractValueSnapshot(null);
+      }
       setTurnoverByMonthRows(
         rollingWindow.months.map(
           (month) =>
@@ -2222,13 +2377,29 @@ function renderWorkloadShareCell(percentage: number) {
             },
         ),
       );
+      setPreviousTurnoverByMonthRows(
+        comparisonEnabled && previousWindow
+          ? previousWindow.months.map(
+              (month) =>
+                previousTurnoverByMonth.get(month.key) ?? {
+                  monthKey: month.key,
+                  monthLabel: `${month.label} ${String(month.year).slice(-2)}`,
+                  turnover: 0,
+                  invoiceCount: 0,
+                },
+            )
+          : null,
+      );
       setKpiLoading(false);
     }
 
     fetchDateScopedKpis().catch(() => {
       if (!cancelled) {
         setKpis({ turnover: 0, invoices: 0, hours: 0, contractValue: 0 });
+        setPreviousKpis(null);
+        setCurrentContractValueSnapshot(null);
         setTurnoverByMonthRows(createEmptyTurnoverRows(rollingWindow.months));
+        setPreviousTurnoverByMonthRows(null);
         setKpiLoading(false);
       }
     });
@@ -2236,7 +2407,7 @@ function renderWorkloadShareCell(percentage: number) {
     return () => {
       cancelled = true;
     };
-  }, [filteredCustomers, rollingWindow]);
+  }, [comparisonMode, filteredCustomers, rollingWindow, selectedMonth, selectedWindowMode]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -4349,17 +4520,19 @@ function renderWorkloadShareCell(percentage: number) {
             noOptionsLabel={t("reports.filters.noOptions", "No options found.")}
           />
 
-          <SearchSelect
-            placeholder={t("reports.filters.selectMonth", "Select month")}
-            searchPlaceholder={t("reports.filters.searchMonth", "Search month...")}
-            options={monthOptions}
-            value={selectedMonth}
-            onChange={(value) =>
-              setSelectedMonth(value ?? toMonthKey(new Date()))
-            }
-            allowClear={false}
-            noOptionsLabel={t("reports.filters.noOptions", "No options found.")}
-          />
+          {showMonthPicker ? (
+            <SearchSelect
+              placeholder={t("reports.filters.selectMonth", "Select month")}
+              searchPlaceholder={t("reports.filters.searchMonth", "Search month...")}
+              options={monthOptions}
+              value={selectedMonth}
+              onChange={(value) =>
+                setSelectedMonth(value ?? toMonthKey(new Date()))
+              }
+              allowClear={false}
+              noOptionsLabel={t("reports.filters.noOptions", "No options found.")}
+            />
+          ) : null}
 
           <SearchSelect
             placeholder={t("reports.filters.selectPeriod", "Select period")}
@@ -4430,12 +4603,48 @@ function renderWorkloadShareCell(percentage: number) {
       ) : (
         <div className="space-y-10">
           <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {t("reports.comparison.label", "Compare to:")}
+              </span>
+              <Select
+                value={comparisonMode}
+                onValueChange={(value) =>
+                  setComparisonMode(value as ComparisonMode)
+                }
+              >
+                <SelectTrigger className="h-8 w-auto min-w-[180px] text-xs" data-size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="year-over-year">
+                    {t(
+                      "reports.comparison.yearOverYear",
+                      "Same period last year",
+                    )}
+                  </SelectItem>
+                  <SelectItem value="period-over-period">
+                    {t("reports.comparison.periodOverPeriod", "Previous period")}
+                  </SelectItem>
+                  <SelectItem value="none">
+                    {t("reports.comparison.none", "None")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
               <KpiCards
                 values={kpis}
+                previousValues={previousKpis}
+                comparisonContractValue={currentContractValueSnapshot}
                 compact
                 hoursMode={selectedCustomerId ? "turnoverPerHour" : "hours"}
                 turnoverPerHour={
                   kpis.hours > 0 ? kpis.turnover / kpis.hours : 0
+                }
+                previousTurnoverPerHour={
+                  previousKpis && previousKpis.hours > 0
+                    ? previousKpis.turnover / previousKpis.hours
+                    : undefined
                 }
               />
             {kpiLoading ? (
@@ -4466,11 +4675,19 @@ function renderWorkloadShareCell(percentage: number) {
               >
                 <BarChart
                   accessibilityLayer
-                  data={[...turnoverByMonthRows].reverse().map((row) => ({
-                    month: row.monthLabel,
-                    turnover: row.turnover,
-                    invoiceCount: row.invoiceCount,
-                  }))}
+                  data={turnoverByMonthRows
+                    .map((row, idx) => {
+                      const prev = previousTurnoverByMonthRows?.[idx] ?? null;
+                      return {
+                        month: row.monthLabel,
+                        turnover: row.turnover,
+                        invoiceCount: row.invoiceCount,
+                        previousTurnover: prev?.turnover ?? 0,
+                        previousInvoiceCount: prev?.invoiceCount ?? 0,
+                        previousMonthLabel: prev?.monthLabel ?? null,
+                      };
+                    })
+                    .reverse()}
                   margin={{
                     top: 20,
                     bottom: 12,
@@ -4497,9 +4714,21 @@ function renderWorkloadShareCell(percentage: number) {
                       <TurnoverTooltipContent
                         turnoverLabel={t("reports.columns.turnover", "Turnover")}
                         invoicesLabel={t("reports.columns.invoices", "Invoices")}
+                        previousLabel={t(
+                          "reports.columns.previousPeriod",
+                          "Previous period",
+                        )}
                       />
                     }
                   />
+                  {previousTurnoverByMonthRows ? (
+                    <Bar
+                      dataKey="previousTurnover"
+                      fill="var(--color-turnoverPrevious)"
+                      barSize={16}
+                      radius={0}
+                    />
+                  ) : null}
                   <Bar
                     dataKey="turnover"
                     fill="var(--color-turnover)"
