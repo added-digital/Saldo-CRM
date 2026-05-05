@@ -164,21 +164,25 @@ export type TimeDetailRow = {
 export type InvoiceDetailRow = {
   id: string;
   documentNumber: string;
+  customerName?: string | null;
   invoiceDate: string | null;
   dueDate: string | null;
   turnover: number | null;
   turnoverFromTotal: boolean;
   currencyCode: string;
+  status?: "paid" | "pending";
 };
 
 export type InvoiceDetailSource = {
   id: string;
   document_number: string | null;
+  customer_name?: string | null;
   invoice_date: string | null;
   due_date?: string | null;
   total_ex_vat: number | null;
   total: number | null;
   currency_code: string | null;
+  balance?: number | null;
 };
 
 export type TurnoverTooltipPayloadItem = {

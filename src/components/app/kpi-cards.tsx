@@ -1,9 +1,10 @@
 "use client";
 
 import NumberFlow from "@number-flow/react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/hooks/use-translation";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ interface KpiCardsProps {
   hoursMode?: "hours" | "turnoverPerHour";
   turnoverPerHour?: number;
   previousTurnoverPerHour?: number;
+  onOpenInvoices?: () => void;
 }
 
 type ComparisonPillProps = {
@@ -119,6 +121,7 @@ function KpiCards({
   hoursMode = "hours",
   turnoverPerHour = 0,
   previousTurnoverPerHour,
+  onOpenInvoices,
 }: KpiCardsProps) {
   const { t } = useTranslation();
   const valueClassName = compact
@@ -175,6 +178,21 @@ function KpiCards({
           <CardTitle className="text-sm font-medium text-muted-foreground">
             {t("kpi.labels.invoices", "Invoices (pcs)")}
           </CardTitle>
+          {onOpenInvoices ? (
+            <CardAction>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-6 text-muted-foreground hover:text-foreground"
+                onClick={onOpenInvoices}
+                aria-label={t("kpi.actions.openInvoiceDetails", "Open invoice details")}
+                title={t("kpi.actions.openInvoiceDetails", "Open invoice details")}
+              >
+                <ArrowUpRight className="size-3.5" />
+              </Button>
+            </CardAction>
+          ) : null}
         </CardHeader>
         <CardContent className={cardContentClassName}>
           <div className="flex flex-wrap items-center gap-2">

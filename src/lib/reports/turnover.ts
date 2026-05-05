@@ -27,11 +27,18 @@ export function mapInvoicesToDetailRows(
     return {
       id: invoice.id,
       documentNumber: invoice.document_number ?? fallbackDocumentNumber,
+      customerName: invoice.customer_name ?? null,
       invoiceDate: invoice.invoice_date,
       dueDate: includeDueDate ? invoice.due_date ?? null : null,
       turnover: turnover.amount,
       turnoverFromTotal: turnover.fromTotal,
       currencyCode: invoice.currency_code ?? "SEK",
+      status:
+        invoice.balance == null
+          ? undefined
+          : Number(invoice.balance) <= 0
+            ? "paid"
+            : "pending",
     };
   });
 }

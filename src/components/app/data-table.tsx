@@ -58,6 +58,7 @@ interface DataTableProps<TData, TValue> {
   sortingStorageKey?: string
   pageSizeOptions?: number[]
   fixedColumnWidths?: Record<string, number>
+  paginationExtra?: React.ReactNode
 }
 
 function getColumnWidthPercent<TData, TValue>(
@@ -133,6 +134,7 @@ function DataTable<TData, TValue>({
   sortingStorageKey,
   pageSizeOptions,
   fixedColumnWidths,
+  paginationExtra,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [sortingHydrated, setSortingHydrated] = React.useState(false)
@@ -299,6 +301,7 @@ function DataTable<TData, TValue>({
         </div>
         {table.getPageCount() > 1 && (
           <div className="flex shrink-0 items-center gap-2">
+            {paginationExtra}
             {pageSizeOptions && pageSizeOptions.length > 0 ? (
               <select
                 value={table.getState().pagination.pageSize}

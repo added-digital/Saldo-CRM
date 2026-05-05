@@ -3,12 +3,22 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
-import { Check, ChevronDown, ChevronRight, Filter } from "lucide-react";
 import {
+  BarChart3,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  TrendingUp,
+} from "lucide-react";
+import {
+  Area,
   Bar,
   BarChart,
   CartesianGrid,
   LabelList,
+  Line,
+  LineChart,
   XAxis,
   YAxis,
 } from "recharts";
@@ -24,6 +34,7 @@ import type {
 import { EmptyState } from "@/components/app/empty-state";
 import { DataTable } from "@/components/app/data-table";
 import { KpiCards } from "@/components/app/kpi-cards";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ChartContainer,
@@ -197,7 +208,7 @@ function TurnoverTooltipContent({
         <div className="flex items-center justify-between gap-2">
           <span className="text-muted-foreground">{turnoverLabel}</span>
           <span className="font-medium tabular-nums">
-            {turnover.toLocaleString("sv-SE")}
+            {turnover.toLocaleString("sv-SE", { maximumFractionDigits: 0 })}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">
@@ -217,7 +228,7 @@ function TurnoverTooltipContent({
             <div className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground">{turnoverLabel}</span>
               <span className="font-medium tabular-nums">
-                {previousTurnover.toLocaleString("sv-SE")}
+                {previousTurnover.toLocaleString("sv-SE", { maximumFractionDigits: 0 })}
               </span>
             </div>
             <div className="flex items-center justify-between gap-2">
@@ -356,6 +367,9 @@ export default function ReportsPage() {
     React.useState<ReportingWindowMode>("rolling-12-months");
   const [comparisonMode, setComparisonMode] =
     React.useState<ComparisonMode>("year-over-year");
+  const [turnoverChartMode, setTurnoverChartMode] = React.useState<
+    "bar" | "line"
+  >("bar");
   const savedFiltersRef = React.useRef<SavedReportsFilters | null>(null);
   const hasAppliedSavedFiltersRef = React.useRef(false);
   const [kpiLoading, setKpiLoading] = React.useState(false);
@@ -453,6 +467,12 @@ export default function ReportsPage() {
   const [invoiceDetailsRows, setInvoiceDetailsRows] = React.useState<
     InvoiceDetailRow[]
   >([]);
+  const [invoiceDetailsStatusFilter, setInvoiceDetailsStatusFilter] = React.useState<
+    "all" | "paid" | "pending"
+  >("all");
+  const [invoiceDetailsMode, setInvoiceDetailsMode] = React.useState<
+    "default" | "status-list"
+  >("default");
   const [contractDetailsOpen, setContractDetailsOpen] = React.useState(false);
   const [contractDetailsLoading, setContractDetailsLoading] =
     React.useState(false);
@@ -463,8 +483,39 @@ export default function ReportsPage() {
   const [turnoverByMonthRows, setTurnoverByMonthRows] = React.useState<
     TurnoverMonthRow[]
   >([]);
+  const turnoverGradientId = React.useId();
+  const filteredInvoiceDetailsRows = React.useMemo(() => {
+    if (invoiceDetailsMode !== "status-list") {
+      return invoiceDetailsRows;
+    }
+
+    if (invoiceDetailsStatusFilter === "all") {
+      return invoiceDetailsRows;
+    }
+
+    return invoiceDetailsRows.filter(
+      (row) => row.status === invoiceDetailsStatusFilter,
+    );
+  }, [invoiceDetailsMode, invoiceDetailsRows, invoiceDetailsStatusFilter]);
 
   const customerIdFromQuery = searchParams.get("customerId");
+  const turnoverChartData = React.useMemo(
+    () =>
+      turnoverByMonthRows
+        .map((row, idx) => {
+          const prev = previousTurnoverByMonthRows?.[idx] ?? null;
+          return {
+            month: row.monthLabel,
+            turnover: row.turnover,
+            invoiceCount: row.invoiceCount,
+            previousTurnover: prev?.turnover ?? 0,
+            previousInvoiceCount: prev?.invoiceCount ?? 0,
+            previousMonthLabel: prev?.monthLabel ?? null,
+          };
+        })
+        .reverse(),
+    [previousTurnoverByMonthRows, turnoverByMonthRows],
+  );
 
   React.useEffect(() => {
     const saved = parseSavedReportsFilters(
@@ -1467,6 +1518,7 @@ function renderWorkloadShareCell(percentage: number) {
   }
 
   async function openMonthlyInvoiceDetails(row: CustomerMonthlyEconomicsRow) {
+    setInvoiceDetailsMode("default");
     if (!selectedCustomerId) return;
 
     const { from, to } = getMonthDateRange(row.monthKey);
@@ -1607,6 +1659,7 @@ function renderWorkloadShareCell(percentage: number) {
   async function openManagerCustomerInvoiceDetails(
     row: ManagerCustomerSummaryRow,
   ) {
+    setInvoiceDetailsMode("default");
     setInvoiceDetailsOpen(true);
     setInvoiceDetailsLoading(true);
     setInvoiceDetailsRows([]);
@@ -1715,6 +1768,7 @@ function renderWorkloadShareCell(percentage: number) {
     groupName: string,
     article: ArticleGroupItemRow,
   ) {
+    setInvoiceDetailsMode("default");
     if (!selectedCustomerId) return;
 
     setInvoiceDetailsOpen(true);
@@ -1859,6 +1913,115 @@ function renderWorkloadShareCell(percentage: number) {
         includeDueDate: true,
       }),
     );
+    setInvoiceDetailsLoading(false);
+  }
+
+  async function openInvoicesStatusDialog() {
+    setInvoiceDetailsMode("status-list");
+    setInvoiceDetailsStatusFilter("all");
+    setInvoiceDetailsOpen(true);
+    setInvoiceDetailsLoading(true);
+    setInvoiceDetailsRows([]);
+    setInvoiceDetailsTitle(
+      `${t("reports.dialogs.invoices.title", "Invoices")} · ${rollingWindow.title}`,
+    );
+
+    const supabase = createClient();
+
+    const withCustomerScope = (query: ReturnType<typeof supabase.from>) => {
+      let scoped = query
+        .gte("invoice_date", rollingWindow.from)
+        .lte("invoice_date", rollingWindow.to);
+
+      if (selectedCustomerId) {
+        if (selectedCustomer?.fortnox_customer_number) {
+          scoped = scoped.or(
+            `customer_id.eq.${selectedCustomerId},fortnox_customer_number.eq.${selectedCustomer.fortnox_customer_number}`,
+          );
+        } else {
+          scoped = scoped.eq("customer_id", selectedCustomerId);
+        }
+      }
+
+      return scoped.order("invoice_date", { ascending: false });
+    };
+
+    if (selectedCustomerId) {
+      const rows = await fetchAllPages<{
+        id: string;
+        document_number: string | null;
+        customer_name: string | null;
+        invoice_date: string | null;
+        due_date: string | null;
+        total_ex_vat: number | null;
+        total: number | null;
+        currency_code: string | null;
+        balance: number | null;
+      }>(() =>
+        withCustomerScope(
+          supabase
+            .from("invoices")
+            .select(
+              "id, document_number, customer_name, invoice_date, due_date, total_ex_vat, total, currency_code, balance",
+            ),
+        ),
+      );
+
+      setInvoiceDetailsRows(
+        mapInvoicesToDetailRows(rows, {
+          fallbackDocumentNumber: "-",
+          includeDueDate: true,
+        }),
+      );
+      setInvoiceDetailsLoading(false);
+      return;
+    }
+
+    const customerNumbers = filteredCustomers
+      .map((customer) => customer.fortnox_customer_number)
+      .filter((value): value is string => Boolean(value));
+
+    if (customerNumbers.length === 0) {
+      setInvoiceDetailsRows([]);
+      setInvoiceDetailsLoading(false);
+      return;
+    }
+
+    const byId = new Map<string, InvoiceDetailRow>();
+    for (const chunk of chunkArray(customerNumbers, 200)) {
+      const rows = await fetchAllPages<{
+        id: string;
+        document_number: string | null;
+        customer_name: string | null;
+        invoice_date: string | null;
+        due_date: string | null;
+        total_ex_vat: number | null;
+        total: number | null;
+        currency_code: string | null;
+        balance: number | null;
+      }>(() =>
+        withCustomerScope(
+          supabase
+            .from("invoices")
+            .select(
+              "id, document_number, customer_name, invoice_date, due_date, total_ex_vat, total, currency_code, balance",
+            )
+            .in("fortnox_customer_number", chunk),
+        ),
+      );
+
+      const mapped = mapInvoicesToDetailRows(rows, {
+        fallbackDocumentNumber: "-",
+        includeDueDate: true,
+      });
+      for (const row of mapped) {
+        if (!byId.has(row.id)) {
+          byId.set(row.id, row);
+        }
+      }
+    }
+
+    setInvoiceDetailsRows(Array.from(byId.values()));
     setInvoiceDetailsLoading(false);
   }
 
@@ -4278,6 +4441,14 @@ function renderWorkloadShareCell(percentage: number) {
       enableSorting: false,
     },
     {
+      id: "customerName",
+      accessorKey: "customerName",
+      header: t("reports.columns.customer", "Customer"),
+      size: 220,
+      enableSorting: false,
+      cell: ({ row }) => row.original.customerName ?? "-",
+    },
+    {
       id: "invoiceDate",
       accessorKey: "invoiceDate",
       header: t("reports.columns.date", "Date"),
@@ -4307,11 +4478,22 @@ function renderWorkloadShareCell(percentage: number) {
         ),
     },
     {
-      id: "currencyCode",
-      accessorKey: "currencyCode",
-      header: t("reports.columns.currency", "Currency"),
-      size: 100,
+      id: "status",
+      accessorKey: "status",
+      header: t("reports.columns.status", "Status"),
+      size: 120,
       enableSorting: false,
+      cell: ({ row }) => {
+        const status = row.original.status;
+        if (!status) return "-";
+        return (
+          <Badge variant={status === "paid" ? "secondary" : "outline"}>
+            {status === "paid"
+              ? t("reports.invoiceStatus.paid", "Paid")
+              : t("reports.invoiceStatus.pending", "Pending")}
+          </Badge>
+        );
+      },
     },
   ];
 
@@ -4603,39 +4785,13 @@ function renderWorkloadShareCell(percentage: number) {
       ) : (
         <div className="space-y-10">
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center justify-end gap-2 text-sm">
-              <span className="text-muted-foreground">
-                {t("reports.comparison.label", "Compare to:")}
-              </span>
-              <Select
-                value={comparisonMode}
-                onValueChange={(value) =>
-                  setComparisonMode(value as ComparisonMode)
-                }
-              >
-                <SelectTrigger className="h-8 w-auto min-w-[180px] text-xs" data-size="sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="year-over-year">
-                    {t(
-                      "reports.comparison.yearOverYear",
-                      "Same period last year",
-                    )}
-                  </SelectItem>
-                  <SelectItem value="period-over-period">
-                    {t("reports.comparison.periodOverPeriod", "Previous period")}
-                  </SelectItem>
-                  <SelectItem value="none">
-                    {t("reports.comparison.none", "None")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
               <KpiCards
                 values={kpis}
                 previousValues={previousKpis}
                 comparisonContractValue={currentContractValueSnapshot}
+                onOpenInvoices={() => {
+                  void openInvoicesStatusDialog();
+                }}
                 compact
                 hoursMode={selectedCustomerId ? "turnoverPerHour" : "hours"}
                 turnoverPerHour={
@@ -4655,16 +4811,68 @@ function renderWorkloadShareCell(percentage: number) {
           </div>
 
           <section className="space-y-3">
-            <div className="space-y-1 border-t border-[#8b6f2a] pt-6">
-              <h3 className="text-base font-semibold">
-                {t("reports.sections.turnoverPerMonth.title", "Turnover per month")}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {t(
-                  "reports.sections.turnoverPerMonth.description",
-                  "Based on current filters and rolling 12-month window.",
-                )}
-              </p>
+            <div className="flex items-start justify-between gap-3 border-t border-[#8b6f2a] pt-6">
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold">
+                  {t("reports.sections.turnoverPerMonth.title", "Turnover per month")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t(
+                    "reports.sections.turnoverPerMonth.description",
+                    "Based on current filters and rolling 12-month window.",
+                  )}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Select
+                  value={comparisonMode}
+                  onValueChange={(value) =>
+                    setComparisonMode(value as ComparisonMode)
+                  }
+                >
+                  <SelectTrigger className="h-7 w-auto min-w-[180px] text-xs" data-size="sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="year-over-year">
+                      {t(
+                        "reports.comparison.yearOverYear",
+                        "Same period last year",
+                      )}
+                    </SelectItem>
+                    <SelectItem value="period-over-period">
+                      {t("reports.comparison.periodOverPeriod", "Previous period")}
+                    </SelectItem>
+                    <SelectItem value="none">
+                      {t("reports.comparison.none", "None")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="inline-flex rounded-md border border-border bg-background p-1">
+                  <Button
+                    type="button"
+                    variant={turnoverChartMode === "bar" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => setTurnoverChartMode("bar")}
+                    aria-label={t("reports.chart.mode.bar", "Bar")}
+                    title={t("reports.chart.mode.bar", "Bar")}
+                  >
+                    <BarChart3 className="size-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={turnoverChartMode === "line" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    onClick={() => setTurnoverChartMode("line")}
+                    aria-label={t("reports.chart.mode.line", "Line")}
+                    title={t("reports.chart.mode.line", "Line")}
+                  >
+                    <TrendingUp className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
             </div>
             {kpiLoading ? (
               <Skeleton className="h-[280px] w-full" />
@@ -4673,83 +4881,158 @@ function renderWorkloadShareCell(percentage: number) {
                 config={turnoverChartConfig}
                 className="h-[280px]"
               >
-                <BarChart
-                  accessibilityLayer
-                  data={turnoverByMonthRows
-                    .map((row, idx) => {
-                      const prev = previousTurnoverByMonthRows?.[idx] ?? null;
-                      return {
-                        month: row.monthLabel,
-                        turnover: row.turnover,
-                        invoiceCount: row.invoiceCount,
-                        previousTurnover: prev?.turnover ?? 0,
-                        previousInvoiceCount: prev?.invoiceCount ?? 0,
-                        previousMonthLabel: prev?.monthLabel ?? null,
-                      };
-                    })
-                    .reverse()}
-                  margin={{
-                    top: 20,
-                    bottom: 12,
-                  }}
-                >
-                  <CartesianGrid className="stroke-muted-foreground/20" />
-                  <XAxis
-                    dataKey="month"
-                    tickLine={false}
-                    tickMargin={10}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    hide
-                    tickCount={6}
-                    domain={[
-                      0,
-                      (dataMax: number) => getRoundedChartMax(dataMax),
-                    ]}
-                  />
-                  <ChartTooltip
-                    cursor={false}
-                    content={
-                      <TurnoverTooltipContent
-                        turnoverLabel={t("reports.columns.turnover", "Turnover")}
-                        invoicesLabel={t("reports.columns.invoices", "Invoices")}
-                        previousLabel={t(
-                          "reports.columns.previousPeriod",
-                          "Previous period",
-                        )}
-                      />
-                    }
-                  />
-                  {previousTurnoverByMonthRows ? (
+                {turnoverChartMode === "bar" ? (
+                  <BarChart
+                    accessibilityLayer
+                    data={turnoverChartData}
+                    margin={{
+                      top: 20,
+                      bottom: 12,
+                    }}
+                  >
+                    <CartesianGrid className="stroke-muted-foreground/20" />
+                    <XAxis
+                      dataKey="month"
+                      tickLine={false}
+                      tickMargin={10}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      hide
+                      tickCount={6}
+                      domain={[
+                        0,
+                        (dataMax: number) => getRoundedChartMax(dataMax),
+                      ]}
+                    />
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <TurnoverTooltipContent
+                          turnoverLabel={t("reports.columns.turnover", "Turnover")}
+                          invoicesLabel={t("reports.columns.invoices", "Invoices")}
+                          previousLabel={t(
+                            "reports.columns.previousPeriod",
+                            "Previous period",
+                          )}
+                        />
+                      }
+                    />
                     <Bar
-                      dataKey="previousTurnover"
-                      fill="var(--color-turnoverPrevious)"
+                      dataKey="turnover"
+                      fill="var(--color-turnover)"
                       barSize={16}
                       radius={0}
-                    />
-                  ) : null}
-                  <Bar
-                    dataKey="turnover"
-                    fill="var(--color-turnover)"
-                    barSize={16}
-                    radius={0}
+                    >
+                      <LabelList
+                        dataKey="turnover"
+                        position="top"
+                        offset={10}
+                        className="fill-foreground"
+                        fontSize={11}
+                        formatter={(value) => {
+                          const numericValue = Number(value ?? 0);
+                          return numericValue === 0
+                            ? ""
+                            : sekFormatter.format(numericValue);
+                        }}
+                      />
+                    </Bar>
+                    {previousTurnoverByMonthRows ? (
+                      <Bar
+                        dataKey="previousTurnover"
+                        fill="var(--color-turnoverPrevious)"
+                        barSize={16}
+                        radius={0}
+                      />
+                    ) : null}
+                  </BarChart>
+                ) : (
+                  <LineChart
+                    accessibilityLayer
+                    data={turnoverChartData}
+                    margin={{
+                      top: 20,
+                      bottom: 12,
+                    }}
                   >
-                    <LabelList
-                      dataKey="turnover"
-                      position="top"
-                      offset={10}
-                      className="fill-foreground"
-                      fontSize={11}
-                      formatter={(value) => {
-                        const numericValue = Number(value ?? 0);
-                        return numericValue === 0
-                          ? ""
-                          : sekFormatter.format(numericValue);
-                      }}
+                    <defs>
+                      <linearGradient id={turnoverGradientId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--color-turnover)" stopOpacity={0.8} />
+                        <stop offset="100%" stopColor="var(--color-turnover)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid className="stroke-muted-foreground/20" />
+                    <XAxis
+                      dataKey="month"
+                      tickLine={false}
+                      tickMargin={10}
+                      axisLine={false}
+                      padding={{ left: 20, right: 20 }}
                     />
-                  </Bar>
-                </BarChart>
+                    <YAxis
+                      hide
+                      tickCount={6}
+                      domain={[
+                        0,
+                        (dataMax: number) => getRoundedChartMax(dataMax),
+                      ]}
+                    />
+                    <ChartTooltip
+                      cursor={false}
+                      content={
+                        <TurnoverTooltipContent
+                          turnoverLabel={t("reports.columns.turnover", "Turnover")}
+                          invoicesLabel={t("reports.columns.invoices", "Invoices")}
+                          previousLabel={t(
+                            "reports.columns.previousPeriod",
+                            "Previous period",
+                          )}
+                        />
+                      }
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="turnover"
+                      fill={`url(#${turnoverGradientId})`}
+                      fillOpacity={1}
+                      baseValue={0}
+                      stroke="none"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="turnover"
+                      stroke="var(--color-turnover)"
+                      strokeWidth={2.25}
+                      dot={{ r: 3, fill: "var(--color-turnover)", strokeWidth: 0 }}
+                      activeDot={{ r: 4 }}
+                    >
+                      <LabelList
+                        dataKey="turnover"
+                        position="top"
+                        offset={10}
+                        className="fill-foreground"
+                        fontSize={11}
+                        formatter={(value) => {
+                          const numericValue = Number(value ?? 0);
+                          return numericValue === 0
+                            ? ""
+                            : sekFormatter.format(numericValue);
+                        }}
+                      />
+                    </Line>
+                    {previousTurnoverByMonthRows ? (
+                      <Line
+                        type="monotone"
+                        dataKey="previousTurnover"
+                        stroke="var(--color-turnoverPrevious)"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: "var(--color-turnoverPrevious)", strokeWidth: 0 }}
+                        activeDot={{ r: 4 }}
+                      />
+                    ) : null}
+                  </LineChart>
+                )}
               </ChartContainer>
             )}
           </section>
@@ -5103,9 +5386,41 @@ function renderWorkloadShareCell(percentage: number) {
           <div className="min-h-0 flex-1 overflow-hidden">
             <DataTable
               columns={invoiceDetailsColumns}
-              data={invoiceDetailsRows}
+              data={filteredInvoiceDetailsRows}
               loading={invoiceDetailsLoading}
               pageSize={15}
+              paginationExtra={
+                invoiceDetailsMode === "status-list" ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {t("reports.filters.status", "Status")}
+                    </span>
+                    <Select
+                      value={invoiceDetailsStatusFilter}
+                      onValueChange={(value) =>
+                        setInvoiceDetailsStatusFilter(
+                          value as "all" | "paid" | "pending",
+                        )
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-auto min-w-[130px] text-xs" data-size="sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">
+                          {t("reports.invoiceStatusFilter.all", "Both")}
+                        </SelectItem>
+                        <SelectItem value="paid">
+                          {t("reports.invoiceStatus.paid", "Paid")}
+                        </SelectItem>
+                        <SelectItem value="pending">
+                          {t("reports.invoiceStatus.pending", "Pending")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null
+              }
               emptyState={{
                 icon: Filter,
                 title: t("reports.empty.noMatchingInvoices.title", "No matching invoices"),
