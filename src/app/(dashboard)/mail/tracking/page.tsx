@@ -52,6 +52,13 @@ function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`
 }
 
+// Match the look of ChartTooltipContent so the KPI tooltips and chart tooltips
+// feel like they come from the same family.
+const CHART_TOOLTIP_CLASS =
+  "max-w-xs rounded-md border bg-background px-3 py-2 text-xs text-foreground shadow-xl"
+const CHART_TOOLTIP_ARROW_CLASS =
+  "border-r border-b border-border bg-background fill-background"
+
 export default function MailTrackingPage() {
   const { t } = useTranslation()
   const { user } = useUser()
@@ -157,6 +164,11 @@ export default function MailTrackingPage() {
     )
   }
 
+  const moreInformationLabel = t(
+    "mail.tracking.cards.moreInformation",
+    "More information",
+  )
+
   return (
     <TooltipProvider delayDuration={150}>
       <div className="space-y-6">
@@ -165,25 +177,25 @@ export default function MailTrackingPage() {
             <CardHeader className="p-6 pb-0">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {t("mail.tracking.cards.sent", "Skickade")}
+                  {t("mail.tracking.cards.sent", "Sent")}
                 </CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      aria-label={t(
-                        "mail.tracking.cards.sentTooltipLabel",
-                        "Mer information",
-                      )}
+                      aria-label={moreInformationLabel}
                       className="text-muted-foreground/70 transition-colors hover:text-foreground"
                     >
                       <Info className="size-3.5" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
+                  <TooltipContent
+                    className={CHART_TOOLTIP_CLASS}
+                    arrowClassName={CHART_TOOLTIP_ARROW_CLASS}
+                  >
                     {t(
                       "mail.tracking.cards.sentTooltip",
-                      "Det totala antalet unika mottagare som mailet har skickats till via Microsoft Graph.",
+                      "The total number of unique recipients the email has been sent to via Microsoft Graph.",
                     )}
                   </TooltipContent>
                 </Tooltip>
@@ -199,8 +211,8 @@ export default function MailTrackingPage() {
               </p>
               <p className="text-xs text-muted-foreground">
                 {stats.totalFailed > 0
-                  ? `${stats.totalFailed} ${t("mail.tracking.cards.failedSuffix", "misslyckades")}`
-                  : `${stats.totalSent} ${t("mail.tracking.cards.allDelivered", "st levererade")}`}
+                  ? `${stats.totalFailed} ${t("mail.tracking.cards.failedSuffix", "failed")}`
+                  : `${stats.totalSent} ${t("mail.tracking.cards.allDelivered", "delivered")}`}
               </p>
             </CardContent>
           </Card>
@@ -209,32 +221,32 @@ export default function MailTrackingPage() {
             <CardHeader className="p-6 pb-0">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {t("mail.tracking.cards.openRate", "Öppningsgrad")}
+                  {t("mail.tracking.cards.openRate", "Open rate")}
                 </CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      aria-label={t(
-                        "mail.tracking.cards.openRateTooltipLabel",
-                        "Mer information",
-                      )}
+                      aria-label={moreInformationLabel}
                       className="text-muted-foreground/70 transition-colors hover:text-foreground"
                     >
                       <Info className="size-3.5" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
+                  <TooltipContent
+                    className={CHART_TOOLTIP_CLASS}
+                    arrowClassName={CHART_TOOLTIP_ARROW_CLASS}
+                  >
                     <p>
                       {t(
                         "mail.tracking.cards.openRateTooltip",
-                        "Andelen mottagare som har öppnat mailet. Detta är det bästa måttet på hur effektiv din ärenderad (subject line) var.",
+                        "The share of recipients who opened the email. This is the best gauge of how effective your subject line was.",
                       )}
                     </p>
-                    <p className="mt-1 opacity-80">
+                    <p className="mt-1 text-muted-foreground">
                       {t(
                         "mail.tracking.cards.openRateTooltipNote",
-                        "Notera: siffran kan variera något då vissa mailklienter (t.ex. Apple Mail) ibland förladdar bilder automatiskt.",
+                        "Note: this number can vary slightly because some mail clients (e.g. Apple Mail) sometimes preload images automatically.",
                       )}
                     </p>
                   </TooltipContent>
@@ -246,9 +258,9 @@ export default function MailTrackingPage() {
                 {formatPercent(openRate)}
               </p>
               <p className="text-xs text-muted-foreground">
-                {stats.uniqueOpens} {t("mail.tracking.cards.of", "av")}{" "}
+                {stats.uniqueOpens} {t("mail.tracking.cards.of", "of")}{" "}
                 {stats.totalSent}{" "}
-                {t("mail.tracking.cards.opensFraction", "öppnade")}
+                {t("mail.tracking.cards.opensFraction", "opened")}
               </p>
             </CardContent>
           </Card>
@@ -257,25 +269,25 @@ export default function MailTrackingPage() {
             <CardHeader className="p-6 pb-0">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {t("mail.tracking.cards.clickRate", "Klickfrekvens")}
+                  {t("mail.tracking.cards.clickRate", "Click rate")}
                 </CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      aria-label={t(
-                        "mail.tracking.cards.clickRateTooltipLabel",
-                        "Mer information",
-                      )}
+                      aria-label={moreInformationLabel}
                       className="text-muted-foreground/70 transition-colors hover:text-foreground"
                     >
                       <Info className="size-3.5" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
+                  <TooltipContent
+                    className={CHART_TOOLTIP_CLASS}
+                    arrowClassName={CHART_TOOLTIP_ARROW_CLASS}
+                  >
                     {t(
                       "mail.tracking.cards.clickRateTooltip",
-                      "Hur stor del av alla mottagare som klickade på din knapp eller länk. Detta mäter hur stort genomslag hela utskicket hade i din totala målgrupp.",
+                      "The share of all recipients who clicked your button or a link. This measures how much reach the whole campaign had across your audience.",
                     )}
                   </TooltipContent>
                 </Tooltip>
@@ -286,9 +298,9 @@ export default function MailTrackingPage() {
                 {formatPercent(clickRate)}
               </p>
               <p className="text-xs text-muted-foreground">
-                {stats.uniqueClicks} {t("mail.tracking.cards.of", "av")}{" "}
+                {stats.uniqueClicks} {t("mail.tracking.cards.of", "of")}{" "}
                 {stats.totalSent}{" "}
-                {t("mail.tracking.cards.clickedRecipients", "klickade")}
+                {t("mail.tracking.cards.clickedRecipients", "clicked")}
               </p>
             </CardContent>
           </Card>
@@ -297,25 +309,25 @@ export default function MailTrackingPage() {
             <CardHeader className="p-6 pb-0">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {t("mail.tracking.cards.ctor", "Relevansgrad")}
+                  {t("mail.tracking.cards.ctor", "Click-to-open rate")}
                 </CardTitle>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      aria-label={t(
-                        "mail.tracking.cards.ctorTooltipLabel",
-                        "Mer information",
-                      )}
+                      aria-label={moreInformationLabel}
                       className="text-muted-foreground/70 transition-colors hover:text-foreground"
                     >
                       <Info className="size-3.5" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
+                  <TooltipContent
+                    className={CHART_TOOLTIP_CLASS}
+                    arrowClassName={CHART_TOOLTIP_ARROW_CLASS}
+                  >
                     {t(
                       "mail.tracking.cards.ctorTooltip",
-                      "Hur många av de som faktiskt öppnade mailet som också valde att klicka. Detta är det mest precisa måttet på hur relevant ditt innehåll och ditt erbjudande var för läsaren.",
+                      "How many of those who actually opened the email also chose to click. This is the most precise gauge of how relevant your content and offer were to the reader.",
                     )}
                   </TooltipContent>
                 </Tooltip>
@@ -326,11 +338,11 @@ export default function MailTrackingPage() {
                 {formatPercent(ctr)}
               </p>
               <p className="text-xs text-muted-foreground">
-                {stats.uniqueClicks} {t("mail.tracking.cards.of", "av")}{" "}
+                {stats.uniqueClicks} {t("mail.tracking.cards.of", "of")}{" "}
                 {stats.uniqueOpens}{" "}
                 {t(
                   "mail.tracking.cards.clickedOfOpeners",
-                  "öppnare klickade",
+                  "of openers clicked",
                 )}
               </p>
             </CardContent>
@@ -340,13 +352,13 @@ export default function MailTrackingPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              {t("mail.tracking.totals.title", "Aktivitet totalt")}
+              {t("mail.tracking.totals.title", "Activity totals")}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-6 sm:grid-cols-4">
             <div>
               <p className="text-xs text-muted-foreground">
-                {t("mail.tracking.totals.totalOpens", "Totala öppningar")}
+                {t("mail.tracking.totals.totalOpens", "Total opens")}
               </p>
               <p className="text-2xl font-semibold leading-tight">
                 <NumberFlow
@@ -358,13 +370,13 @@ export default function MailTrackingPage() {
               <p className="text-xs text-muted-foreground">
                 {t(
                   "mail.tracking.totals.totalOpensHint",
-                  "inkl. upprepade öppningar",
+                  "includes repeat opens",
                 )}
               </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">
-                {t("mail.tracking.totals.totalClicks", "Totala klick")}
+                {t("mail.tracking.totals.totalClicks", "Total clicks")}
               </p>
               <p className="text-2xl font-semibold leading-tight">
                 <NumberFlow
@@ -376,13 +388,13 @@ export default function MailTrackingPage() {
               <p className="text-xs text-muted-foreground">
                 {t(
                   "mail.tracking.totals.totalClicksHint",
-                  "inkl. upprepade klick",
+                  "includes repeat clicks",
                 )}
               </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">
-                {t("mail.tracking.totals.uniqueOpens", "Unika öppningar")}
+                {t("mail.tracking.totals.uniqueOpens", "Unique opens")}
               </p>
               <p className="text-2xl font-semibold leading-tight">
                 <NumberFlow
@@ -394,13 +406,13 @@ export default function MailTrackingPage() {
               <p className="text-xs text-muted-foreground">
                 {t(
                   "mail.tracking.totals.uniqueOpensHint",
-                  "unika mottagare",
+                  "distinct recipients",
                 )}
               </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">
-                {t("mail.tracking.totals.uniqueClicks", "Unika klick")}
+                {t("mail.tracking.totals.uniqueClicks", "Unique clicks")}
               </p>
               <p className="text-2xl font-semibold leading-tight">
                 <NumberFlow
@@ -412,7 +424,7 @@ export default function MailTrackingPage() {
               <p className="text-xs text-muted-foreground">
                 {t(
                   "mail.tracking.totals.uniqueClicksHint",
-                  "unika mottagare",
+                  "distinct recipients",
                 )}
               </p>
             </div>
