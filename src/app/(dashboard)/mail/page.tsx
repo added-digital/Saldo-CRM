@@ -7,6 +7,16 @@ import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Search, Send, T
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -131,24 +141,27 @@ function defaultPlainOsForm(t: (key: string, fallback?: string) => string): Plai
 
 function defaultCampaignForm(t: (key: string, fallback?: string) => string): PlainOsForm {
   return {
-    subject: t("mail.send.campaignDefaults.subject", "Aktieboken är ett lagkrav. När uppdaterade ni den senast?"),
-    title: t("mail.send.campaignDefaults.title", "Har ni en uppdaterad aktiebok?"),
+    subject: t("mail.send.campaignDefaults.subject", "Visste du att aktieboken är ett lagkrav. När uppdaterade ni den senast?"),
+    title: t("mail.send.campaignDefaults.title", "Hej @customer, Har ni en uppdaterad aktiebok?"),
     previewText: t(
       "mail.send.campaignDefaults.previewText",
-      "Många aktiebolag har inte det. Trots att aktieboken är ett lagkrav.",
+      "Alla aktiebolag ska enligt lag ha en aktiebok som visar vem som äger vad i bolaget.",
     ),
     greeting: t("mail.send.campaignDefaults.greeting", ""),
     paragraphs: t(
       "mail.send.campaignDefaults.paragraphs",
       [
-        "Många aktiebolag har inte det. Trots att aktieboken är ett lagkrav hamnar den ofta i skymundan när bolaget växer, nya delägare tillkommer eller aktier byter ägare.",
+        "Alla aktiebolag ska enligt lag ha en aktiebok som visar vem som äger vad i bolaget. Den ska också hållas uppdaterad när ägarbilden förändras.",
         "---",
-        "Problemet uppstår ofta först när någon faktiskt ber om den. Till exempel banken, en myndighet, en investerare eller en ny delägare.",
-        "Därför hjälper vi på Saldo företag att digitalisera sin aktiebok.",
+        "Ändå är det vanligt att aktieboken hamnar i skymundan när bolaget växer, nya delägare tillkommer, emissioner genomförs eller aktier byter ägare. Därför hjälper vi på Saldo företag att digitalisera sin aktiebok.",
         "---",
-        "Vi går igenom nuläget, säkerställer att ägarbilden stämmer och sätter upp en digital aktiebok som sedan uppdateras automatiskt vid framtida förändringar. I de allra flesta fall är er digitala aktiebok på plats redan inom en arbetsdag.",
+        "Vi går igenom nuläget, säkerställer att ägarbilden stämmer och sätter upp en digital aktiebok där du som ägare enkelt kan logga in och se ditt ägande i bolaget.",
         "---",
-        "Pris\nStartavgift: 3 000 kr\nDärefter: 15 kr per ägare och månad",
+        "När förändringar sker hjälper vi er att uppdatera aktieboken, så att den fortsätter vara korrekt över tid.",
+        "---",
+        "I de allra flesta fall är er digitala aktiebok på plats redan inom en arbetsdag.",
+        "---",
+        "Pris\n3 000 kr + 15 kr per ägare och månad",
         "---",
         "Vill ni få ordning på aktieboken? Svara på det här mailet så hjälper vi er vidare.",
         "---",
@@ -204,6 +217,15 @@ function replaceTemplateTokens(
   return value
     .replace(/@customer/gi, customerName)
     .replace(/@company|@compay/gi, companyName)
+}
+
+function extractFirstName(value: string | null | undefined): string {
+  if (!value) return ""
+  const trimmed = value.trim()
+  if (!trimmed) return ""
+
+  const [firstToken] = trimmed.split(/\s+/)
+  return firstToken ?? ""
 }
 
 function personalizePayload(
@@ -357,6 +379,7 @@ export default function MailPage() {
   const [previewHtml, setPreviewHtml] = React.useState("")
   const [previewLoading, setPreviewLoading] = React.useState(false)
   const [sending, setSending] = React.useState(false)
+  const [sendConfirmOpen, setSendConfirmOpen] = React.useState(false)
   const [previewCustomerIndex, setPreviewCustomerIndex] = React.useState(0)
   const [reauthNeeded, setReauthNeeded] = React.useState(false)
   const hasAutoSelectedMyCustomersRef = React.useRef(false)
@@ -448,7 +471,10 @@ export default function MailPage() {
       type: "customers" as const,
       name: customer.name,
       email: customer.email,
-      customerName: customer.primaryContactName?.trim() || customer.name,
+      customerName:
+        extractFirstName(customer.primaryContactName) ||
+        extractFirstName(customer.name) ||
+        customer.name,
       companyName: customer.name || t("mail.send.fallbackCompany", "Company"),
     }))
 
@@ -460,7 +486,11 @@ export default function MailPage() {
         type: "contacts" as const,
         name: contact.name,
         email: contact.email,
-        customerName: contact.name || primaryCompany || relatedCompany || t("mail.send.fallbackCompany", "Company"),
+        customerName:
+          extractFirstName(contact.name) ||
+          extractFirstName(primaryCompany) ||
+          extractFirstName(relatedCompany) ||
+          t("mail.send.fallbackCustomer", "Customer"),
         companyName: primaryCompany || relatedCompany || t("mail.send.fallbackCompany", "Company"),
       }
     })
@@ -476,6 +506,11 @@ export default function MailPage() {
 
     return [...customerRecipients, ...contactRecipients, ...manualRecipients]
   }, [manualEmails, selectedContacts, selectedCustomers, t])
+
+  const sendableRecipientCount = React.useMemo(
+    () => selectedRecipients.filter((recipient) => (recipient.email?.trim() || "").length > 0).length,
+    [selectedRecipients],
+  )
 
   const visibleSelectedRecipients = React.useMemo(
     () =>
@@ -496,6 +531,15 @@ export default function MailPage() {
     return Math.min(current, selectedRecipients.length - 1)
   })
   }, [selectedRecipients])
+
+  function handleSendClick() {
+    if (sending || previewLoading) return
+    if (selectedRecipients.length === 0) {
+      toast.error(t("mail.send.toast.customerRequired", "Select at least one recipient"))
+      return
+    }
+    setSendConfirmOpen(true)
+  }
 
   React.useEffect(() => {
     const customerIdsParam = searchParams.get("customerIds")
@@ -1054,12 +1098,16 @@ export default function MailPage() {
     }
 
     setSending(true)
+    setSendConfirmOpen(false)
     try {
       // One /api/email call per send action — server-side this becomes one
       // mail_send_batches row + N sent_emails children.
       const apiRecipients = recipients.map(({ recipient, email }) => {
         const customerName =
-          recipient.customerName || recipient.name || recipient.companyName
+          extractFirstName(recipient.customerName) ||
+          extractFirstName(recipient.name) ||
+          extractFirstName(recipient.companyName) ||
+          t("mail.send.fallbackCustomer", "Customer")
         const companyName =
           recipient.companyName || t("mail.send.fallbackCompany", "Company")
         return {
@@ -1709,9 +1757,11 @@ export default function MailPage() {
             </>
           )}
 
-          <Button onClick={handleSend} disabled={sending || previewLoading}>
+          <Button onClick={handleSendClick} disabled={sending || previewLoading}>
             {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            {t("settings.mail.sendEmail", "Send email")}
+            {sending
+              ? t("mail.send.sending", "Sending...")
+              : t("settings.mail.sendEmail", "Send email")}
           </Button>
         </CardContent>
       </Card>
@@ -1770,8 +1820,31 @@ export default function MailPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={sendConfirmOpen} onOpenChange={setSendConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("mail.send.confirmTitle", "Send email now?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("mail.send.confirmDescription", "This will send emails to @count recipient(s).")
+                .replace("@count", String(sendableRecipientCount))}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={sending}>
+              {t("common.cancel", "Cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleSend()} disabled={sending}>
+              {sending
+                ? t("mail.send.sending", "Sending...")
+                : t("mail.send.confirmAction", "Confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       </div>
     </div>
   )
 }
-
