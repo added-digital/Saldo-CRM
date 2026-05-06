@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { system } from "@/config/system"
+import { CampaignTemplateEmail } from "@/emails/campaign-template"
 import { ContentTemplateEmail } from "@/emails/content-template"
 import { render } from "@react-email/components"
 
@@ -26,7 +27,7 @@ interface EmailRequest {
     customer_id?: string | null
     contact_id?: string | null
   }
-  template: "content" | "plain"
+  template: "content" | "plain" | "campaign"
   data: Record<string, unknown>
   mode?: "send" | "preview"
   deliveryMode?: "grouped" | "separate"
@@ -129,6 +130,25 @@ const templateRenderers: Record<EmailRequest["template"], TemplateRenderer> = {
     const paragraphs = asStringArray(data.paragraphs)
     const html = await render(
       ContentTemplateEmail({
+        title,
+        previewText: asString(data.previewText, title),
+        greeting: asString(data.greeting, ""),
+        paragraphs,
+        ctaLabel: asString(data.ctaLabel, ""),
+        ctaUrl: asString(data.ctaUrl, ""),
+        footnote: asString(data.footnote, ""),
+        appUrl,
+        brandName: asString(data.brandName, system.companyName),
+      })
+    )
+    return { subject, html }
+  },
+  campaign: async (data, appUrl) => {
+    const title = asString(data.title, "Information from Saldo")
+    const subject = asString(data.subject, title)
+    const paragraphs = asStringArray(data.paragraphs)
+    const html = await render(
+      CampaignTemplateEmail({
         title,
         previewText: asString(data.previewText, title),
         greeting: asString(data.greeting, ""),

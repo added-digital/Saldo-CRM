@@ -12,7 +12,7 @@ function renderWithSoftBreaks(text: string): React.ReactNode {
   ));
 }
 
-interface ContentTemplateEmailProps {
+interface CampaignTemplateEmailProps {
   title: string;
   previewText?: string;
   greeting?: string;
@@ -24,7 +24,12 @@ interface ContentTemplateEmailProps {
   brandName?: string;
 }
 
-export function ContentTemplateEmail({
+/**
+ * Campaign-style email. Same field set as the centered content template, but
+ * everything (title, body paragraphs, CTA button) is left-aligned for a more
+ * editorial / newsletter feel.
+ */
+export function CampaignTemplateEmail({
   title,
   previewText,
   greeting,
@@ -34,7 +39,7 @@ export function ContentTemplateEmail({
   footnote,
   appUrl,
   brandName,
-}: ContentTemplateEmailProps) {
+}: CampaignTemplateEmailProps) {
   const hasCta = Boolean(ctaLabel && ctaUrl);
 
   return (
@@ -79,7 +84,7 @@ export function ContentTemplateEmail({
 
 const frame = {
   padding: "40px 48px",
-  textAlign: "center" as const,
+  textAlign: "left" as const,
 };
 
 const heading = {
@@ -89,7 +94,7 @@ const heading = {
   color: "#ffffff",
   marginTop: "0",
   marginBottom: "0",
-  textAlign: "center" as const,
+  textAlign: "left" as const,
   lineHeight: "1.2",
   letterSpacing: "-0.4px",
 };
@@ -100,7 +105,7 @@ const greetingStyle = {
   color: "#ffffff",
   marginTop: "14px",
   marginBottom: "0",
-  textAlign: "center" as const,
+  textAlign: "left" as const,
   lineHeight: "1.4",
 };
 
@@ -116,7 +121,7 @@ const paragraphStyle = {
   lineHeight: "1.4",
   marginTop: "0",
   marginBottom: "0",
-  textAlign: "center" as const,
+  textAlign: "left" as const,
 };
 
 const button = {
@@ -138,7 +143,7 @@ const button = {
 const buttonRow = {
   marginTop: "24px",
   marginBottom: "0",
-  textAlign: "center" as const,
+  textAlign: "left" as const,
 };
 
 const note = {
@@ -147,7 +152,7 @@ const note = {
   lineHeight: "22px",
   marginTop: "14px",
   marginBottom: "0",
-  textAlign: "center" as const,
+  textAlign: "left" as const,
 };
 
-export type { ContentTemplateEmailProps };
+export type { CampaignTemplateEmailProps };

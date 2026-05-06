@@ -21,7 +21,7 @@ import { useUser } from "@/hooks/use-user"
 import type { CustomerContact, MailTemplate, Segment } from "@/types/database"
 import { toast } from "sonner"
 
-type MailTemplateType = "plain" | "plain_os" | "default"
+type MailTemplateType = "plain" | "plain_os" | "default" | "campaign"
 
 type MailRecipientCustomer = {
   id: string
@@ -79,10 +79,28 @@ type PlainOsForm = {
 const SELECTED_RECIPIENT_PREVIEW_LIMIT = 8
 
 function toParagraphs(raw: string): string[] {
+  // Split on a blank line (one or more empty newlines) so paragraphs are
+  // separated by `\n\n` while single `\n` survives inside a paragraph as a
+  // soft line break. Each returned paragraph may itself contain `\n` chars
+  // — the email template renders those as `<br />`.
+  //
+  // A paragraph that consists solely of `---` is treated as a spacer marker:
+  // we replace it with a zero-width space so it survives the parser and
+  // renders as an empty paragraph in the email — adding extra vertical
+  // breathing room between content paragraphs without the textarea looking
+  // weird (which it would if the source used a literal invisible char).
   return raw
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
+    .split(/\r?\n\s*\r?\n/)
+    .map((paragraph) => {
+      const collapsed = paragraph
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .join("\n")
+      if (collapsed === "---") return "​"
+      return collapsed
+    })
+    .filter((paragraph) => paragraph.length > 0)
 }
 
 function defaultPlainForm(t: (key: string, fallback?: string) => string): PlainForm {
@@ -105,6 +123,49 @@ function defaultPlainOsForm(t: (key: string, fallback?: string) => string): Plai
     ctaLabel: t("settings.mail.defaults.ctaLabel", "Call to action"),
     ctaUrl: process.env.NEXT_PUBLIC_APP_URL || "",
     footnote: "",
+    brandName: "Saldo Redovisning",
+  }
+}
+
+// This is default copy for campaign mail
+
+function defaultCampaignForm(t: (key: string, fallback?: string) => string): PlainOsForm {
+  return {
+    subject: t("mail.send.campaignDefaults.subject", "Aktieboken är ett lagkrav. När uppdaterade ni den senast?"),
+    title: t("mail.send.campaignDefaults.title", "Hej, @customer"),
+    previewText: t(
+      "mail.send.campaignDefaults.previewText",
+      "Something new we wanted to share with you.",
+    ),
+    greeting: t("mail.send.campaignDefaults.greeting", ""),
+    paragraphs: t(
+      "mail.send.campaignDefaults.paragraphs",
+      [
+        "Har ni en uppdaterad aktiebok?",
+        "---",
+        "Många aktiebolag har inte det. Trots att aktieboken är ett lagkrav hamnar den ofta i skymundan när bolaget växer, nya delägare tillkommer eller aktier byter ägare.",
+        "---",
+        "Problemet uppstår ofta först när någon faktiskt ber om den. Till exempel banken, en myndighet, en investerare eller en ny delägare.",
+        "Därför hjälper vi på Saldo företag att digitalisera sin aktiebok.",
+        "---",
+        "Vi går igenom nuläget, säkerställer att ägarbilden stämmer och sätter upp en digital aktiebok som sedan uppdateras automatiskt vid framtida förändringar. I de allra flesta fall är er digitala aktiebok på plats redan inom en arbetsdag.",
+        "---",
+        "Pris\nStartavgift: 3 000 kr\nDärefter: 15 kr per ägare och månad",
+        "---",
+        "Vill ni få ordning på aktieboken? Svara på det här mailet så hjälper vi er vidare.",
+        "---",
+        "Tel: 08 30 73 00",
+        "E-mail: info@saldoredo.se",
+        "---",
+        "Ni kan också läsa mer nedan:",   
+      ].join("\n\n"),
+    ),
+    ctaLabel: t("mail.send.campaignDefaults.ctaLabel", "Läs mer här"),
+    ctaUrl: "https://www.saldoredo.se/digital-aktiebok",
+    footnote: t(
+      "mail.send.campaignDefaults.footnote",
+      "",
+    ),
     brandName: "Saldo Redovisning",
   }
 }
@@ -356,6 +417,7 @@ export default function MailPage() {
     () =>
       selectedTemplateValue === "plain" || selectedTemplateValue === "plain_os"
         || selectedTemplateValue === "default"
+        || selectedTemplateValue === "campaign"
         ? null
         : templates.find((template) => template.id === selectedTemplateValue) ?? null,
     [selectedTemplateValue, templates],
@@ -854,6 +916,14 @@ export default function MailPage() {
       setTemplateType("default")
       return
     }
+    if (selectedTemplateValue === "campaign") {
+      // Override the unconditional plain_os reset above with campaign-specific
+      // placeholder copy — the rich form fields are the same shape, just
+      // different default values.
+      setPlainOsForm(defaultCampaignForm(t))
+      setTemplateType("campaign")
+      return
+    }
 
     const selected = templates.find((template) => template.id === selectedTemplateValue)
     if (!selected) return
@@ -927,7 +997,12 @@ export default function MailPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: [previewEmail],
-            template: templateType === "plain" ? "plain" : "content",
+            template:
+              templateType === "plain"
+                ? "plain"
+                : templateType === "campaign"
+                  ? "campaign"
+                  : "content",
             mode: "preview",
             data: personalizePayload(
               activePayload,
@@ -1010,7 +1085,12 @@ export default function MailPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          template: templateType === "plain" ? "plain" : "content",
+          template:
+            templateType === "plain"
+              ? "plain"
+              : templateType === "campaign"
+                ? "campaign"
+                : "content",
           mode: "send",
           deliveryMode: "separate",
           data: activePayload,
@@ -1164,6 +1244,7 @@ export default function MailPage() {
                 <SelectItem value="plain">{t("mail.send.optionPlain", "Plain")}</SelectItem>
                 <SelectItem value="default">{t("mail.send.optionDefault", "Default")}</SelectItem>
                 <SelectItem value="plain_os">{t("mail.send.optionPlainOs", "Plain OS")}</SelectItem>
+                <SelectItem value="campaign">{t("mail.send.optionCampaign", "Campaign mail")}</SelectItem>
                 {templates.map((template) => (
                   <SelectItem key={template.id} value={template.id}>
                     {template.name}
