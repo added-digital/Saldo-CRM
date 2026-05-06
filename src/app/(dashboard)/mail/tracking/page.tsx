@@ -14,8 +14,14 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { EmptyState } from "@/components/app/empty-state"
-import { LineChart } from "lucide-react"
+import { Info, LineChart } from "lucide-react"
 
 type TrackingStats = {
   totalSent: number
@@ -152,166 +158,267 @@ export default function MailTrackingPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="p-6 pb-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("mail.tracking.cards.sent", "Sent")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 p-6 pt-0">
-            <p className="text-4xl font-semibold leading-tight">
-              <NumberFlow
-                value={stats.totalSent}
-                locales="sv-SE"
-                format={{ style: "decimal", maximumFractionDigits: 0 }}
-              />
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {stats.totalFailed > 0
-                ? `${stats.totalFailed} ${t("mail.tracking.cards.failedSuffix", "failed")}`
-                : t("mail.tracking.cards.allDelivered", "All delivered")}
-            </p>
-          </CardContent>
-        </Card>
+    <TooltipProvider delayDuration={150}>
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Card>
+            <CardHeader className="p-6 pb-0">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {t("mail.tracking.cards.sent", "Skickade")}
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t(
+                        "mail.tracking.cards.sentTooltipLabel",
+                        "Mer information",
+                      )}
+                      className="text-muted-foreground/70 transition-colors hover:text-foreground"
+                    >
+                      <Info className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    {t(
+                      "mail.tracking.cards.sentTooltip",
+                      "Det totala antalet unika mottagare som mailet har skickats till via Microsoft Graph.",
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1 p-6 pt-0">
+              <p className="text-4xl font-semibold leading-tight">
+                <NumberFlow
+                  value={stats.totalSent}
+                  locales="sv-SE"
+                  format={{ style: "decimal", maximumFractionDigits: 0 }}
+                />
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {stats.totalFailed > 0
+                  ? `${stats.totalFailed} ${t("mail.tracking.cards.failedSuffix", "misslyckades")}`
+                  : `${stats.totalSent} ${t("mail.tracking.cards.allDelivered", "st levererade")}`}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="p-6 pb-0">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {t("mail.tracking.cards.openRate", "Öppningsgrad")}
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t(
+                        "mail.tracking.cards.openRateTooltipLabel",
+                        "Mer information",
+                      )}
+                      className="text-muted-foreground/70 transition-colors hover:text-foreground"
+                    >
+                      <Info className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>
+                      {t(
+                        "mail.tracking.cards.openRateTooltip",
+                        "Andelen mottagare som har öppnat mailet. Detta är det bästa måttet på hur effektiv din ärenderad (subject line) var.",
+                      )}
+                    </p>
+                    <p className="mt-1 opacity-80">
+                      {t(
+                        "mail.tracking.cards.openRateTooltipNote",
+                        "Notera: siffran kan variera något då vissa mailklienter (t.ex. Apple Mail) ibland förladdar bilder automatiskt.",
+                      )}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1 p-6 pt-0">
+              <p className="text-4xl font-semibold leading-tight">
+                {formatPercent(openRate)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {stats.uniqueOpens} {t("mail.tracking.cards.of", "av")}{" "}
+                {stats.totalSent}{" "}
+                {t("mail.tracking.cards.opensFraction", "öppnade")}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="p-6 pb-0">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {t("mail.tracking.cards.clickRate", "Klickfrekvens")}
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t(
+                        "mail.tracking.cards.clickRateTooltipLabel",
+                        "Mer information",
+                      )}
+                      className="text-muted-foreground/70 transition-colors hover:text-foreground"
+                    >
+                      <Info className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    {t(
+                      "mail.tracking.cards.clickRateTooltip",
+                      "Hur stor del av alla mottagare som klickade på din knapp eller länk. Detta mäter hur stort genomslag hela utskicket hade i din totala målgrupp.",
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1 p-6 pt-0">
+              <p className="text-4xl font-semibold leading-tight">
+                {formatPercent(clickRate)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {stats.uniqueClicks} {t("mail.tracking.cards.of", "av")}{" "}
+                {stats.totalSent}{" "}
+                {t("mail.tracking.cards.clickedRecipients", "klickade")}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="p-6 pb-0">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {t("mail.tracking.cards.ctor", "Relevansgrad")}
+                </CardTitle>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t(
+                        "mail.tracking.cards.ctorTooltipLabel",
+                        "Mer information",
+                      )}
+                      className="text-muted-foreground/70 transition-colors hover:text-foreground"
+                    >
+                      <Info className="size-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    {t(
+                      "mail.tracking.cards.ctorTooltip",
+                      "Hur många av de som faktiskt öppnade mailet som också valde att klicka. Detta är det mest precisa måttet på hur relevant ditt innehåll och ditt erbjudande var för läsaren.",
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1 p-6 pt-0">
+              <p className="text-4xl font-semibold leading-tight">
+                {formatPercent(ctr)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {stats.uniqueClicks} {t("mail.tracking.cards.of", "av")}{" "}
+                {stats.uniqueOpens}{" "}
+                {t(
+                  "mail.tracking.cards.clickedOfOpeners",
+                  "öppnare klickade",
+                )}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
         <Card>
-          <CardHeader className="p-6 pb-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("mail.tracking.cards.openRate", "Open rate")}
+          <CardHeader>
+            <CardTitle className="text-base">
+              {t("mail.tracking.totals.title", "Aktivitet totalt")}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 p-6 pt-0">
-            <p className="text-4xl font-semibold leading-tight">
-              {formatPercent(openRate)}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {stats.uniqueOpens} / {stats.totalSent}{" "}
-              {t("mail.tracking.cards.opensFraction", "opened")}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="p-6 pb-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("mail.tracking.cards.clickRate", "Click rate")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 p-6 pt-0">
-            <p className="text-4xl font-semibold leading-tight">
-              {formatPercent(clickRate)}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {stats.uniqueClicks} / {stats.totalSent}{" "}
-              {t("mail.tracking.cards.clickedRecipients", "recipients clicked")}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="p-6 pb-0">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {t("mail.tracking.cards.ctor", "Click-to-open rate")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 p-6 pt-0">
-            <p className="text-4xl font-semibold leading-tight">
-              {formatPercent(ctr)}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {stats.uniqueClicks} / {stats.uniqueOpens}{" "}
-              {t(
-                "mail.tracking.cards.clickedOfOpeners",
-                "of openers clicked",
-              )}
-            </p>
+          <CardContent className="grid grid-cols-2 gap-6 sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-muted-foreground">
+                {t("mail.tracking.totals.totalOpens", "Totala öppningar")}
+              </p>
+              <p className="text-2xl font-semibold leading-tight">
+                <NumberFlow
+                  value={stats.totalOpens}
+                  locales="sv-SE"
+                  format={{ style: "decimal", maximumFractionDigits: 0 }}
+                />
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  "mail.tracking.totals.totalOpensHint",
+                  "inkl. upprepade öppningar",
+                )}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">
+                {t("mail.tracking.totals.totalClicks", "Totala klick")}
+              </p>
+              <p className="text-2xl font-semibold leading-tight">
+                <NumberFlow
+                  value={stats.totalClicks}
+                  locales="sv-SE"
+                  format={{ style: "decimal", maximumFractionDigits: 0 }}
+                />
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  "mail.tracking.totals.totalClicksHint",
+                  "inkl. upprepade klick",
+                )}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">
+                {t("mail.tracking.totals.uniqueOpens", "Unika öppningar")}
+              </p>
+              <p className="text-2xl font-semibold leading-tight">
+                <NumberFlow
+                  value={stats.uniqueOpens}
+                  locales="sv-SE"
+                  format={{ style: "decimal", maximumFractionDigits: 0 }}
+                />
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  "mail.tracking.totals.uniqueOpensHint",
+                  "unika mottagare",
+                )}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">
+                {t("mail.tracking.totals.uniqueClicks", "Unika klick")}
+              </p>
+              <p className="text-2xl font-semibold leading-tight">
+                <NumberFlow
+                  value={stats.uniqueClicks}
+                  locales="sv-SE"
+                  format={{ style: "decimal", maximumFractionDigits: 0 }}
+                />
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  "mail.tracking.totals.uniqueClicksHint",
+                  "unika mottagare",
+                )}
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            {t("mail.tracking.totals.title", "Activity totals")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-          <div>
-            <p className="text-xs text-muted-foreground">
-              {t("mail.tracking.totals.totalOpens", "Total opens")}
-            </p>
-            <p className="text-2xl font-semibold leading-tight">
-              <NumberFlow
-                value={stats.totalOpens}
-                locales="sv-SE"
-                format={{ style: "decimal", maximumFractionDigits: 0 }}
-              />
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t(
-                "mail.tracking.totals.totalOpensHint",
-                "includes repeat opens",
-              )}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">
-              {t("mail.tracking.totals.totalClicks", "Total CTA clicks")}
-            </p>
-            <p className="text-2xl font-semibold leading-tight">
-              <NumberFlow
-                value={stats.totalClicks}
-                locales="sv-SE"
-                format={{ style: "decimal", maximumFractionDigits: 0 }}
-              />
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t(
-                "mail.tracking.totals.totalClicksHint",
-                "includes repeat clicks",
-              )}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">
-              {t("mail.tracking.totals.uniqueOpens", "Unique opens")}
-            </p>
-            <p className="text-2xl font-semibold leading-tight">
-              <NumberFlow
-                value={stats.uniqueOpens}
-                locales="sv-SE"
-                format={{ style: "decimal", maximumFractionDigits: 0 }}
-              />
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t(
-                "mail.tracking.totals.uniqueOpensHint",
-                "distinct recipients",
-              )}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">
-              {t("mail.tracking.totals.uniqueClicks", "Unique clicks")}
-            </p>
-            <p className="text-2xl font-semibold leading-tight">
-              <NumberFlow
-                value={stats.uniqueClicks}
-                locales="sv-SE"
-                format={{ style: "decimal", maximumFractionDigits: 0 }}
-              />
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t(
-                "mail.tracking.totals.uniqueClicksHint",
-                "distinct recipients",
-              )}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    </TooltipProvider>
   )
 }

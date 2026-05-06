@@ -7,6 +7,8 @@ import {
   ChevronRight,
   Download,
   Mail,
+  RefreshCw,
+  Trash2,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -19,6 +21,16 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/app/empty-state"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Dialog,
   DialogContent,
@@ -173,7 +185,10 @@ export default function MailHistoryPage() {
   const {
     data: cachedHistory,
     loading,
+    refreshing,
     error: fetchError,
+    refresh,
+    setData: setCachedHistory,
   } = useCachedData<BatchEntry[]>({
     key: `mail.history.v2.${user.id}`,
     fetcher: fetchHistory,
@@ -189,6 +204,10 @@ export default function MailHistoryPage() {
   const [bodyCache, setBodyCache] = React.useState<
     Record<string, EmailBodyState>
   >({})
+  const [pendingDelete, setPendingDelete] = React.useState<BatchEntry | null>(
+    null,
+  )
+  const [deleting, setDeleting] = React.useState(false)
 
   const filteredBatches = React.useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -263,6 +282,66 @@ export default function MailHistoryPage() {
           [batch.id]: { status: "ready", html: row?.body_html ?? "" },
         }))
       })
+  }
+
+  async function handleConfirmDelete() {
+    if (!pendingDelete) return
+    const batchId = pendingDelete.id
+
+    setDeleting(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from("mail_send_batches")
+        .delete()
+        .eq("id", batchId)
+
+      if (error) {
+        toast.error(
+          `${t("mail.history.delete.error", "Failed to delete email")}: ${error.message}`,
+        )
+        return
+      }
+
+      // Optimistically prune the deleted batch from the cached list so the UI
+      // updates immediately even before the background refetch returns. The
+      // ON DELETE CASCADE on sent_emails (and email_events) means the row is
+      // fully gone server-side too.
+      setCachedHistory((prev) => (prev ?? []).filter((b) => b.id !== batchId))
+      setExpandedIds((prev) => {
+        if (!prev.has(batchId)) return prev
+        const next = new Set(prev)
+        next.delete(batchId)
+        return next
+      })
+      setBodyCache((prev) => {
+        if (!(batchId in prev)) return prev
+        const next = { ...prev }
+        delete next[batchId]
+        return next
+      })
+
+      setPendingDelete(null)
+      toast.success(t("mail.history.delete.success", "Email deleted"))
+
+      // Reconcile in the background so any other client updates show up too.
+      void refresh()
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  async function handleManualRefresh() {
+    try {
+      await refresh()
+      toast.success(t("mail.history.refresh.success", "History refreshed"))
+    } catch (err) {
+      toast.error(
+        `${t("mail.history.refresh.error", "Failed to refresh")}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      )
+    }
   }
 
   function recipientSummary(batch: BatchEntry): string {
@@ -375,6 +454,18 @@ export default function MailHistoryPage() {
           variant="outline"
           size="sm"
           className="h-9 gap-1.5"
+          onClick={handleManualRefresh}
+          disabled={loading || refreshing}
+        >
+          <RefreshCw
+            className={cn("size-3.5", refreshing && "animate-spin")}
+          />
+          {t("mail.history.refresh.label", "Refresh")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 gap-1.5"
           onClick={handleExportCsv}
           disabled={loading || filteredBatches.length === 0}
         >
@@ -446,6 +537,7 @@ export default function MailHistoryPage() {
                 <TableHead className="w-[160px] text-right">
                   {t("mail.history.columns.sentAt", "Sent")}
                 </TableHead>
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -495,12 +587,29 @@ export default function MailHistoryPage() {
                       <TableCell className="text-right text-xs text-muted-foreground">
                         {formatSentAt(batch.sentAt)}
                       </TableCell>
+                      <TableCell className="w-12 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          aria-label={t(
+                            "mail.history.delete.label",
+                            "Delete email",
+                          )}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setPendingDelete(batch)
+                          }}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
 
                     {expanded ? (
                       <TableRow className="bg-muted/30 hover:bg-muted/30">
                         <TableCell />
-                        <TableCell colSpan={4} className="whitespace-normal">
+                        <TableCell colSpan={5} className="whitespace-normal">
                           <div className="space-y-2 py-1">
                             <div className="flex items-center justify-between">
                               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -584,6 +693,59 @@ export default function MailHistoryPage() {
           </Table>
         </div>
       )}
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setPendingDelete(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("mail.history.delete.confirmTitle", "Delete this email?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete
+                ? t(
+                    "mail.history.delete.confirmDescription",
+                    "This permanently removes the send record, all per-recipient rows, and any tracked opens or clicks. This cannot be undone.",
+                  )
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {pendingDelete ? (
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <p className="truncate font-medium">{pendingDelete.subject}</p>
+              <p className="text-xs text-muted-foreground">
+                {pendingDelete.recipientCount}{" "}
+                {pendingDelete.recipientCount === 1
+                  ? t("mail.history.summary.recipient", "recipient")
+                  : t("mail.history.summary.recipients", "recipients")}
+                {" · "}
+                {formatSentAt(pendingDelete.sentAt)}
+              </p>
+            </div>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>
+              {t("mail.history.delete.cancel", "Cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault()
+                void handleConfirmDelete()
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting
+                ? t("mail.history.delete.confirming", "Deleting…")
+                : t("mail.history.delete.confirm", "Delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog
         open={activeBatch !== null}
