@@ -135,7 +135,7 @@ function defaultCampaignForm(t: (key: string, fallback?: string) => string): Pla
     title: t("mail.send.campaignDefaults.title", "Har ni en uppdaterad aktiebok?"),
     previewText: t(
       "mail.send.campaignDefaults.previewText",
-      "Something new we wanted to share with you.",
+      "Många aktiebolag har inte det. Trots att aktieboken är ett lagkrav.",
     ),
     greeting: t("mail.send.campaignDefaults.greeting", ""),
     paragraphs: t(
