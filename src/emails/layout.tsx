@@ -76,7 +76,7 @@ export function EmailLayout({
               />
               <Text style={footerBrand}>{brandName}</Text>
               <Text style={footerDomainRow}>
-                saldoredo.se
+                saldoredo{"\u200b"}.se
               </Text>
             </Section>
           </Section>
