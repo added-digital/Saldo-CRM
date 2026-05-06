@@ -132,7 +132,7 @@ function defaultPlainOsForm(t: (key: string, fallback?: string) => string): Plai
 function defaultCampaignForm(t: (key: string, fallback?: string) => string): PlainOsForm {
   return {
     subject: t("mail.send.campaignDefaults.subject", "Aktieboken är ett lagkrav. När uppdaterade ni den senast?"),
-    title: t("mail.send.campaignDefaults.title", "Hej, @customer"),
+    title: t("mail.send.campaignDefaults.title", "Har ni en uppdaterad aktiebok?"),
     previewText: t(
       "mail.send.campaignDefaults.previewText",
       "Something new we wanted to share with you.",
@@ -141,8 +141,6 @@ function defaultCampaignForm(t: (key: string, fallback?: string) => string): Pla
     paragraphs: t(
       "mail.send.campaignDefaults.paragraphs",
       [
-        "Har ni en uppdaterad aktiebok?",
-        "---",
         "Många aktiebolag har inte det. Trots att aktieboken är ett lagkrav hamnar den ofta i skymundan när bolaget växer, nya delägare tillkommer eller aktier byter ägare.",
         "---",
         "Problemet uppstår ofta först när någon faktiskt ber om den. Till exempel banken, en myndighet, en investerare eller en ny delägare.",
