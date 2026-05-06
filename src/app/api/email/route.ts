@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase/server"
 import { system } from "@/config/system"
 import { CampaignTemplateEmail } from "@/emails/campaign-template"
 import { ContentTemplateEmail } from "@/emails/content-template"
+import {
+  generateTrackingId,
+  injectTracking,
+} from "@/lib/email/tracking"
 import { render } from "@react-email/components"
 
 type EmailRecipientType = "customers" | "contacts" | "manual"
@@ -367,6 +371,7 @@ export async function POST(request: NextRequest) {
       delivery_mode: string
       status: "sent" | "failed"
       error_message: string | null
+      tracking_id: string
     }
     const sentLogRows: LogRow[] = []
     let sentCount = 0
@@ -378,12 +383,22 @@ export async function POST(request: NextRequest) {
           ? entry.type
           : "manual"
 
+      // Pre-allocate the tracking_id so we can both inject it into the
+      // outbound HTML AND persist it on the sent_emails row. The two values
+      // must match — that's how the /api/track/{open,click}/[id] routes
+      // find which sent_email a given event belongs to.
+      const trackingId = generateTrackingId()
+      const trackedHtml = injectTracking(entry.rendered.html, {
+        trackingId,
+        appUrl,
+      })
+
       try {
         await sendMicrosoftGraphMail(
           providerToken,
           [entry.email],
           entry.rendered.subject,
-          entry.rendered.html,
+          trackedHtml,
         )
         sentCount += 1
         sentLogRows.push({
@@ -400,6 +415,7 @@ export async function POST(request: NextRequest) {
           delivery_mode: deliveryMode,
           status: "sent",
           error_message: null,
+          tracking_id: trackingId,
         })
       } catch (sendError) {
         const message =
@@ -420,6 +436,7 @@ export async function POST(request: NextRequest) {
           delivery_mode: deliveryMode,
           status: "failed",
           error_message: message,
+          tracking_id: trackingId,
         })
       }
     }

@@ -452,9 +452,23 @@ export interface SentEmail {
   delivery_mode: string | null
   status: SentEmailStatus
   error_message: string | null
+  tracking_id: string
   sent_at: string
   created_at: string
   updated_at: string
+}
+
+export type EmailEventType = "open" | "click"
+
+export interface EmailEvent {
+  id: string
+  sent_email_id: string
+  event_type: EmailEventType
+  target_url: string | null
+  user_agent: string | null
+  ip_address: string | null
+  referrer: string | null
+  created_at: string
 }
 
 export interface Database {
@@ -616,6 +630,13 @@ export interface Database {
           failed_count?: number
         }
         Update: Partial<Omit<MailSendBatch, "id" | "created_at" | "updated_at">>
+      }
+      email_events: {
+        Row: EmailEvent
+        Insert: Omit<EmailEvent, "id" | "created_at"> & {
+          created_at?: string
+        }
+        Update: never
       }
       sync_jobs: {
         Row: SyncJob
