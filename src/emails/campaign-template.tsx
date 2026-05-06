@@ -83,7 +83,7 @@ export function CampaignTemplateEmail({
 // ─── Styles ────────────────────────────────────────────────────────────────
 
 const frame = {
-  padding: "40px 48px",
+  padding: "32px 32px",
   textAlign: "left" as const,
 };
 

@@ -8,7 +8,6 @@ import {
   Text,
   Img,
   Hr,
-  Link,
 } from "@react-email/components";
 import { system } from "@/config/system";
 
@@ -47,7 +46,6 @@ export function EmailLayout({
   const baseUrl = normalizeBaseUrl(appUrl);
   const headerImageUrl = toAbsoluteAssetUrl(baseUrl, "/emails/saldo.png");
   const footerMarkUrl = toAbsoluteAssetUrl(baseUrl, "/emails/saldo-mark.png");
-  const homeUrl = baseUrl || system.url;
 
   return (
     <Html>
@@ -78,9 +76,7 @@ export function EmailLayout({
               />
               <Text style={footerBrand}>{brandName}</Text>
               <Text style={footerDomainRow}>
-                <Link href={homeUrl} style={footerDomainLink}>
-                  <span style={footerDomainLinkText}>saldoredo.se</span>
-                </Link>
+                saldoredo.se
               </Text>
             </Section>
           </Section>
@@ -159,18 +155,7 @@ const footerDomainRow = {
   lineHeight: "24px",
   fontWeight: "400",
   fontFamily: 'Satoshi, Inter, "Segoe UI", sans-serif',
+  color: "#d4a96a",
   margin: "0 0 18px",
   textAlign: "center" as const,
-};
-
-const footerDomainLink = {
-  color: "#d4a96a",
-  textDecoration: "none",
-  display: "inline-block",
-};
-
-const footerDomainLinkText = {
-  color: "#d4a96a",
-  textDecoration: "none",
-  WebkitTextFillColor: "#d4a96a",
 };

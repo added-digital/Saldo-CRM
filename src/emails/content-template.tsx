@@ -78,7 +78,7 @@ export function ContentTemplateEmail({
 // ─── Styles ────────────────────────────────────────────────────────────────
 
 const frame = {
-  padding: "40px 48px",
+  padding: "48px 48px",
   textAlign: "center" as const,
 };
 
