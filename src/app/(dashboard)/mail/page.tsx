@@ -142,7 +142,7 @@ function defaultPlainOsForm(t: (key: string, fallback?: string) => string): Plai
 function defaultCampaignForm(t: (key: string, fallback?: string) => string): PlainOsForm {
   return {
     subject: t("mail.send.campaignDefaults.subject", "Visste du att aktieboken är ett lagkrav. När uppdaterade ni den senast?"),
-    title: t("mail.send.campaignDefaults.title", "Hej @customer, Har ni en uppdaterad aktiebok?"),
+    title: t("mail.send.campaignDefaults.title", "Hej @customer, har ni en uppdaterad aktiebok?"),
     previewText: t(
       "mail.send.campaignDefaults.previewText",
       "Alla aktiebolag ska enligt lag ha en aktiebok som visar vem som äger vad i bolaget.",
@@ -1290,7 +1290,7 @@ export default function MailPage() {
                 <SelectItem value="plain">{t("mail.send.optionPlain", "Plain")}</SelectItem>
                 <SelectItem value="default">{t("mail.send.optionDefault", "Default")}</SelectItem>
                 <SelectItem value="plain_os">{t("mail.send.optionPlainOs", "Plain OS")}</SelectItem>
-                <SelectItem value="campaign">{t("mail.send.optionCampaign", "Campaign mail")}</SelectItem>
+                <SelectItem value="campaign">{t("mail.send.optionCampaign", "Aktiebok")}</SelectItem>
                 {templates.map((template) => (
                   <SelectItem key={template.id} value={template.id}>
                     {template.name}
