@@ -167,14 +167,16 @@ export function MailTrackingOverview({
     "mail.tracking.cards.moreInformation",
     "More information",
   )
+  const cardHeaderClassName = "p-6 pb-1 pt-0"
+  const cardContentClassName = "p-6 pt-0 pb-0"
 
   return (
     <TooltipProvider delayDuration={150}>
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">{scopeLabel}{scopeDetail}</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Card>
-            <CardHeader className="p-6 pb-0">
+          <Card className="gap-2">
+            <CardHeader className={cardHeaderClassName}>
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {t("mail.tracking.cards.sent", "Sent")}
@@ -201,7 +203,7 @@ export function MailTrackingOverview({
                 </Tooltip>
               </div>
             </CardHeader>
-            <CardContent className="space-y-1 p-6 pt-0">
+            <CardContent className={`space-y-1 ${cardContentClassName}`}>
               <p className="text-4xl font-semibold leading-tight">
                 <NumberFlow
                   value={stats.totalSent}
@@ -217,8 +219,8 @@ export function MailTrackingOverview({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="p-6 pb-0">
+          <Card className="gap-2">
+            <CardHeader className={cardHeaderClassName}>
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {t("mail.tracking.cards.openRate", "Open rate")}
@@ -247,7 +249,7 @@ export function MailTrackingOverview({
                 </Tooltip>
               </div>
             </CardHeader>
-            <CardContent className="space-y-1 p-6 pt-0">
+            <CardContent className={`space-y-1 ${cardContentClassName}`}>
               <p className="text-4xl font-semibold leading-tight">{formatPercent(openRate)}</p>
               <p className="text-xs text-muted-foreground">
                 {stats.uniqueOpens} {t("mail.tracking.cards.of", "of")} {stats.totalSent}{" "}
@@ -256,8 +258,8 @@ export function MailTrackingOverview({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="p-6 pb-0">
+          <Card className="gap-2">
+            <CardHeader className={cardHeaderClassName}>
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {t("mail.tracking.cards.clickRate", "Click rate")}
@@ -284,7 +286,7 @@ export function MailTrackingOverview({
                 </Tooltip>
               </div>
             </CardHeader>
-            <CardContent className="space-y-1 p-6 pt-0">
+            <CardContent className={`space-y-1 ${cardContentClassName}`}>
               <p className="text-4xl font-semibold leading-tight">{formatPercent(clickRate)}</p>
               <p className="text-xs text-muted-foreground">
                 {stats.uniqueClicks} {t("mail.tracking.cards.of", "of")} {stats.totalSent}{" "}
@@ -293,8 +295,8 @@ export function MailTrackingOverview({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="p-6 pb-0">
+          <Card className="gap-2">
+            <CardHeader className={cardHeaderClassName}>
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {t("mail.tracking.cards.ctor", "Click-to-open rate")}
@@ -321,7 +323,7 @@ export function MailTrackingOverview({
                 </Tooltip>
               </div>
             </CardHeader>
-            <CardContent className="space-y-1 p-6 pt-0">
+            <CardContent className={`space-y-1 ${cardContentClassName}`}>
               <p className="text-4xl font-semibold leading-tight">{formatPercent(ctr)}</p>
               <p className="text-xs text-muted-foreground">
                 {stats.uniqueClicks} {t("mail.tracking.cards.of", "of")} {stats.uniqueOpens}{" "}
