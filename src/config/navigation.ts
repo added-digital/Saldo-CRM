@@ -4,7 +4,6 @@ import {
   UserRound,
   MailCheck,
   History,
-  LineChart,
   Settings,
   BarChart3,
   type LucideIcon,
@@ -43,7 +42,6 @@ export const navigation: NavSection[] = [
     items: [
       { label: "Send mail", href: "/mail", icon: MailCheck, scope: "customers" },
       { label: "Mail history", href: "/mail/history", icon: History, scope: "customers" },
-      { label: "Mail tracking", href: "/mail/tracking", icon: LineChart, scope: "customers" },
     ],
   },
   {

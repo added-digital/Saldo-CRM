@@ -6,9 +6,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Ellipsis,
   Mail,
   RefreshCw,
-  Trash2,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/app/empty-state"
+import { MailTrackingOverview } from "@/components/app/mail-tracking-overview"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +47,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 
 const MAIL_HISTORY_PAGE_SIZE = 15
@@ -96,10 +103,20 @@ type BatchRow = {
 function formatSentAt(iso: string, locale: string = "sv-SE"): string {
   try {
     const date = new Date(iso)
-    return new Intl.DateTimeFormat(locale, {
-      dateStyle: "medium",
-      timeStyle: "short",
+    // Build the date and time parts separately and join with a single comma so
+    // the output is deterministic across locales (some sv-SE Intl outputs
+    // inject "kl." between the date and the time, which pushes the string
+    // past the 150px Sent column at text-xs and triggers a CSS ellipsis).
+    const datePart = new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
     }).format(date)
+    const timePart = new Intl.DateTimeFormat(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date)
+    return `${datePart}, ${timePart}`
   } catch {
     return iso
   }
@@ -208,6 +225,11 @@ export default function MailHistoryPage() {
     null,
   )
   const [deleting, setDeleting] = React.useState(false)
+  const [openActionMenuBatchId, setOpenActionMenuBatchId] = React.useState<string | null>(null)
+  const [selectedTrackingBatch, setSelectedTrackingBatch] = React.useState<{
+    id: string
+    subject: string
+  } | null>(null)
 
   const filteredBatches = React.useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -320,6 +342,9 @@ export default function MailHistoryPage() {
         delete next[batchId]
         return next
       })
+      setSelectedTrackingBatch((current) =>
+        current?.id === batchId ? null : current,
+      )
 
       setPendingDelete(null)
       toast.success(t("mail.history.delete.success", "Email deleted"))
@@ -450,6 +475,16 @@ export default function MailHistoryPage() {
         className="w-full lg:max-w-sm"
       />
       <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+        {selectedTrackingBatch ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9"
+            onClick={() => setSelectedTrackingBatch(null)}
+          >
+            {t("mail.tracking.scope.clear", "Show all tracking")}
+          </Button>
+        ) : null}
         <Button
           variant="outline"
           size="sm"
@@ -481,6 +516,11 @@ export default function MailHistoryPage() {
 
   return (
     <div className="space-y-6">
+      <MailTrackingOverview
+        batchId={selectedTrackingBatch?.id ?? null}
+        batchSubject={selectedTrackingBatch?.subject ?? null}
+      />
+
       {toolbar}
 
       {loading ? (
@@ -521,7 +561,7 @@ export default function MailHistoryPage() {
         )
       ) : (
         <div className="overflow-hidden rounded-md border">
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10" />
@@ -531,10 +571,10 @@ export default function MailHistoryPage() {
                 <TableHead>
                   {t("mail.history.columns.preview", "Preview")}
                 </TableHead>
-                <TableHead className="w-[200px]">
+                <TableHead className="w-[180px]">
                   {t("mail.history.columns.recipients", "Recipients")}
                 </TableHead>
-                <TableHead className="w-[160px] text-right">
+                <TableHead className="w-[150px] text-right">
                   {t("mail.history.columns.sentAt", "Sent")}
                 </TableHead>
                 <TableHead className="w-12" />
@@ -547,7 +587,13 @@ export default function MailHistoryPage() {
                   <React.Fragment key={batch.id}>
                     <TableRow
                       className="cursor-pointer"
-                      onClick={() => toggleExpanded(batch.id)}
+                      onClick={() => {
+                        toggleExpanded(batch.id)
+                        setSelectedTrackingBatch({
+                          id: batch.id,
+                          subject: batch.subject,
+                        })
+                      }}
                     >
                       <TableCell className="w-10 text-muted-foreground">
                         <div className="flex items-center justify-center">
@@ -563,7 +609,7 @@ export default function MailHistoryPage() {
                         {batch.subject}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {batch.preview ? batch.preview.slice(0, 70) + (batch.preview.length > 70 ? '…' : '') : '—'}
+                        {batch.preview || "—"}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap items-center gap-1">
@@ -584,25 +630,54 @@ export default function MailHistoryPage() {
                           ) : null}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right text-xs text-muted-foreground">
+                      <TableCell className="text-right text-xs text-muted-foreground [text-overflow:clip]">
                         {formatSentAt(batch.sentAt)}
                       </TableCell>
                       <TableCell className="w-12 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          aria-label={t(
-                            "mail.history.delete.label",
-                            "Delete email",
-                          )}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            setPendingDelete(batch)
-                          }}
+                        <DropdownMenu
+                          open={openActionMenuBatchId === batch.id}
+                          onOpenChange={(open) =>
+                            setOpenActionMenuBatchId(open ? batch.id : null)
+                          }
                         >
-                          <Trash2 className="size-4" />
-                        </Button>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-muted-foreground"
+                              aria-label={t("mail.history.actions.label", "Email actions")}
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <Ellipsis className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-52"
+                            onCloseAutoFocus={(event) => event.preventDefault()}
+                          >
+                            <DropdownMenuItem
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                setSelectedTrackingBatch({
+                                  id: batch.id,
+                                  subject: batch.subject,
+                                })
+                              }}
+                            >
+                              {t("mail.history.actions.filterTracking", "Filter tracking to this email")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                setPendingDelete(batch)
+                              }}
+                            >
+                              {t("mail.history.delete.label", "Delete email")}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
 
@@ -624,6 +699,10 @@ export default function MailHistoryPage() {
                                 className="h-7 text-xs"
                                 onClick={(event) => {
                                   event.stopPropagation()
+                                  setSelectedTrackingBatch({
+                                    id: batch.id,
+                                    subject: batch.subject,
+                                  })
                                   openBatchDetail(batch)
                                 }}
                               >
