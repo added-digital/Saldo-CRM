@@ -8,6 +8,10 @@ import { TOOL_DEFINITIONS, executeTool } from "./tools";
 import type { ToolContext } from "./tools/types";
 
 export const runtime = "nodejs";
+// Cap the whole serverless function at 60s. Without this, hosts with longer
+// default timeouts can let a hung Anthropic/Supabase/Voyage call sit forever
+// while the UI shows "Thinking..." with no signal of failure.
+export const maxDuration = 60;
 
 type ChatRequestBody = {
   message?: string;
@@ -34,6 +38,29 @@ type DocumentSource = {
 const MAX_TOOL_ITERATIONS = 12;
 const MAX_OUTPUT_TOKENS = 4096;
 const HISTORY_TURNS = 10;
+// Per-call ceiling for the Anthropic round-trip. If the API hangs we want a
+// concrete error within ~30s rather than letting the loop sit until the
+// function-level maxDuration kills the whole request.
+const ANTHROPIC_CALL_TIMEOUT_MS = 30_000;
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    );
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -176,13 +203,17 @@ async function handleChat(request: Request) {
       .trim();
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
-    const response = await anthropic.messages.create({
-      model,
-      max_tokens: MAX_OUTPUT_TOKENS,
-      system,
-      tools: TOOL_DEFINITIONS,
-      messages,
-    });
+    const response = await withTimeout(
+      anthropic.messages.create({
+        model,
+        max_tokens: MAX_OUTPUT_TOKENS,
+        system,
+        tools: TOOL_DEFINITIONS,
+        messages,
+      }),
+      ANTHROPIC_CALL_TIMEOUT_MS,
+      `anthropic.messages.create (iter ${iteration + 1})`,
+    );
     lastResponse = response;
 
     if (response.stop_reason === "tool_use") {
@@ -198,11 +229,36 @@ async function handleChat(request: Request) {
         (block): block is Anthropic.ToolUseBlock => block.type === "tool_use",
       );
 
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+      // Run independent tool calls in parallel — Claude often emits 2–4
+      // tool_use blocks in one assistant message (e.g. resolve_customer +
+      // get_customer_overview), and serializing them was a major contributor
+      // to the apparent "stuck loading" feel.
       for (const block of toolUseBlocks) {
         toolTrace.push({ name: block.name, input: block.input });
-        const result = await executeTool(block.name, block.input, context);
+      }
+      const settled = await Promise.all(
+        toolUseBlocks.map(async (block) => {
+          try {
+            const result = await executeTool(block.name, block.input, context);
+            return { block, result, errored: false };
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Unknown tool error.";
+            console.error(
+              `[/api/chat] tool ${block.name} threw:`,
+              err,
+            );
+            return {
+              block,
+              result: { error: message } as unknown,
+              errored: true,
+            };
+          }
+        }),
+      );
 
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+      for (const { block, result } of settled) {
         // Capture document sources from search_documents calls so the route
         // can surface them in the response (the UI renders these as
         // "Källa: ..." footers under each assistant message).

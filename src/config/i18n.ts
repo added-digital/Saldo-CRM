@@ -416,6 +416,8 @@ const dictionaries = {
     "dashboard.home.beta": "Beta",
     "dashboard.ask.thinking": "Thinking...",
     "dashboard.ask.failed": "Failed to ask question",
+    "dashboard.ask.timeout":
+      "The request took too long and was cancelled. Try a more specific question.",
     "dashboard.ask.you": "You",
     "dashboard.ask.assistant": "Assistant",
     "dashboard.ask.placeholder": "Ask something...",
@@ -1018,6 +1020,8 @@ const dictionaries = {
     "dashboard.home.beta": "Beta",
     "dashboard.ask.thinking": "Tänker...",
     "dashboard.ask.failed": "Kunde inte ställa frågan",
+    "dashboard.ask.timeout":
+      "Förfrågan tog för lång tid och avbröts. Prova att ställa en mer specifik fråga.",
     "dashboard.ask.you": "Du",
     "dashboard.ask.assistant": "Assistent",
     "dashboard.ask.placeholder": "Fråga något...",

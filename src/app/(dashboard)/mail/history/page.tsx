@@ -587,13 +587,7 @@ export default function MailHistoryPage() {
                   <React.Fragment key={batch.id}>
                     <TableRow
                       className="cursor-pointer"
-                      onClick={() => {
-                        toggleExpanded(batch.id)
-                        setSelectedTrackingBatch({
-                          id: batch.id,
-                          subject: batch.subject,
-                        })
-                      }}
+                      onClick={() => toggleExpanded(batch.id)}
                     >
                       <TableCell className="w-10 text-muted-foreground">
                         <div className="flex items-center justify-center">

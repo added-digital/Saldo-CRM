@@ -3948,10 +3948,11 @@ function renderWorkloadShareCell(percentage: number) {
         .sort((a, b) => b.turnoverExVat - a.turnoverExVat);
 
       setArticleGroupRows(rows);
+      // Reset to all-collapsed when the rows change, but keep any user-toggled
+      // open state across re-renders within the same row set.
       setOpenArticleGroups((current) => {
         if (rows.length === 0) return {};
-        if (Object.keys(current).length > 0) return current;
-        return { [rows[0].groupName]: true };
+        return current;
       });
       setArticleGroupsLoading(false);
     }
@@ -4568,78 +4569,61 @@ function renderWorkloadShareCell(percentage: number) {
                         <TableCell className="w-[200px] min-w-[200px] max-w-[200px]">{renderWorkloadShareCell(group.shareOfTotal)}</TableCell>
                       </TableRow>
 
-                      {isOpen ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="p-0">
-                            <Table className="table-auto">
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>
-                                    {t("reports.articleGroups.articleNumber", "Article #")}
-                                  </TableHead>
-                                  <TableHead>
-                                    {t("reports.articleGroups.name", "Name")}
-                                  </TableHead>
-                                  <TableHead>
-                                    {t("reports.articleGroups.turnoverExVat", "Turnover")}
-                                  </TableHead>
-                                  <TableHead>
-                                    {t("reports.articleGroups.count", "Count")}
-                                  </TableHead>
-                                  <TableHead>
-                                    {t("reports.articleGroups.quantity", "Quantity")}
-                                  </TableHead>
-                                  <TableHead className="w-[200px] min-w-[200px] max-w-[200px]">
-                                    {t("reports.articleGroups.share", "Share")}
-                                  </TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {group.articles.map((article) => (
-                                  <TableRow
-                                    key={`${group.groupName}:${article.articleNumber ?? article.articleName}`}
-                                  >
-                                    <TableCell className="text-muted-foreground">
-                                      {article.articleNumber ?? "—"}
-                                    </TableCell>
-                                    <TableCell>{article.articleName}</TableCell>
-                                    <TableCell className="font-medium">
-                                      {renderTurnoverCell(
-                                        article.turnoverExVat,
-                                        article.turnoverExVat !== 0
-                                          ? () =>
-                                              openArticleItemInvoiceDetails(
-                                                group.groupName,
-                                                article,
-                                              )
-                                          : undefined,
-                                      )}
-                                      {article.turnoverExVat === 0 &&
-                                      article.invoiceNumbers.length > 0 ? (
-                                        <p className="mt-1 text-xs font-normal text-muted-foreground">
-                                          {t("reports.articleGroups.derivedFrom", "Derived from")}: {article.invoiceNumbers[0]}
-                                          {article.invoiceNumbers.length > 1
-                                            ? ` (+${article.invoiceNumbers.length - 1})`
-                                            : ""}
-                                        </p>
-                                      ) : null}
-                                    </TableCell>
-                                    <TableCell>{article.rowCount}</TableCell>
-                                    <TableCell>
-                                      {hoursFormatter.format(article.quantity)}
-                                    </TableCell>
-                                    <TableCell className="w-[200px] min-w-[200px] max-w-[200px]">
-                                      <span className="text-muted-foreground">
-                                        {Math.round(article.shareOfGroup)}%
-                                      </span>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </TableCell>
-                        </TableRow>
-                      ) : null}
+                      {isOpen
+                        ? group.articles.map((article) => (
+                            <TableRow
+                              key={`${group.groupName}:${article.articleNumber ?? article.articleName}`}
+                              className="bg-muted/20 hover:bg-muted/30"
+                            >
+                              {/*
+                                Outer headers: Group | Turnover | Articles | Count | Quantity | Share (6).
+                                We render 6 cells per article so Turnover/Count/Quantity/Share line up
+                                under their headers exactly. The "Articles" slot has no per-article
+                                meaning so it stays empty (the parent group row already shows the count).
+                                Article # is stacked above Name in the first cell.
+                              */}
+                              <TableCell className="pl-8">
+                                <div className="flex flex-col">
+                                  <span className="text-xs text-muted-foreground">
+                                    {article.articleNumber ?? "—"}
+                                  </span>
+                                  <span>{article.articleName}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {renderTurnoverCell(
+                                  article.turnoverExVat,
+                                  article.turnoverExVat !== 0
+                                    ? () =>
+                                        openArticleItemInvoiceDetails(
+                                          group.groupName,
+                                          article,
+                                        )
+                                    : undefined,
+                                )}
+                                {article.turnoverExVat === 0 &&
+                                article.invoiceNumbers.length > 0 ? (
+                                  <p className="mt-1 text-xs font-normal text-muted-foreground">
+                                    {t("reports.articleGroups.derivedFrom", "Derived from")}: {article.invoiceNumbers[0]}
+                                    {article.invoiceNumbers.length > 1
+                                      ? ` (+${article.invoiceNumbers.length - 1})`
+                                      : ""}
+                                  </p>
+                                ) : null}
+                              </TableCell>
+                              <TableCell aria-hidden="true" />
+                              <TableCell>{article.rowCount}</TableCell>
+                              <TableCell>
+                                {hoursFormatter.format(article.quantity)}
+                              </TableCell>
+                              <TableCell className="w-[200px] min-w-[200px] max-w-[200px]">
+                                <span className="text-muted-foreground">
+                                  {Math.round(article.shareOfGroup)}%
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        : null}
                     </React.Fragment>
                   );
                 })}

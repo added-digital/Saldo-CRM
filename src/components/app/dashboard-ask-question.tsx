@@ -130,8 +130,25 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   const hasMessages = messages.length > 0
   const persistTimerRef = React.useRef<number | null>(null)
   const conversationSignaturesRef = React.useRef<Record<string, string>>({})
+  const isMountedRef = React.useRef(true)
+  const messagesRef = React.useRef<ChatMessage[]>([])
+  const conversationIdRef = React.useRef<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
   const messagesContainerRef = React.useRef<HTMLDivElement | null>(null)
+
+  React.useEffect(() => {
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
+  React.useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  React.useEffect(() => {
+    conversationIdRef.current = conversationId
+  }, [conversationId])
 
   const scrollMessagesToLatest = React.useCallback((behavior: ScrollBehavior = "auto") => {
     const container = messagesContainerRef.current
@@ -302,9 +319,9 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
   }, [conversationId, hasMessages, messages.length, scrollMessagesToLatest])
 
   const persistConversation = React.useCallback(
-    async (nextMessages: ChatMessage[]) => {
+    async (nextMessages: ChatMessage[]): Promise<string | null> => {
       if (!userId || nextMessages.length === 0) {
-        return
+        return null
       }
 
       const nextSignature = getMessagesSignature(nextMessages)
@@ -312,7 +329,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
       if (conversationId) {
         const previousSignature = conversationSignaturesRef.current[conversationId]
         if (previousSignature === nextSignature) {
-          return
+          return conversationId
         }
       }
 
@@ -330,7 +347,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
           .select("id, title, messages, updated_at")
           .single()
 
-        if (!data) return
+        if (!data) return null
 
         const inserted = data as {
           id: string
@@ -352,7 +369,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
           ...current,
         ])
         setConversationOrder((current) => [inserted.id, ...current.filter((id) => id !== inserted.id)])
-        return
+        return inserted.id
       }
 
       const { data } = await supabase
@@ -365,7 +382,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
         .select("id, title, messages, updated_at")
         .single()
 
-      if (!data) return
+      if (!data) return null
 
       const updated = data as {
         id: string
@@ -391,6 +408,7 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
         )
       })
       setConversationOrder((current) => [updated.id, ...current.filter((id) => id !== updated.id)])
+      return updated.id
     },
     [conversationId, userId],
   )
@@ -538,47 +556,73 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
     }
     const assistantMessageId = crypto.randomUUID()
 
-    setMessages((prev) => [
-      ...prev,
+    const optimisticMessages: ChatMessage[] = [
+      ...messagesRef.current,
       userMessage,
-        {
-          id: assistantMessageId,
-          role: "assistant",
-          content: t("dashboard.ask.thinking", "Thinking..."),
-        },
-      ])
+      {
+        id: assistantMessageId,
+        role: "assistant",
+        content: t("dashboard.ask.thinking", "Thinking..."),
+      },
+    ]
+    setMessages(optimisticMessages)
     if (!questionOverride) {
       setQuestion("")
     }
     setChatAttachments([])
     setLoading(true)
+    let activeConversationId = conversationIdRef.current
 
     try {
-      const response = await (async () => {
-        if (chatAttachments.length === 0) {
-          return fetch("/api/chat", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              question: trimmedQuestion,
-              conversation_id: conversationId,
-            }),
-          })
-        }
-
-        const formData = new FormData()
-        formData.append("question", trimmedQuestion)
-        for (const attachment of chatAttachments) {
-          formData.append("files", attachment.file, attachment.file.name)
-        }
-
-        return fetch("/api/questions/ask-documents", {
-          method: "POST",
-          body: formData,
+      void persistConversation(optimisticMessages)
+        .then((persistedConversationId) => {
+          activeConversationId = persistedConversationId ?? activeConversationId
         })
-      })()
+        .catch(() => {
+          // Best-effort persistence before request; continue so chat response is
+          // still attempted even if conversation pre-save fails.
+        })
+
+      // Cap the wait at 75s — slightly longer than the server's 60s
+      // maxDuration so we still surface the server's own timeout message if
+      // it fires first, but we never let the spinner hang forever.
+      const abortController = new AbortController()
+      const abortTimer = window.setTimeout(() => {
+        abortController.abort()
+      }, 75_000)
+
+      let response: Response
+      try {
+        response = await (async () => {
+          if (chatAttachments.length === 0) {
+            return fetch("/api/chat", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                question: trimmedQuestion,
+                conversation_id: activeConversationId,
+              }),
+              signal: abortController.signal,
+            })
+          }
+
+          const formData = new FormData()
+          formData.append("question", trimmedQuestion)
+          for (const attachment of chatAttachments) {
+            formData.append("files", attachment.file, attachment.file.name)
+          }
+
+          return fetch("/api/questions/ask-documents", {
+            method: "POST",
+            body: formData,
+            signal: abortController.signal,
+          })
+        })()
+      } finally {
+        window.clearTimeout(abortTimer)
+      }
 
       const data = (await response.json()) as AskQuestionResponse | AskQuestionErrorResponse
       if (!response.ok) {
@@ -600,30 +644,62 @@ export function DashboardAskQuestion({ customers, users }: AskQuestionProps) {
       }
 
       const successPayload = data as AskQuestionResponse
-      setMessages((prev) =>
-        prev.map((item) =>
+      const resolvedMessages = optimisticMessages.map((item) =>
           item.id === assistantMessageId
             ? {
                 ...item,
                 content: successPayload.answer,
                 sources: successPayload.sources,
               }
-            : item
+            : item,
         )
-      )
-    } catch {
-      setMessages((prev) =>
-        prev.map((item) =>
+      if (isMountedRef.current) {
+        setMessages(resolvedMessages)
+      }
+      if (activeConversationId) {
+        const supabase = createClient()
+        await supabase
+          .from("conversations")
+          .update({
+            title: getConversationTitle(resolvedMessages),
+            messages: resolvedMessages as unknown as Record<string, unknown>[],
+          } as never)
+          .eq("id", activeConversationId)
+      }
+    } catch (err) {
+      const isAbort =
+        err instanceof DOMException && err.name === "AbortError"
+      const message = isAbort
+        ? t(
+            "dashboard.ask.timeout",
+            "The request took too long and was cancelled. Try a more specific question.",
+          )
+        : t("dashboard.ask.failed", "Failed to ask question")
+      const failedMessages = optimisticMessages.map((item) =>
           item.id === assistantMessageId
             ? {
                 ...item,
-                content: t("dashboard.ask.failed", "Failed to ask question"),
+                content: message,
               }
-            : item
+            : item,
         )
-      )
+      if (isMountedRef.current) {
+        setMessages(failedMessages)
+      }
+      if (activeConversationId) {
+        const supabase = createClient()
+        await supabase
+          .from("conversations")
+          .update({
+            title: getConversationTitle(failedMessages),
+            messages: failedMessages as unknown as Record<string, unknown>[],
+          } as never)
+          .eq("id", activeConversationId)
+      }
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
